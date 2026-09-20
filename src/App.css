@@ -4,6 +4,7 @@
   flex-direction: column;
   background: #f3f4f6;
   color: #111827;
+  --divider: 1px solid #e5e7eb;
 }
 
 .topbar {
@@ -13,7 +14,7 @@
   gap: 1rem;
   padding: 1.1rem 2rem;
   background: #ffffff;
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: var(--divider);
   position: sticky;
   top: 0;
   z-index: 10;
@@ -41,6 +42,24 @@
   font-weight: 500;
 }
 
+.menu-button {
+  display: none;
+  width: 2.75rem;
+  height: 2.75rem;
+  padding: 0.6rem;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  z-index: 21;
+}
+
+.menu-button span {
+  display: block;
+  height: 2px;
+  margin: 0.3rem 0;
+  background: #111827;
+}
+
 .main-page {
   flex: 1;
   background: transparent;
@@ -51,7 +70,7 @@
   justify-content: center;
   align-items: center;
   padding: 0.75rem 1.5rem;
-  border-top: 1px solid #e5e7eb;
+  border-top: var(--divider);
   background: #ffffff;
   color: #6b7280;
   font-size: 0.72rem;
@@ -65,14 +84,75 @@
 }
 
 @media (max-width: 768px) {
-  .topbar,
+  .topbar {
+    height: 57px;
+    padding: 1rem;
+  }
+
+  .brand-block {
+    font-size: 1rem;
+    flex-shrink: 0;
+  }
+
+  .menu-button {
+    display: block;
+  }
+
+  .nav {
+    display: flex;
+    position: fixed;
+    top: 57px;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 20;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: center;
+    gap: 0;
+    min-height: calc(100vh - 57px);
+    padding: 0 2rem 2rem;
+    background: #ffffff;
+    max-height: calc(100vh - 4rem);
+    overflow-y: auto;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transform: translateY(-1rem);
+    transition:
+      opacity 180ms ease,
+      transform 220ms ease,
+      visibility 220ms ease;
+  }
+
+  .nav.nav-open {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+    transform: translateY(0);
+  }
+
+  .nav-item {
+    width: min(100%, 32rem);
+    padding: 1.25rem 0;
+    border-bottom: var(--divider);
+    text-align: center;
+    font-size: 1.5rem;
+  }
+
   .footer {
     flex-direction: column;
     align-items: center;
   }
+}
 
+@media (prefers-reduced-motion: reduce) {
   .nav {
-    justify-content: center;
+    transition: none;
   }
+}
+
+body.menu-open {
+  overflow: hidden;
 }
 
