@@ -1,4 +1,4 @@
-function Footer() {
+function SiteFooter() {
   return (
     <footer className="footer">
       <p className="footer-text">Copyright © 2026 Baihu Personal Website. All Rights Reserved.</p>
@@ -6,4 +6,4 @@ function Footer() {
   )
 }
 
-export default Footer
+export default SiteFooter

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 
 const navItems = ['Home', 'About', 'Projects', 'Blog', 'Contact', 'Friends']
 
-function TopBar() {
+function SiteHeader() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
 
   useEffect(() => {
@@ -31,7 +31,7 @@ function TopBar() {
         {navItems.map((item) => (
           <a
             key={item}
-            href="#"
+            href={`#${item.toLowerCase()}`}
             className="nav-item"
             onClick={() => setIsMenuOpen(false)}
           >
@@ -43,4 +43,4 @@ function TopBar() {
   )
 }
 
-export default TopBar
+export default SiteHeader
