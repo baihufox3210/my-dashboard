@@ -10,7 +10,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 1rem 2rem;
+  gap: 1rem;
+  padding: 1.1rem 2rem;
   background: #ffffff;
   border-bottom: 1px solid #e5e7eb;
   position: sticky;
@@ -18,55 +19,26 @@
   z-index: 10;
 }
 
-.brand-block,
-.user-block {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.brand-mark,
-.avatar {
-  width: 2rem;
-  height: 2rem;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: #111827;
-  color: #ffffff;
+.brand-block {
   font-weight: 700;
+  font-size: 1.1rem;
+  color: #111827;
+  white-space: nowrap;
 }
 
 .nav {
   display: flex;
   align-items: center;
-  gap: 1.25rem;
+  justify-content: flex-end;
+  gap: 1.5rem;
+  flex-wrap: wrap;
 }
 
 .nav-item {
   color: #4b5563;
   text-decoration: none;
-  font-size: 0.95rem;
-}
-
-.ghost-button,
-.primary-button {
-  border: none;
-  border-radius: 0.75rem;
-  padding: 0.7rem 1rem;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.ghost-button {
-  background: #e5e7eb;
-  color: #111827;
-}
-
-.primary-button {
-  background: #111827;
-  color: #ffffff;
+  font-size: 1rem;
+  font-weight: 500;
 }
 
 .main-page {
@@ -78,11 +50,11 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  padding: 1rem 2rem;
+  padding: 0.75rem 1.5rem;
   border-top: 1px solid #e5e7eb;
   background: #ffffff;
   color: #6b7280;
-  font-size: 0.8rem;
+  font-size: 0.72rem;
   position: sticky;
   bottom: 0;
 }
@@ -100,7 +72,7 @@
   }
 
   .nav {
-    flex-wrap: wrap;
+    justify-content: center;
   }
 }
 
