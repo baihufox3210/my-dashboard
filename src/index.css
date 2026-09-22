@@ -3,7 +3,7 @@
   line-height: 1.5;
   font-weight: 400;
   color: #111827;
-  background: #ffffff;
+  background: #d8c8be;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -23,4 +23,5 @@ body,
 
 body {
   min-height: 100vh;
+  background: url('/profile-background.jpg') center / cover fixed no-repeat;
 }
