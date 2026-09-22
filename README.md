@@ -1,4 +1,27 @@
-# React + TypeScript + Vite
+# Baihu Personal Website
+
+## Development
+
+Copy `.env.example` to `.env` and set a private administrator password. The development command starts both the Vite frontend and the Express API:
+
+```bash
+npm run dev
+```
+
+The public blog is available at `#blog`. The private publishing area is intentionally not shown in the main navigation and is available at `#admin`.
+
+Articles are stored by the API in `data/articles.json`, and uploaded images are stored in `public/uploads/`. The API creates the `data` directory and article file on first start.
+
+Available API endpoints:
+
+- `GET /api/articles` - public published articles
+- `GET /api/stats` - public site statistics
+- `POST /api/auth/login` - administrator login
+- `POST /api/auth/logout` - administrator logout
+- `GET /api/auth/me` - current session status
+- `POST /api/articles` - authenticated multipart article publishing
+
+The current session store is in memory for local development. A production deployment should use a persistent database and session store.
 
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 

@@ -23,5 +23,5 @@ body,
 
 body {
   min-height: 100vh;
-  background: url('/profile-background.jpg') center / cover fixed no-repeat;
+  background: var(--site-background-image, url('/profile-background.jpg')) center / cover fixed no-repeat;
 }
