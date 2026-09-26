@@ -2,13 +2,26 @@
 
 ## Development
 
-Copy `.env.example` to `.env` and set a private administrator password. The development command starts both the Vite frontend and the Express API:
+Set `ADMIN_USERNAME` and a unique `ADMIN_PASSWORD` (at least 8 characters) in `.env` before starting the API. The server refuses to start if either is missing or the password is too short. The development command starts both the Vite frontend and the Express API:
 
 ```bash
 npm run dev
 ```
 
 The public blog is available at `#blog`. The private publishing area is intentionally not shown in the main navigation and is available at `#admin`.
+
+## Run the API server at boot
+
+On the deployed system, install the systemd override after installing dependencies and creating `.env`:
+
+```bash
+sudo mkdir -p /etc/systemd/system/baihu-blog-api.service.d
+sudo cp deploy/baihu-blog-api.override.conf /etc/systemd/system/baihu-blog-api.service.d/override.conf
+sudo systemctl daemon-reload
+sudo systemctl enable --now baihu-blog-api.service
+```
+
+The override binds the API to the Docker bridge gateway and trusts `X-Real-IP` only from the Nginx container. If the bridge gateway or Nginx container address changes, update `API_HOST` and `TRUSTED_PROXY_IP` in the override. Check the service with `sudo journalctl -u baihu-blog-api.service`.
 
 Articles are stored by the API in `data/articles.json`, and uploaded images are stored in `public/uploads/`. The API creates the `data` directory and article file on first start.
 
@@ -21,7 +34,9 @@ Available API endpoints:
 - `GET /api/auth/me` - current session status
 - `POST /api/articles` - authenticated multipart article publishing
 
-The current session store is in memory for local development. A production deployment should use a persistent database and session store.
+Sessions expire after 24 hours and are stored in memory, so restarting the API signs administrators out. A multi-instance production deployment should use a shared persistent session store.
+
+The API rate limits repeated failed logins, uses an HttpOnly SameSite session cookie, validates uploaded image signatures and limits upload size, and rejects oversized article fields. The Nginx config adds browser security headers for the frontend. Serve production traffic over HTTPS so the session cookie's `Secure` flag is enabled (`NODE_ENV=production`).
 
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 

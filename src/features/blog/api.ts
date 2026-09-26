@@ -1,4 +1,4 @@
-import type { Article, ArticleStats, SiteSettings } from './article'
+import type { Article, ArticleStats, HomeProfile, SiteSettings } from './article'
 
 async function request<T>(input: RequestInfo, init?: RequestInit): Promise<T> {
   const response = await fetch(input, { credentials: 'include', ...init })
@@ -59,4 +59,12 @@ export function fetchSiteSettings() {
 
 export function updateSiteSettings(formData: FormData) {
   return request<SiteSettings>('/api/admin/site-settings', { method: 'PUT', body: formData })
+}
+
+export function fetchHomeProfile() {
+  return request<HomeProfile>('/api/home-profile')
+}
+
+export function updateHomeProfile(formData: FormData) {
+  return request<HomeProfile>('/api/admin/home-profile', { method: 'PUT', body: formData })
 }

@@ -25,3 +25,36 @@ body {
   min-height: 100vh;
   background: var(--site-background-image, url('/profile-background.jpg')) center / cover fixed no-repeat;
 }
+
+html:has(.home-page),
+body:has(.home-page) {
+  height: 100vh;
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* Blog owns a fixed-viewport layout; only its article column scrolls, so the
+   document itself must not be allowed to grow taller than the viewport. */
+html:has(.blog-screen),
+body:has(.blog-screen) {
+  height: 100vh;
+  min-height: 100vh;
+  overflow: hidden;
+}
+
+@media (max-width: 768px) {
+  html:has(.home-page),
+  body:has(.home-page) {
+    height: auto;
+    min-height: 100vh;
+    overflow: visible;
+  }
+
+  html:has(.blog-screen),
+  body:has(.blog-screen) {
+    height: auto;
+    min-height: 100vh;
+    overflow: visible;
+  }
+}

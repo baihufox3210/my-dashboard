@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import MarkdownPreview from '../components/MarkdownPreview'
 import { deleteArticle, fetchAdminSession, fetchArticleStats, fetchArticles } from '../features/blog/api'
 import type { Article, ArticleStats } from '../features/blog/article'
@@ -19,6 +19,10 @@ function BlogPage() {
   const [currentTime] = useState(() => Date.now())
   const [isAdmin, setIsAdmin] = useState(false)
   const [adminMessage, setAdminMessage] = useState('')
+  const articleViewportRef = useRef<HTMLDivElement>(null)
+  const sidebarOuterRef = useRef<HTMLElement>(null)
+  const sidebarContentRef = useRef<HTMLDivElement>(null)
+  const [sidebarFit, setSidebarFit] = useState({ shift: 0, scale: 1 })
 
   const recentArticles = articles.filter((article) => {
     const publishedAt = new Date(article.publishedAt).getTime()
@@ -46,10 +50,77 @@ function BlogPage() {
       .catch(() => undefined)
   }, [])
 
+  // Move both columns up together first. If the sidebar still does not fit
+  // between the topbar and bottom edge, scale its contents to fit that space.
+  useEffect(() => {
+    const lastFit = { shift: sidebarFit.shift, scale: sidebarFit.scale }
+    let frameId = 0
+
+    function measure() {
+      const articleEl = articleViewportRef.current
+      const outerEl = sidebarOuterRef.current
+      const contentEl = sidebarContentRef.current
+      if (!articleEl || !outerEl || !contentEl || window.innerWidth <= 768) {
+        return { shift: 0, scale: 1 }
+      }
+
+      const articleBottom = articleEl.getBoundingClientRect().bottom
+      const outerTop = outerEl.getBoundingClientRect().top
+      const naturalHeight = contentEl.scrollHeight
+      const topbarEl = document.querySelector('.topbar')
+      const minTop = (topbarEl?.getBoundingClientRect().bottom ?? 0) + 16
+      const bottomGap = 0
+      // The workspace has already moved by the current shift, so restore it
+      // when measuring the unshifted overflow and available travel distance.
+      const unshiftedTop = outerTop + sidebarFit.shift
+      const overflow = unshiftedTop + naturalHeight - (articleBottom - bottomGap)
+      if (overflow <= 0) return { shift: 0, scale: 1 }
+
+      const maxShift = Math.max(0, unshiftedTop - minTop)
+      const shift = Math.min(overflow, maxShift)
+      const remainingOverflow = Math.max(0, overflow - shift)
+      if (remainingOverflow <= 0) return { shift, scale: 1 }
+
+      const availableHeight = Math.max(1, articleBottom - bottomGap - (unshiftedTop - shift))
+      const scale = Math.min(1, availableHeight / naturalHeight)
+      return { shift, scale }
+    }
+
+    function recalculate() {
+      cancelAnimationFrame(frameId)
+      frameId = requestAnimationFrame(() => {
+        const next = measure()
+        // Ignore sub-pixel noise so ResizeObserver can't retrigger itself endlessly.
+        if (Math.abs(next.shift - lastFit.shift) < 0.5 && Math.abs(next.scale - lastFit.scale) < 0.002) {
+          return
+        }
+        lastFit.shift = next.shift
+        lastFit.scale = next.scale
+        setSidebarFit(next)
+      })
+    }
+
+    recalculate()
+
+    const resizeObserver = new ResizeObserver(recalculate)
+    if (articleViewportRef.current) resizeObserver.observe(articleViewportRef.current)
+    if (sidebarContentRef.current) resizeObserver.observe(sidebarContentRef.current)
+    window.addEventListener('resize', recalculate)
+
+    return () => {
+      cancelAnimationFrame(frameId)
+      resizeObserver.disconnect()
+      window.removeEventListener('resize', recalculate)
+    }
+  }, [articles, recentArticles.length, stats, popularTags.length, sidebarFit.shift, sidebarFit.scale])
+
   return (
     <main className="main-page blog-screen">
-      <section className="blog-workspace">
-        <div className="blog-article-viewport blog-article-test-surface">
+      <section
+        className="blog-workspace"
+        style={{ '--blog-shift': `${sidebarFit.shift}px` } as React.CSSProperties}
+      >
+        <div className="blog-article-viewport blog-article-test-surface" ref={articleViewportRef}>
           {articles.length === 0 ? (
             <div className="blog-empty-state">
               <strong>暫無文章</strong>
@@ -83,7 +154,12 @@ function BlogPage() {
             ))
           )}
         </div>
-        <aside className="blog-sidebar-viewport">
+        <aside className="blog-sidebar-viewport" ref={sidebarOuterRef}>
+          <div
+            className="blog-sidebar-content"
+            ref={sidebarContentRef}
+            style={{ transform: `scale(${sidebarFit.scale})` }}
+          >
           <section className="recent-articles">
             <div className="side-card-heading"><span />最新動態</div>
             {recentArticles.length === 0 ? (
@@ -116,6 +192,7 @@ function BlogPage() {
               </div>
             )}
           </section>
+          </div>
         </aside>
       </section>
 

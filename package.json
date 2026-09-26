@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "concurrently -k \"vite\" \"tsx server/index.ts\"",
+    "dev": "API_HOST=127.0.0.1 concurrently -k \"vite\" \"tsx server/index.ts\"",
     "server": "tsx server/index.ts",
     "build": "tsc -b && vite build",
     "lint": "eslint .",

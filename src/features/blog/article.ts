@@ -24,3 +24,14 @@ export type SiteSettings = {
   avatarUrl?: string
   backgroundUrl?: string
 }
+
+export type HomeProfile = {
+  name: string
+  introduction: string
+  quote: string
+  avatarUrl?: string
+  socials: { name: string; url: string }[]
+  tags: string[]
+  updateTitle: string
+  updateText: string
+}

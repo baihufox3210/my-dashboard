@@ -1,0 +1,27 @@
+{
+  "name": "baihu",
+  "introduction": "喜歡動手做，也喜歡把有趣的想法變成作品。",
+  "quote": "Stay curious, keep building.",
+  "socials": [
+    {
+      "name": "Instagram",
+      "url": "https://www.instagram.com/baihu3210"
+    },
+    {
+      "name": "Discord",
+      "url": "https://discord.com/users/808972376619483137"
+    },
+    {
+      "name": "GitHub",
+      "url": "https://github.com/baihufox3210"
+    }
+  ],
+  "tags": [
+    "FRC",
+    "lwy",
+    "wife"
+  ],
+  "updateTitle": "最近在做什麼",
+  "updateText": "目前專注在機器人、程式與新點子的實作。",
+  "avatarUrl": "/avatar.png"
+}
