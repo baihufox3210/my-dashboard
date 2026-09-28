@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import MarkdownPreview from '../components/MarkdownPreview'
-import { fetchArticles, fetchHomeProfile } from '../features/blog/api'
+import { fetchArticles, fetchHomeProfile, recordPageView } from '../features/blog/api'
 import type { Article, HomeProfile } from '../features/blog/article'
 
 const fallback: HomeProfile = {
@@ -27,6 +27,10 @@ function HomePage() {
     fetchHomeProfile().then(setProfile).catch(() => undefined)
     fetchArticles().then(setArticles).catch(() => undefined)
   }, [])
+
+  useEffect(() => {
+    if (selectedArticle) void recordPageView('article', { articleId: selectedArticle.id })
+  }, [selectedArticle])
 
   useEffect(() => {
     if (!selectedArticle) return
@@ -60,7 +64,7 @@ function HomePage() {
         <div className="home-section-heading"><div><p className="home-eyebrow">FROM THE BLOG</p><h2>最新文章</h2></div><span className="home-post-count">{articles.length} 篇文章</span></div>
         {articles.length ? <div className="home-article-list">{articles.map((article) => <button className="home-article" type="button" onClick={() => setSelectedArticle(article)} key={article.id}>
           {article.coverImage && <img className="home-article-cover" src={article.coverImage} alt="" />}
-          <span className="home-article-copy"><small>{article.category} · {new Date(article.publishedAt).toLocaleDateString()}</small><strong>{article.title}</strong><span>{article.content.replace(/[#*`>_[\]!~]/g, '').slice(0, 140)}{article.content.length > 140 ? '…' : ''}</span></span><span className="home-article-arrow" aria-hidden="true">↗</span></button>)}</div> : <div className="home-blog-empty"><span>✳</span><strong>新文章正在路上</strong><p>最近的想法與作品會出現在這裡。</p></div>}
+          <span className="home-article-copy"><small>{article.category}</small><strong>{article.title}</strong><span>{article.content.replace(/[#*`>_[\]!~]/g, '').slice(0, 140)}{article.content.length > 140 ? '…' : ''}</span><time className="home-article-date">{new Date(article.publishedAt).toLocaleDateString()}</time></span><span className="home-article-arrow" aria-hidden="true">↗</span></button>)}</div> : <div className="home-blog-empty"><span>✳</span><strong>新文章正在路上</strong><p>最近的想法與作品會出現在這裡。</p></div>}
       </section>
 
       <aside className="home-updates home-panel">

@@ -1,14 +1,25 @@
 :root {
-  font-family: Inter, 'Segoe UI', sans-serif;
-  line-height: 1.5;
+  --font-ui: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang TC', 'Noto Sans TC', 'Microsoft JhengHei UI', 'Microsoft JhengHei', sans-serif;
+  --font-code: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
+  font-family: var(--font-ui);
+  font-size: 16px;
+  line-height: 1.6;
   font-weight: 400;
+  letter-spacing: .012em;
   color: #111827;
   background: #d8c8be;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
+  font-kerning: normal;
+  font-optical-sizing: auto;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
+
+body { font-family: var(--font-ui); line-height: 1.6; }
+h1, h2, h3, h4, h5, h6 { font-family: var(--font-ui); font-weight: 680; line-height: 1.28; text-wrap: pretty; }
+button, input, textarea, select { font-family: var(--font-ui); }
+code, pre, kbd, samp { font-family: var(--font-code); }
 
 * {
   box-sizing: border-box;
@@ -23,7 +34,12 @@ body,
 
 body {
   min-height: 100vh;
-  background: var(--site-background-image, url('/profile-background.jpg')) center / cover fixed no-repeat;
+  background-color: #d8c8be;
+  background-image: var(--site-background-image, none);
+  background-position: var(--site-background-position, center);
+  background-size: cover;
+  background-attachment: fixed;
+  background-repeat: no-repeat;
 }
 
 html:has(.home-page),
@@ -44,6 +60,8 @@ body:has(.blog-screen) {
 }
 
 @media (max-width: 768px) {
+  body { background-position: center center; background-attachment: scroll; }
+
   html:has(.home-page),
   body:has(.home-page) {
     height: auto;

@@ -6,6 +6,7 @@ export type Article = {
   tags: string[]
   coverImage?: string
   publishedAt: string
+  updatedAt?: string
 }
 
 export type ArticleStats = {
@@ -17,12 +18,25 @@ export type ArticleStats = {
   lastActivity: string | null
 }
 
+export type AnalyticsStats = {
+  days: number
+  totalViews: number
+  previousViews: number
+  daily: { day: string; views: number }[]
+  topPages: { page: string; label: string; views: number }[]
+  topArticles: { id: string; title: string; views: number }[]
+  sources: { direct: number; search: number; social: number; referral: number }
+  devices: { mobile: number; tablet: number; desktop: number }
+}
+
 export type SiteSettings = {
   siteName: string
   biography: string
   experience: string
   avatarUrl?: string
   backgroundUrl?: string
+  backgroundPositionX?: number
+  backgroundPositionY?: number
 }
 
 export type HomeProfile = {
@@ -34,4 +48,12 @@ export type HomeProfile = {
   tags: string[]
   updateTitle: string
   updateText: string
+}
+
+export type Friend = {
+  id: string
+  name: string
+  introduction: string
+  url: string
+  avatarUrl?: string
 }

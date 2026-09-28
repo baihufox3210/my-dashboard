@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import MarkdownPreview from '../components/MarkdownPreview'
-import { deleteArticle, fetchAdminSession, fetchArticleStats, fetchArticles } from '../features/blog/api'
+import FileDropzone from '../components/FileDropzone'
+import { deleteArticle, fetchAdminSession, fetchArticleStats, fetchArticles, publishArticle, recordPageView, updateArticle } from '../features/blog/api'
 import type { Article, ArticleStats } from '../features/blog/article'
 
 const emptyStats: ArticleStats = {
@@ -19,10 +20,22 @@ function BlogPage() {
   const [currentTime] = useState(() => Date.now())
   const [isAdmin, setIsAdmin] = useState(false)
   const [adminMessage, setAdminMessage] = useState('')
+  const [editor, setEditor] = useState<{ mode: 'new' | 'edit'; id?: string } | null>(null)
+  const [draftTitle, setDraftTitle] = useState('')
+  const [draftCategory, setDraftCategory] = useState('')
+  const [draftTags, setDraftTags] = useState('')
+  const [draftContent, setDraftContent] = useState('')
+  const [draftCover, setDraftCover] = useState<File | null>(null)
+  const [draftBusy, setDraftBusy] = useState(false)
+  const [draftPreview, setDraftPreview] = useState(false)
   const articleViewportRef = useRef<HTMLDivElement>(null)
   const sidebarOuterRef = useRef<HTMLElement>(null)
   const sidebarContentRef = useRef<HTMLDivElement>(null)
   const [sidebarFit, setSidebarFit] = useState({ shift: 0, scale: 1 })
+
+  useEffect(() => {
+    if (selectedArticle && !isAdmin) void recordPageView('article', { articleId: selectedArticle.id })
+  }, [selectedArticle, isAdmin])
 
   const recentArticles = articles.filter((article) => {
     const publishedAt = new Date(article.publishedAt).getTime()
@@ -49,6 +62,42 @@ function BlogPage() {
       })
       .catch(() => undefined)
   }, [])
+
+  useEffect(() => {
+    const sync = () => {
+      const [, action, rawId] = window.location.hash.slice(1).split('/')
+      if (action !== 'new' && action !== 'edit') { setEditor(null); return }
+      if (!isAdmin) return
+      const id = rawId ? decodeURIComponent(rawId) : undefined
+      const article = action === 'edit' ? articles.find((item) => item.id === id) : undefined
+      setEditor({ mode: action, ...(id ? { id } : {}) })
+      setDraftTitle(article?.title ?? '')
+      setDraftCategory(article?.category ?? '')
+      setDraftTags(article?.tags.join(', ') ?? '')
+      setDraftContent(article?.content ?? '')
+      setDraftCover(null)
+      setDraftPreview(false)
+      setAdminMessage('')
+    }
+    sync()
+    window.addEventListener('hashchange', sync)
+    return () => window.removeEventListener('hashchange', sync)
+  }, [isAdmin, articles])
+
+  async function saveDraft(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const form = new FormData()
+    form.set('title', draftTitle); form.set('category', draftCategory); form.set('tags', draftTags); form.set('content', draftContent)
+    if (draftCover) form.set('coverImage', draftCover)
+    setDraftBusy(true); setAdminMessage('')
+    try {
+      const saved = editor?.mode === 'edit' && editor.id ? await updateArticle(editor.id, form) : await publishArticle(form)
+      setArticles((current) => editor?.mode === 'edit' ? current.map((item) => item.id === saved.id ? saved : item) : [saved, ...current])
+      fetchArticleStats().then(setStats).catch(() => undefined)
+      window.location.hash = '#blog'
+    } catch (error) { setAdminMessage(error instanceof Error ? error.message : '儲存文章失敗。') }
+    finally { setDraftBusy(false) }
+  }
 
   // Move both columns up together first. If the sidebar still does not fit
   // between the topbar and bottom edge, scale its contents to fit that space.
@@ -113,6 +162,14 @@ function BlogPage() {
       window.removeEventListener('resize', recalculate)
     }
   }, [articles, recentArticles.length, stats, popularTags.length, sidebarFit.shift, sidebarFit.scale])
+
+  if (editor && isAdmin) return <main className="main-page blog-screen blog-editor-screen">
+    <form className="blog-editor-form" onSubmit={saveDraft}><header><div><small>BLOG CONTENT</small><h1>{editor.mode === 'new' ? '撰寫文章' : '編輯文章'}</h1><p>文章集中在 Blog 管理，儲存後會更新文章列表。</p></div><a href="#blog">返回 Blog</a></header>
+      <div className="blog-editor-meta"><label>文章標題<input value={draftTitle} onChange={(event) => setDraftTitle(event.target.value)} placeholder="輸入文章標題" required /></label><label>分類<input value={draftCategory} onChange={(event) => setDraftCategory(event.target.value)} placeholder="未分類" /></label><label>標籤<input value={draftTags} onChange={(event) => setDraftTags(event.target.value)} placeholder="以逗號分隔" /></label><div className="blog-upload-field"><span>封面圖片</span><FileDropzone title="上傳文章封面" file={draftCover} previewUrl={articles.find((article) => article.id === editor.id)?.coverImage} onFile={setDraftCover} /></div></div>
+      <div className="blog-editor-writing"><div className="blog-editor-toolbar"><strong>文章內容 <span>支援 Markdown</span></strong><div><button type="button" className={!draftPreview ? 'active' : ''} onClick={() => setDraftPreview(false)}>編輯</button><button type="button" className={draftPreview ? 'active' : ''} onClick={() => setDraftPreview(true)}>預覽</button></div></div>{draftPreview ? <div className="blog-editor-preview">{draftContent ? <MarkdownPreview content={draftContent} /> : <p>輸入內容後會在這裡預覽。</p>}</div> : <textarea value={draftContent} onChange={(event) => setDraftContent(event.target.value)} placeholder="開始撰寫…" required />}</div>
+      {adminMessage && <p className="error-message">{adminMessage}</p>}<footer><a href="#blog">取消</a><button className="save-button" disabled={draftBusy}>{draftBusy ? '儲存中…' : '儲存文章'}</button></footer>
+    </form>
+  </main>
 
   return (
     <main className="main-page blog-screen">
@@ -206,7 +263,7 @@ function BlogPage() {
             <MarkdownPreview content={selectedArticle.content} />
             {isAdmin && (
               <div className="article-admin-actions">
-                <a href={`#admin/edit/${selectedArticle.id}`}>Edit</a>
+                <a href={`#blog/edit/${encodeURIComponent(selectedArticle.id)}`}>編輯文章</a>
                 <button type="button" onClick={() => {
                   if (window.confirm(`Delete "${selectedArticle.title}"?`)) {
                     deleteArticle(selectedArticle.id)
@@ -223,7 +280,7 @@ function BlogPage() {
           </article>
         </div>
       )}
-      {isAdmin && <a className="new-article-button" href="#admin/new">+ New article</a>}
+      {isAdmin && <a className="new-article-button" href="#blog/new">＋ 撰寫文章</a>}
     </main>
   )
 }

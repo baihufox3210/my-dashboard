@@ -12,6 +12,10 @@ dist
 dist-ssr
 *.local
 data/articles.json
+data/friends.json
+data/admin-sessions.json
+data/analytics.json
+data/admin-activity.json
 public/uploads/*
 !public/uploads/.gitkeep
 

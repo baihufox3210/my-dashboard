@@ -14,10 +14,22 @@ const dataDirectory = path.join(projectDirectory, 'data')
 const articlesFile = path.join(dataDirectory, 'articles.json')
 const siteSettingsFile = path.join(dataDirectory, 'site-settings.json')
 const homeProfileFile = path.join(dataDirectory, 'home-profile.json')
+const sessionsFile = path.join(dataDirectory, 'admin-sessions.json')
+const analyticsFile = path.join(dataDirectory, 'analytics.json')
+const activityFile = path.join(dataDirectory, 'admin-activity.json')
+const friendsFile = path.join(dataDirectory, 'friends.json')
 const uploadsDirectory = path.join(projectDirectory, 'public', 'uploads')
 const sessionLifetimeMs = 24 * 60 * 60 * 1000
 const sessions = new Map<string, number>()
 const loginFailures = new Map<string, { count: number; windowStarted: number; blockedUntil: number }>()
+const analyticsRateLimits = new Map<string, { count: number; windowStarted: number }>()
+type AnalyticsPage = 'home' | 'about' | 'projects' | 'blog' | 'article' | 'contact' | 'friends'
+type AnalyticsDevice = 'mobile' | 'tablet' | 'desktop'
+type AnalyticsSource = 'direct' | 'search' | 'social' | 'referral'
+type AnalyticsRow = { day: string; page: AnalyticsPage; device: AnalyticsDevice; views: number; articleId?: string; source?: AnalyticsSource }
+type ActivityEntry = { at: string; type: 'article' | 'homepage' | 'site'; action: 'published' | 'updated' | 'deleted' | 'saved'; title: string }
+let analyticsWriteQueue: Promise<void> = Promise.resolve()
+let activityWriteQueue: Promise<void> = Promise.resolve()
 const port = Number(process.env.PORT ?? 3001)
 const host = process.env.API_HOST ?? '127.0.0.1'
 const trustedProxyIp = process.env.TRUSTED_PROXY_IP
@@ -37,6 +49,7 @@ type Article = {
   tags: string[]
   coverImage?: string
   publishedAt: string
+  updatedAt?: string
 }
 
 type SiteSettings = {
@@ -45,6 +58,8 @@ type SiteSettings = {
   experience: string
   avatarUrl?: string
   backgroundUrl?: string
+  backgroundPositionX?: number
+  backgroundPositionY?: number
 }
 
 type HomeProfile = {
@@ -57,6 +72,8 @@ type HomeProfile = {
   updateTitle: string
   updateText: string
 }
+
+type Friend = { id: string; name: string; introduction: string; url: string; avatarUrl?: string }
 
 const defaultHomeProfile: HomeProfile = {
   name: 'baihu',
@@ -150,6 +167,33 @@ async function ensureStorage() {
   } catch {
     await fs.writeFile(homeProfileFile, `${JSON.stringify(defaultHomeProfile, null, 2)}\n`, 'utf8')
   }
+
+  try {
+    await fs.access(analyticsFile)
+  } catch {
+    await fs.writeFile(analyticsFile, '[]\n', 'utf8')
+  }
+  try {
+    await fs.access(activityFile)
+  } catch {
+    await fs.writeFile(activityFile, '[]\n', 'utf8')
+  }
+
+  try {
+    const savedSessions = JSON.parse(await fs.readFile(sessionsFile, 'utf8')) as unknown
+    if (Array.isArray(savedSessions)) {
+      for (const entry of savedSessions) {
+        if (!Array.isArray(entry)) continue
+        const [sessionHash, expiresAt] = entry as [unknown, unknown]
+        if (typeof sessionHash === 'string' && /^[a-f0-9]{64}$/.test(sessionHash) && typeof expiresAt === 'number' && expiresAt > Date.now()) {
+          sessions.set(sessionHash, expiresAt)
+        }
+      }
+    }
+    await persistSessions()
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
+  }
 }
 
 async function readArticles(): Promise<Article[]> {
@@ -161,13 +205,44 @@ async function writeArticles(articles: Article[]) {
   await fs.writeFile(articlesFile, `${JSON.stringify(articles, null, 2)}\n`, 'utf8')
 }
 
+async function readFriends(): Promise<Friend[]> {
+  try { return JSON.parse(await fs.readFile(friendsFile, 'utf8')) as Friend[] }
+  catch (error) { if ((error as NodeJS.ErrnoException).code === 'ENOENT') return []; throw error }
+}
+
+async function writeFriends(friends: Friend[]) {
+  await fs.writeFile(friendsFile, `${JSON.stringify(friends, null, 2)}\n`, 'utf8')
+}
+
 async function readSiteSettings(): Promise<SiteSettings> {
   const content = await fs.readFile(siteSettingsFile, 'utf8')
-  return { ...defaultSiteSettings, ...(JSON.parse(content) as Partial<SiteSettings>) }
+  const settings = JSON.parse(content) as Partial<SiteSettings>
+  return {
+    ...defaultSiteSettings,
+    ...settings,
+    backgroundPositionX: settings.backgroundPositionX ?? 50,
+    backgroundPositionY: settings.backgroundPositionY ?? 50,
+  }
 }
 
 async function writeSiteSettings(settings: SiteSettings) {
   await fs.writeFile(siteSettingsFile, `${JSON.stringify(settings, null, 2)}\n`, 'utf8')
+}
+
+function hashSessionId(sessionId: string) {
+  return crypto.createHash('sha256').update(sessionId).digest('hex')
+}
+
+async function persistSessions() {
+  const temporaryFile = `${sessionsFile}.${crypto.randomUUID()}.tmp`
+  try {
+    await fs.writeFile(temporaryFile, `${JSON.stringify([...sessions.entries()])}\n`, { encoding: 'utf8', mode: 0o600, flag: 'wx' })
+    await fs.rename(temporaryFile, sessionsFile)
+    await fs.chmod(sessionsFile, 0o600)
+  } catch (error) {
+    await fs.unlink(temporaryFile).catch(() => undefined)
+    throw error
+  }
 }
 
 async function readHomeProfile(): Promise<HomeProfile> {
@@ -178,10 +253,12 @@ async function readHomeProfile(): Promise<HomeProfile> {
 function isAuthenticated(request: express.Request) {
   const sessionId = request.cookies.admin_session as string | undefined
   if (!sessionId) return false
-  const expiresAt = sessions.get(sessionId)
+  const sessionHash = hashSessionId(sessionId)
+  const expiresAt = sessions.get(sessionHash)
   if (!expiresAt) return false
   if (expiresAt <= Date.now()) {
-    sessions.delete(sessionId)
+    sessions.delete(sessionHash)
+    void persistSessions().catch((error: unknown) => console.error('Could not persist admin sessions:', error))
     return false
   }
   return true
@@ -224,11 +301,48 @@ function countWords(content: string) {
   return content.trim() ? content.trim().split(/\s+/u).length : 0
 }
 
+function queuePageView(page: AnalyticsPage, device: AnalyticsDevice, articleId?: string, source?: AnalyticsSource) {
+  const day = new Date().toISOString().slice(0, 10)
+  const operation = analyticsWriteQueue.then(async () => {
+    const rows = JSON.parse(await fs.readFile(analyticsFile, 'utf8')) as AnalyticsRow[]
+    const existing = rows.find((row) => row.day === day && row.page === page && row.device === device && row.articleId === articleId && row.source === source)
+    if (existing) existing.views += 1
+    else rows.push({ day, page, device, views: 1, ...(articleId ? { articleId } : {}), ...(source ? { source } : {}) })
+    const cutoff = new Date(Date.now() - 120 * 86_400_000).toISOString().slice(0, 10)
+    const retained = rows.filter((row) => row.day >= cutoff)
+    const temporaryFile = `${analyticsFile}.${crypto.randomUUID()}.tmp`
+    await fs.writeFile(temporaryFile, `${JSON.stringify(retained)}\n`, { encoding: 'utf8', mode: 0o600, flag: 'wx' })
+    await fs.rename(temporaryFile, analyticsFile)
+  })
+  analyticsWriteQueue = operation.catch((error: unknown) => console.error('Could not save page view:', error))
+  return operation
+}
+
+function recordActivity(entry: ActivityEntry) {
+  const operation = activityWriteQueue.then(async () => {
+    const entries = JSON.parse(await fs.readFile(activityFile, 'utf8')) as ActivityEntry[]
+    entries.unshift(entry)
+    const temporaryFile = `${activityFile}.${crypto.randomUUID()}.tmp`
+    await fs.writeFile(temporaryFile, `${JSON.stringify(entries.slice(0, 50), null, 2)}\n`, { encoding: 'utf8', mode: 0o600, flag: 'wx' })
+    await fs.rename(temporaryFile, activityFile)
+  })
+  activityWriteQueue = operation.catch((error: unknown) => console.error('Could not save admin activity:', error))
+  return activityWriteQueue
+}
+
+function getAnalyticsDevice(userAgent: string): AnalyticsDevice {
+  if (/ipad|tablet/i.test(userAgent)) return 'tablet'
+  if (/mobile|iphone|ipod|android/i.test(userAgent)) return 'mobile'
+  return 'desktop'
+}
+
 setInterval(() => {
   const now = Date.now()
+  let removed = false
   for (const [sessionId, expiresAt] of sessions) {
-    if (expiresAt <= now) sessions.delete(sessionId)
+    if (expiresAt <= now) { sessions.delete(sessionId); removed = true }
   }
+  if (removed) void persistSessions().catch((error: unknown) => console.error('Could not persist admin sessions:', error))
 }, 60 * 60 * 1000).unref()
 
 function daysSince(dateString: string) {
@@ -264,7 +378,39 @@ app.get('/api/home-profile', async (_request, response) => {
   response.json(await readHomeProfile())
 })
 
-app.post('/api/auth/login', requireSameOrigin, (request, response) => {
+app.get('/api/friends', async (_request, response) => response.json(await readFriends()))
+
+app.post('/api/admin/friends', requireSameOrigin, requireAuthentication, upload.single('avatar'), validateUploadedImages, async (request, response) => {
+  const { name, introduction, url } = request.body as { name?: string; introduction?: string; url?: string }
+  if (!name?.trim() || !boundedText(name, 120) || !boundedText(introduction ?? '', 1000) || !url || !isSafeSocialUrl(url)) {
+    response.status(400).json({ message: '朋友名稱、自介或連結格式不正確。' }); return
+  }
+  const friend: Friend = { id: crypto.randomUUID(), name: name.trim(), introduction: introduction?.trim() ?? '', url: url.trim(), ...(request.file ? { avatarUrl: `/uploads/${request.file.filename}` } : {}) }
+  const friends = await readFriends(); friends.push(friend); await writeFriends(friends); response.status(201).json(friend)
+})
+
+app.put('/api/admin/friends/:id', requireSameOrigin, requireAuthentication, upload.single('avatar'), validateUploadedImages, async (request, response) => {
+  const { name, introduction, url } = request.body as { name?: string; introduction?: string; url?: string }
+  if (!name?.trim() || !boundedText(name, 120) || !boundedText(introduction ?? '', 1000) || !url || !isSafeSocialUrl(url)) {
+    response.status(400).json({ message: '朋友名稱、自介或連結格式不正確。' }); return
+  }
+  const friends = await readFriends(); const index = friends.findIndex((item) => item.id === request.params.id)
+  if (index < 0) { response.status(404).json({ message: '找不到這位朋友。' }); return }
+  const existing = friends[index]
+  if (!existing) { response.status(404).json({ message: '找不到這位朋友。' }); return }
+  const updated: Friend = { ...existing, name: name.trim(), introduction: introduction?.trim() ?? '', url: url.trim(), ...(request.file ? { avatarUrl: `/uploads/${request.file.filename}` } : {}) }
+  friends[index] = updated; await writeFriends(friends); response.json(updated)
+})
+
+app.delete('/api/admin/friends/:id', requireSameOrigin, requireAuthentication, async (request, response) => {
+  const friends = await readFriends()
+  const remaining = friends.filter((friend) => friend.id !== request.params.id)
+  if (remaining.length === friends.length) { response.status(404).json({ message: '找不到這位朋友。' }); return }
+  await writeFriends(remaining)
+  response.status(204).end()
+})
+
+app.post('/api/auth/login', requireSameOrigin, async (request, response) => {
   const ip = getClientIp(request)
   let failure = loginFailures.get(ip)
   if (failure && Date.now() - failure.windowStarted > 15 * 60_000 && failure.blockedUntil <= Date.now()) {
@@ -300,23 +446,25 @@ app.post('/api/auth/login', requireSameOrigin, (request, response) => {
 
   const sessionId = crypto.randomBytes(32).toString('hex')
   const now = Date.now()
-  for (const [existingSessionId, expiresAt] of sessions) {
-    if (expiresAt <= now) sessions.delete(existingSessionId)
+  for (const [sessionHash, expiresAt] of sessions) {
+    if (expiresAt <= now) sessions.delete(sessionHash)
   }
-  sessions.set(sessionId, now + sessionLifetimeMs)
+  sessions.set(hashSessionId(sessionId), now + sessionLifetimeMs)
+  await persistSessions()
   response.cookie('admin_session', sessionId, {
     httpOnly: true,
     sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production',
+    secure: request.get('origin')?.startsWith('https://') === true,
     path: '/',
     maxAge: sessionLifetimeMs,
   })
   response.json({ authenticated: true })
 })
 
-app.post('/api/auth/logout', requireSameOrigin, (request, response) => {
+app.post('/api/auth/logout', requireSameOrigin, async (request, response) => {
   const sessionId = request.cookies.admin_session as string | undefined
-  if (sessionId) sessions.delete(sessionId)
+  if (sessionId) sessions.delete(hashSessionId(sessionId))
+  await persistSessions()
   response.clearCookie('admin_session')
   response.json({ authenticated: false })
 })
@@ -324,6 +472,102 @@ app.post('/api/auth/logout', requireSameOrigin, (request, response) => {
 app.get('/api/articles', async (_request, response) => {
   const articles = await readArticles()
   response.json(articles.sort((first, second) => second.publishedAt.localeCompare(first.publishedAt)))
+})
+
+app.post('/api/analytics/view', requireSameOrigin, async (request, response) => {
+  const clientKey = getClientIp(request)
+  const now = Date.now()
+  const limit = analyticsRateLimits.get(clientKey)
+  if (limit && now - limit.windowStarted < 60_000 && limit.count >= 60) {
+    response.status(429).json({ message: 'Too many page view events.' })
+    return
+  }
+  if (!limit || now - limit.windowStarted >= 60_000) analyticsRateLimits.set(clientKey, { count: 1, windowStarted: now })
+  else limit.count += 1
+  if (analyticsRateLimits.size > 10_000) {
+    for (const [key, value] of analyticsRateLimits) if (now - value.windowStarted >= 60_000) analyticsRateLimits.delete(key)
+  }
+
+  const page = request.body?.page as AnalyticsPage
+  const pages: AnalyticsPage[] = ['home', 'about', 'projects', 'blog', 'article', 'contact', 'friends']
+  if (!pages.includes(page)) {
+    response.status(400).json({ message: 'Invalid page.' })
+    return
+  }
+  const articleId = typeof request.body?.articleId === 'string' ? request.body.articleId : undefined
+  if (page === 'article' && (!articleId || articleId.length > 80)) {
+    response.status(400).json({ message: 'Article views require a valid article ID.' })
+    return
+  }
+  if (articleId) {
+    const articles = await readArticles()
+    if (!articles.some((article) => article.id === articleId)) {
+      response.status(404).json({ message: 'Article not found.' })
+      return
+    }
+  }
+  const source = request.body?.source as AnalyticsSource | undefined
+  const sources: AnalyticsSource[] = ['direct', 'search', 'social', 'referral']
+  if (source !== undefined && !sources.includes(source)) {
+    response.status(400).json({ message: 'Invalid traffic source.' })
+    return
+  }
+  const device = getAnalyticsDevice(request.get('user-agent') ?? '')
+  try {
+    await queuePageView(page, device, articleId, source)
+    response.status(204).end()
+  } catch {
+    response.status(500).json({ message: 'Could not record page view.' })
+  }
+})
+
+app.get('/api/admin/analytics', requireAuthentication, async (request, response) => {
+  await analyticsWriteQueue
+  const days = request.query.days === '7' ? 7 : 30
+  const today = new Date()
+  today.setUTCHours(0, 0, 0, 0)
+  const currentStart = new Date(today.getTime() - (days - 1) * 86_400_000)
+  const previousStart = new Date(currentStart.getTime() - days * 86_400_000)
+  const currentStartDay = currentStart.toISOString().slice(0, 10)
+  const previousStartDay = previousStart.toISOString().slice(0, 10)
+  const todayDay = today.toISOString().slice(0, 10)
+  const rows = JSON.parse(await fs.readFile(analyticsFile, 'utf8')) as AnalyticsRow[]
+  const pageTotals = new Map<AnalyticsPage, number>()
+  const articleTotals = new Map<string, number>()
+  const sourceTotals: Record<AnalyticsSource, number> = { direct: 0, search: 0, social: 0, referral: 0 }
+  const deviceTotals: Record<AnalyticsDevice, number> = { mobile: 0, tablet: 0, desktop: 0 }
+  const dailyTotals = new Map<string, number>()
+  let totalViews = 0
+  let previousViews = 0
+  for (const row of rows) {
+    if (row.day >= currentStartDay && row.day <= todayDay) {
+      totalViews += row.views
+      dailyTotals.set(row.day, (dailyTotals.get(row.day) ?? 0) + row.views)
+      pageTotals.set(row.page, (pageTotals.get(row.page) ?? 0) + row.views)
+      deviceTotals[row.device] += row.views
+      if (row.articleId) articleTotals.set(row.articleId, (articleTotals.get(row.articleId) ?? 0) + row.views)
+      if (row.source) sourceTotals[row.source] += row.views
+    } else if (row.day >= previousStartDay && row.day < currentStartDay) previousViews += row.views
+  }
+  const labels: Record<AnalyticsPage, string> = { home: '首頁', about: '關於', projects: '作品', blog: 'Blog', article: '文章閱讀', contact: '聯絡', friends: '友站' }
+  const daily = Array.from({ length: days }, (_unused, index) => {
+    const date = new Date(currentStart.getTime() + index * 86_400_000)
+    const day = date.toISOString().slice(0, 10)
+    return { day, views: dailyTotals.get(day) ?? 0 }
+  })
+  const topPages = [...pageTotals.entries()].map(([page, views]) => ({ page, label: labels[page], views })).sort((first, second) => second.views - first.views)
+  const articles = await readArticles()
+  const articleById = new Map(articles.map((article) => [article.id, article]))
+  const topArticles = [...articleTotals.entries()].map(([id, views]) => {
+    const article = articleById.get(id)
+    return { id, title: article?.title ?? '已刪除文章', views }
+  }).sort((first, second) => second.views - first.views).slice(0, 10)
+  response.json({ days, totalViews, previousViews, daily, topPages, topArticles, sources: sourceTotals, devices: deviceTotals })
+})
+
+app.get('/api/admin/activity', requireAuthentication, async (_request, response) => {
+  await activityWriteQueue
+  response.json(JSON.parse(await fs.readFile(activityFile, 'utf8')) as ActivityEntry[])
 })
 
 app.get('/api/stats', async (_request, response) => {
@@ -355,10 +599,16 @@ app.put(
   async (request, response) => {
     const files = request.files as { avatar?: Express.Multer.File[]; background?: Express.Multer.File[] } | undefined
     const existingSettings = await readSiteSettings()
-    const { siteName, biography, experience } = request.body as {
+    const { siteName, biography, experience, backgroundPositionX, backgroundPositionY } = request.body as {
       siteName?: string
       biography?: string
       experience?: string
+      backgroundPositionX?: string
+      backgroundPositionY?: string
+    }
+    const position = (value: string | undefined, fallback: number) => {
+      const parsed = Number(value)
+      return Number.isFinite(parsed) ? Math.max(0, Math.min(100, parsed)) : fallback
     }
 
     const updatedSettings: SiteSettings = {
@@ -366,11 +616,14 @@ app.put(
       siteName: siteName?.trim() || defaultSiteSettings.siteName,
       biography: biography?.trim() || '',
       experience: experience?.trim() || '',
+      backgroundPositionX: position(backgroundPositionX, existingSettings.backgroundPositionX ?? 50),
+      backgroundPositionY: position(backgroundPositionY, existingSettings.backgroundPositionY ?? 50),
       ...(files?.avatar?.[0] ? { avatarUrl: `/uploads/${files.avatar[0].filename}` } : {}),
       ...(files?.background?.[0] ? { backgroundUrl: `/uploads/${files.background[0].filename}` } : {}),
     }
 
     await writeSiteSettings(updatedSettings)
+    await recordActivity({ at: new Date().toISOString(), type: 'site', action: 'saved', title: '網站設定' })
     response.json(updatedSettings)
   },
 )
@@ -406,6 +659,7 @@ app.put('/api/admin/home-profile', requireSameOrigin, requireAuthentication, upl
     ...(request.file ? { avatarUrl: `/uploads/${request.file.filename}` } : existing.avatarUrl ? { avatarUrl: existing.avatarUrl } : {}),
   }
   await fs.writeFile(homeProfileFile, `${JSON.stringify(updated, null, 2)}\n`, 'utf8')
+  await recordActivity({ at: new Date().toISOString(), type: 'homepage', action: 'saved', title: '首頁個人介紹' })
   response.json(updated)
 })
 
@@ -433,10 +687,12 @@ app.post('/api/articles', requireSameOrigin, requireAuthentication, upload.singl
       .filter(Boolean),
     ...(request.file ? { coverImage: `/uploads/${request.file.filename}` } : {}),
     publishedAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
   }
 
   const articles = await readArticles()
   await writeArticles([article, ...articles])
+  await recordActivity({ at: new Date().toISOString(), type: 'article', action: 'published', title: article.title })
   response.status(201).json(article)
 })
 
@@ -468,11 +724,13 @@ app.put('/api/articles/:id', requireSameOrigin, requireAuthentication, upload.si
     content,
     category: category?.trim() || 'Uncategorized',
     tags: (tags ?? '').split(',').map((tag) => tag.trim()).filter(Boolean),
+    updatedAt: new Date().toISOString(),
     ...(request.file ? { coverImage: `/uploads/${request.file.filename}` } : {}),
   }
 
   articles[articleIndex] = updatedArticle
   await writeArticles(articles)
+  await recordActivity({ at: new Date().toISOString(), type: 'article', action: 'updated', title: updatedArticle.title })
   response.json(updatedArticle)
 })
 
@@ -486,6 +744,7 @@ app.delete('/api/articles/:id', requireSameOrigin, requireAuthentication, async 
   }
 
   await writeArticles(articles.filter((entry) => entry.id !== request.params.id))
+  await recordActivity({ at: new Date().toISOString(), type: 'article', action: 'deleted', title: article.title })
   response.status(204).end()
 })
 

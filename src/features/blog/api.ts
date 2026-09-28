@@ -1,13 +1,17 @@
-import type { Article, ArticleStats, HomeProfile, SiteSettings } from './article'
+import type { AnalyticsStats, Article, ArticleStats, Friend, HomeProfile, SiteSettings } from './article'
 
 async function request<T>(input: RequestInfo, init?: RequestInit): Promise<T> {
   const response = await fetch(input, { credentials: 'include', ...init })
 
   if (!response.ok) {
-    const error = (await response.json().catch(() => ({ message: 'Request failed.' }))) as {
-      message?: string
-    }
-    throw new Error(error.message ?? 'Request failed.')
+    const isJson = response.headers.get('content-type')?.includes('application/json') ?? false
+    const error = isJson
+      ? (await response.json().catch(() => ({}))) as { message?: string }
+      : {}
+    const fallbackMessage = response.status === 413
+      ? '圖片檔案過大，單張圖片請限制在 8 MB 以內。'
+      : `Request failed (${response.status}).`
+    throw new Error(error.message ?? fallbackMessage)
   }
 
   if (response.status === 204) {
@@ -23,6 +27,28 @@ export function fetchArticles() {
 
 export function fetchArticleStats() {
   return request<ArticleStats>('/api/stats')
+}
+
+export function fetchAnalyticsStats(days: 7 | 30) {
+  return request<AnalyticsStats>(`/api/admin/analytics?days=${days}`)
+}
+
+export type AnalyticsPage = 'home' | 'about' | 'projects' | 'blog' | 'article' | 'contact' | 'friends'
+export type AnalyticsSource = 'direct' | 'search' | 'social' | 'referral'
+
+export function recordPageView(page: AnalyticsPage, options: { articleId?: string; source?: AnalyticsSource } = {}) {
+  return fetch('/api/analytics/view', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ page, ...options }),
+    keepalive: true,
+  }).catch(() => undefined)
+}
+
+export type AdminActivity = { at: string; type: 'article' | 'homepage' | 'site'; action: 'published' | 'updated' | 'deleted' | 'saved'; title: string }
+
+export function fetchAdminActivity() {
+  return request<AdminActivity[]>('/api/admin/activity')
 }
 
 export function fetchAdminSession() {
@@ -67,4 +93,20 @@ export function fetchHomeProfile() {
 
 export function updateHomeProfile(formData: FormData) {
   return request<HomeProfile>('/api/admin/home-profile', { method: 'PUT', body: formData })
+}
+
+export function fetchFriends() {
+  return request<Friend[]>('/api/friends')
+}
+
+export function createFriend(formData: FormData) {
+  return request<Friend>('/api/admin/friends', { method: 'POST', body: formData })
+}
+
+export function updateFriend(id: string, formData: FormData) {
+  return request<Friend>(`/api/admin/friends/${encodeURIComponent(id)}`, { method: 'PUT', body: formData })
+}
+
+export function deleteFriend(id: string) {
+  return request<void>(`/api/admin/friends/${encodeURIComponent(id)}`, { method: 'DELETE' })
 }
