@@ -42,14 +42,6 @@ body {
   background-repeat: no-repeat;
 }
 
-html:has(.home-page),
-body:has(.home-page) {
-  height: 100vh;
-  height: 100dvh;
-  min-height: 0;
-  overflow: hidden;
-}
-
 /* Blog owns a fixed-viewport layout; only its article column scrolls, so the
    document itself must not be allowed to grow taller than the viewport. */
 html:has(.blog-screen),
@@ -69,13 +61,6 @@ body:has(.projects-page) {
 
 @media (max-width: 768px) {
   body { background-position: center center; background-attachment: scroll; }
-
-  html:has(.home-page),
-  body:has(.home-page) {
-    height: auto;
-    min-height: 100vh;
-    overflow: visible;
-  }
 
   html:has(.blog-screen),
   body:has(.blog-screen) {

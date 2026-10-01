@@ -13,15 +13,6 @@
   flex-direction: column;
 }
 
-/* Home page: content fills remaining space after topbar, before footer */
-.app-shell:has(.home-page) {
-  height: 100dvh; /* Use dynamic viewport height for better mobile support */
-  min-height: auto;
-  flex: 1 1 auto;
-  display: flex;
-  flex-direction: column;
-}
-
 /* Blog page: fixed viewport layout with scrollable content column */
 .app-shell:has(.blog-screen) {
   height: 100vh;
@@ -409,27 +400,24 @@
   .home-profile blockquote { margin: .45rem 0; }
 }
 
+/* Keep Home in normal document flow (like Projects) so the footer always
+   follows the content instead of being pinned by a locked viewport height. */
 @media (min-width: 769px) {
-  .app-shell:has(.home-page) { height: 100vh; height: 100dvh; min-height: 0; overflow: hidden; display: flex; flex-direction: column; }
-  .app-shell:has(.home-page) > .topbar,
-  .app-shell:has(.home-page) > .footer { flex: 0 0 auto; }
-  .app-shell:has(.home-page) > .footer { margin-top: auto; padding-bottom: clamp(1.5rem, 4vh, 2rem); }
   .home-page {
     width: min(100%, 78.2rem);
-    min-height: 0;
+    min-height: calc(100dvh - 7.5rem);
     height: auto;
     max-height: none;
-    flex: 1 1 auto;
+    flex: 1 0 auto;
     margin: 0 auto;
-    padding: 25vh 2rem .5rem;
-    overflow: hidden;
+    padding: clamp(2.2rem, 7vh, 5rem) 2rem 2.5rem;
+    overflow: visible;
   }
-  .home-profile-column { min-height: 0; }
-  .home-profile, .home-blog, .home-updates { min-height: 0; }
+  .home-profile-column { grid-template-rows: minmax(0, 1fr) auto auto; min-height: 0; }
+  .home-profile, .home-blog, .home-updates { min-height: 30rem; }
 }
 
 @media (max-width: 768px) {
-  .app-shell:has(.home-page) { height: auto; min-height: 100vh; overflow: visible; display: flex; flex-direction: column; }
   .home-page {
     width: min(100%, 24.7rem);
     height: auto;
@@ -439,27 +427,6 @@
     overflow: visible;
     padding: 1rem 1rem .35rem;
   }
-}
-
-/* Desktop home has a bounded design height. If the viewport cannot fit its
-   30rem minimum after the topbar and footer, zoom the whole composition down
-   uniformly; otherwise reduce the top offset before reducing card size. */
-@media (min-width: 769px) {
-  .home-page {
-    flex: 0 0 auto;
-    height: clamp(30rem, calc(100dvh - 7.5rem), 40rem);
-    min-height: 0;
-    max-height: 40rem;
-    padding-top: clamp(.5rem, min(8vh, calc(100dvh - 7.5rem - 30rem)), 25vh);
-    padding-bottom: .5rem;
-    zoom: clamp(.5, calc((100dvh - 7.5rem) / 30rem), 1);
-  }
-  .home-profile-column { grid-template-rows: minmax(0, 1fr) auto auto; }
-  .home-profile, .home-blog, .home-updates { min-height: 0; }
-}
-
-@media (min-width: 769px) and (max-height: 500px) {
-  .home-article:nth-child(n + 2) { display: none; }
 }
 
 .admin-home-profile-form { margin: 1.5rem 0; }
@@ -3261,24 +3228,22 @@ button, input, textarea, select { font-kerning: normal; }
   .about-experience-card > .markdown-preview { max-height: none; overflow: visible; }
 }
 
-/* Keep About's desktop/tablet frame and columns on the same scale as Home. */
+/* Keep About in normal document flow (like Projects/Home) so the footer
+   always follows the content, on the same scale as Home. */
 @media (min-width: 769px) {
-  .app-shell:has(.about-page) { height: 100vh; height: 100dvh; min-height: 0; overflow: hidden; display: flex; flex-direction: column; }
-  .app-shell:has(.about-page) > .topbar,
-  .app-shell:has(.about-page) > .footer { flex: 0 0 auto; }
-  .app-shell:has(.about-page) > .footer { margin-top: auto; padding-bottom: clamp(1.5rem, 4vh, 2rem); }
   .about-page {
     width: min(100%, 78.2rem);
-    height: clamp(30rem, calc(100dvh - 7.5rem), 40rem);
-    min-height: 0;
-    max-height: 40rem;
-    flex: 0 0 auto;
-    padding: clamp(.5rem, min(8vh, calc(100dvh - 7.5rem - 30rem)), 25vh) 2rem .5rem;
-    zoom: clamp(.5, calc((100dvh - 7.5rem) / 30rem), 1);
-    overflow: hidden;
+    min-height: calc(100dvh - 7.5rem);
+    height: auto;
+    max-height: none;
+    flex: 1 0 auto;
+    margin: 0 auto;
+    padding: clamp(2.2rem, 7vh, 5rem) 2rem 2.5rem;
+    overflow: visible;
+    grid-template-columns: minmax(12rem,.62fr) minmax(0,1.8fr) minmax(14rem,.72fr);
   }
-.about-page { grid-template-columns: minmax(12rem,.62fr) minmax(0,1.8fr) minmax(14rem,.72fr); }
-  .about-profile-column { grid-template-rows: minmax(0,1fr) auto auto; }
+  .about-profile-column { grid-template-rows: minmax(0,1fr) auto auto; min-height: 0; }
+  .about-profile, .about-biography { min-height: 30rem; }
   .about-profile { padding-right: 1rem; padding-left: 1rem; }
   .about-aside { height: 100%; align-self: stretch; }
   .about-experience-card { display: flex; flex-direction: column; }
