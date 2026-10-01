@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import AboutPage from '../pages/AboutPage'
 import AdminPage from '../pages/AdminPage'
 import BlogPage from '../pages/BlogPage'
-import ContactPage from '../pages/ContactPage'
 import FriendsPage from '../pages/FriendsPage'
 import HomePage from '../pages/HomePage'
 import ProjectsPage from '../pages/ProjectsPage'
@@ -31,8 +30,6 @@ function PageRouter() {
       return <ProjectsPage />
     case 'blog':
       return <BlogPage />
-    case 'contact':
-      return <ContactPage />
     case 'friends':
       return <FriendsPage />
     default:

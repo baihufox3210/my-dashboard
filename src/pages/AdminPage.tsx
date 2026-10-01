@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import FileDropzone from '../components/FileDropzone'
+import ProjectsPage from './ProjectsPage'
 import { applySiteBackground } from '../features/blog/background'
 import {
   fetchAdminSession,
@@ -21,15 +22,15 @@ import {
 import type { AnalyticsStats, Article, ArticleStats, Friend, HomeProfile, SiteSettings } from '../features/blog/article'
 import type { AdminActivity } from '../features/blog/api'
 
-type Section = 'overview' | 'home' | 'site' | 'traffic' | 'friends' | 'login'
-const blankProfile: HomeProfile = { name: 'baihu', introduction: '', quote: '', socials: [], tags: [], updateTitle: '', updateText: '' }
+type Section = 'overview' | 'home' | 'site' | 'traffic' | 'friends' | 'projects' | 'login'
+const blankProfile: HomeProfile = { name: '', introduction: '', quote: '', socials: [], tags: [], avatarMessages: [], updateTitle: '', updateText: '' }
 const blankSettings: SiteSettings = { siteName: '', biography: '', experience: '', backgroundPositionX: 50, backgroundPositionY: 50 }
 const blankStats: ArticleStats = { articleCount: 0, categoryCount: 0, tagCount: 0, totalWords: 0, runtimeDays: 0, lastActivity: null }
 const blankAnalytics: AnalyticsStats = { days: 7, totalViews: 0, previousViews: 0, daily: [], topPages: [], topArticles: [], sources: { direct: 0, search: 0, social: 0, referral: 0 }, devices: { mobile: 0, tablet: 0, desktop: 0 } }
 
 function routeSection(): Section {
   const route = window.location.hash.slice(1).split('/')[1]
-  return route === 'home' || route === 'site' || route === 'traffic' || route === 'friends' || route === 'login' ? route : 'overview'
+  return route === 'home' || route === 'site' || route === 'traffic' || route === 'friends' || route === 'projects' || route === 'login' ? route : 'overview'
 }
 
 function AdminPage() {
@@ -58,6 +59,7 @@ function AdminPage() {
   const [friendModalOpen, setFriendModalOpen] = useState(false)
   const [socials, setSocials] = useState('')
   const [tags, setTags] = useState('')
+  const [avatarMessages, setAvatarMessages] = useState('')
   const [avatar, setAvatar] = useState<File | null>(null)
   const [background, setBackground] = useState<File | null>(null)
   const [backgroundPreview, setBackgroundPreview] = useState('')
@@ -94,6 +96,7 @@ function AdminPage() {
       setProfile(loadedProfile)
       setSocials(loadedProfile.socials.map((item) => `${item.name} | ${item.url}`).join('\n'))
       setTags(loadedProfile.tags.join(', '))
+      setAvatarMessages(loadedProfile.avatarMessages.join('\n'))
       setSettings(loadedSettings)
       setFriends(loadedFriends)
     }).catch((error: unknown) => setMessage(error instanceof Error ? error.message : '無法載入後台資料。'))
@@ -127,6 +130,7 @@ function AdminPage() {
     form.set('name', profile.name); form.set('introduction', profile.introduction); form.set('quote', profile.quote)
     form.set('socials', JSON.stringify(socials.split('\n').map((line) => { const [name = '', ...url] = line.split('|'); return { name: name.trim(), url: url.join('|').trim() } }).filter((item) => item.name && item.url)))
     form.set('tags', JSON.stringify(tags.split(',').map((tag) => tag.trim()).filter(Boolean)))
+    form.set('avatarMessages', JSON.stringify(avatarMessages.split('\n').map((item) => item.trim()).filter(Boolean)))
     form.set('updateTitle', profile.updateTitle); form.set('updateText', profile.updateText)
     if (avatar) form.set('avatar', avatar)
     try { const result = await updateHomeProfile(form); setProfile(result); setAvatar(null); setMessage('首頁內容已儲存。') }
@@ -242,9 +246,9 @@ function AdminPage() {
   </form></main>
 
   const nav: { id: Exclude<Section, 'login'>; label: string; icon: string }[] = [
-    { id: 'overview', label: '總覽', icon: '⌂' }, { id: 'traffic', label: '流量分析', icon: '↗' }, { id: 'home', label: '首頁內容', icon: '◉' }, { id: 'friends', label: 'Friends', icon: '✳' }, { id: 'site', label: '網站設定', icon: '⚙' },
+    { id: 'overview', label: '總覽', icon: '⌂' }, { id: 'traffic', label: '流量分析', icon: '↗' }, { id: 'home', label: '首頁內容', icon: '◉' }, { id: 'projects', label: 'Projects', icon: '✳' }, { id: 'friends', label: 'Friends', icon: '✳' }, { id: 'site', label: '網站設定', icon: '⚙' },
   ]
-  const title = section === 'home' ? '首頁內容' : section === 'site' ? '網站設定' : section === 'traffic' ? '流量分析' : section === 'friends' ? 'Friends 管理' : '總覽'
+  const title = section === 'home' ? '首頁內容' : section === 'site' ? '網站設定' : section === 'traffic' ? '流量分析' : section === 'friends' ? 'Friends 管理' : section === 'projects' ? 'Projects 管理' : '總覽'
   const homeChecks = [
     { label: '個人介紹', ready: Boolean(profile.introduction.trim()) },
     { label: '頭像圖片', ready: Boolean(profile.avatarUrl) },
@@ -302,6 +306,7 @@ function AdminPage() {
         </section>}
         {section === 'home' && <form className="admin-form-card" onSubmit={saveProfile}><div className="admin-form-intro"><div><h2>首頁個人介紹</h2><p>這些內容會顯示在網站首頁。</p></div><button className="admin-primary" disabled={busy}>{busy ? '儲存中…' : '儲存變更'}</button></div>
           <div className="admin-form-grid"><div className="admin-form-section span-two"><span>個人介紹</span></div><div className="admin-field span-two">頭像<FileDropzone title="上傳首頁頭像" file={avatar} previewUrl={profile.avatarUrl} onFile={setAvatar} /></div>
+            <label className="admin-field span-two">點擊頭像時顯示的文字 <small>每行一則，點擊頭像時隨機顯示一則</small><textarea rows={3} maxLength={3200} value={avatarMessages} onChange={(event) => setAvatarMessages(event.target.value)} placeholder={'嗨，歡迎來逛逛！ (｡•̀ᴗ-)✧\n今天也要保持好奇心！ (ง •̀_•́)ง'} /></label>
             <label className="admin-field">顯示名稱<input value={profile.name} onChange={(event) => setProfile({ ...profile, name: event.target.value })} /></label><label className="admin-field">首頁短句<input value={profile.quote} onChange={(event) => setProfile({ ...profile, quote: event.target.value })} /></label>
             <label className="admin-field span-two">個人介紹<textarea rows={4} value={profile.introduction} onChange={(event) => setProfile({ ...profile, introduction: event.target.value })} /></label><label className="admin-field span-two">社群連結 <small>每行一筆：名稱 | 網址</small><textarea rows={3} value={socials} onChange={(event) => setSocials(event.target.value)} placeholder={'Instagram | https://…\nGitHub | https://…'} /></label>
             <label className="admin-field span-two">個人標籤 <small>以逗號分隔</small><input value={tags} onChange={(event) => setTags(event.target.value)} placeholder="設計, 開發, 日常" /></label><div className="admin-form-section span-two"><span>首頁動態</span></div><label className="admin-field span-two">區塊標題<input value={profile.updateTitle} onChange={(event) => setProfile({ ...profile, updateTitle: event.target.value })} /></label><label className="admin-field span-two">動態內容<textarea rows={3} value={profile.updateText} onChange={(event) => setProfile({ ...profile, updateText: event.target.value })} /></label>
@@ -318,8 +323,9 @@ function AdminPage() {
             </div><div className="friend-modal-footer"><button type="button" className="admin-friend-cancel" disabled={busy} onClick={closeFriendModal}>取消</button><button className="admin-primary" disabled={busy}>{busy ? '儲存中…' : editingFriend ? '儲存編輯' : '新增朋友'}</button></div></form>
           </section></div>}
         </section>}
+        {section === 'projects' && <ProjectsPage embedded />}
         {section === 'site' && <form className="admin-form-card admin-site-settings-form" onSubmit={saveSite}><div className="admin-form-intro"><div><h2>網站設定</h2></div><button className="admin-primary" disabled={busy}>{busy ? '儲存中…' : '儲存'}</button></div><div className="admin-form-grid">
-          <label className="admin-field span-two">網站名稱<input value={settings.siteName} onChange={(event) => setSettings({ ...settings, siteName: event.target.value })} /></label><label className="admin-field span-two">簡介<textarea rows={3} value={settings.biography} onChange={(event) => setSettings({ ...settings, biography: event.target.value })} /></label><label className="admin-field span-two">經歷<textarea rows={3} value={settings.experience} onChange={(event) => setSettings({ ...settings, experience: event.target.value })} /></label>
+          <label className="admin-field span-two">網站名稱<input value={settings.siteName} onChange={(event) => setSettings({ ...settings, siteName: event.target.value })} /></label><label className="admin-field span-two">About 自介（Markdown） <small>支援標題、清單、粗體與連結</small><textarea rows={8} value={settings.biography} onChange={(event) => setSettings({ ...settings, biography: event.target.value })} placeholder={'## 關於我\n\n在這裡寫下你的故事…'} /></label><label className="admin-field span-two">經歷<textarea rows={5} value={settings.experience} onChange={(event) => setSettings({ ...settings, experience: event.target.value })} /></label>
           <div className="admin-form-section span-two"><span>首頁背景</span></div><div className="admin-field span-two"><span>背景圖片</span><FileDropzone title="選擇或拖入圖片" file={background} previewUrl={settings.backgroundUrl} onFile={setBackground} />
             {(backgroundPreview || settings.backgroundUrl) && <div className="background-adjuster">
               <div className={`background-adjuster-frame${backgroundDragMode ? ' is-adjustable' : ''}${backgroundDragging ? ' is-dragging' : ''}`} ref={previewFrameRef} onPointerDown={startBackgroundDrag} onPointerMove={moveBackgroundDrag} onPointerUp={stopBackgroundDrag} onPointerCancel={stopBackgroundDrag} onLostPointerCapture={stopBackgroundDrag}>

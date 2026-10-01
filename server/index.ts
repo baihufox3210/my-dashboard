@@ -18,6 +18,7 @@ const sessionsFile = path.join(dataDirectory, 'admin-sessions.json')
 const analyticsFile = path.join(dataDirectory, 'analytics.json')
 const activityFile = path.join(dataDirectory, 'admin-activity.json')
 const friendsFile = path.join(dataDirectory, 'friends.json')
+const projectsFile = path.join(dataDirectory, 'projects.json')
 const uploadsDirectory = path.join(projectDirectory, 'public', 'uploads')
 const sessionLifetimeMs = 24 * 60 * 60 * 1000
 const sessions = new Map<string, number>()
@@ -69,23 +70,25 @@ type HomeProfile = {
   avatarUrl?: string
   socials: { name: string; url: string }[]
   tags: string[]
+  avatarMessages: string[]
   updateTitle: string
   updateText: string
 }
 
 type Friend = { id: string; name: string; introduction: string; url: string; avatarUrl?: string }
+type Project = { id: string; title: string; summary: string; description: string; category: string; tags: string[]; projectUrl: string; coverImage?: string; documentUrl?: string; publishedAt: string; updatedAt?: string }
 
 const defaultHomeProfile: HomeProfile = {
   name: 'baihu',
   introduction: '喜歡動手做，也喜歡把有趣的想法變成作品。',
   quote: 'Stay curious, keep building.',
-  avatarUrl: '/avatar.png',
   socials: [
     { name: 'Instagram', url: 'https://www.instagram.com/baihu3210' },
     { name: 'Discord', url: 'https://discord.com/users/808972376619483137' },
     { name: 'GitHub', url: 'https://github.com/baihufox3210' },
   ],
-  tags: ['FRC'],
+  tags: [],
+  avatarMessages: ['嗨，歡迎來逛逛！ (｡•̀ᴗ-)✧', '今天也要保持好奇心！ (ง •̀_•́)ง', '謝謝你來看我的網站～ (´▽`ʃ♡ƪ)'],
   updateTitle: '最近在做什麼',
   updateText: '目前專注在機器人、程式與新點子的實作。',
 }
@@ -107,6 +110,47 @@ const upload = multer({
     callback(null, true)
   },
 })
+const projectUpload = multer({
+  storage: multer.diskStorage({
+    destination: uploadsDirectory,
+    filename: (_request, file, callback) => {
+      const extension = file.mimetype === 'application/pdf' ? '.pdf'
+        : file.mimetype === 'image/jpeg' ? '.jpg'
+          : file.mimetype === 'image/png' ? '.png'
+            : file.mimetype === 'image/webp' ? '.webp' : '.gif'
+      callback(null, `${crypto.randomUUID()}${extension}`)
+    },
+  }),
+  limits: { fileSize: 25 * 1024 * 1024, files: 2, fields: 20, fieldSize: 1024 * 1024 },
+  fileFilter: (_request, file, callback) => {
+    if (!['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'application/pdf'].includes(file.mimetype)) {
+      callback(new Error('Unsupported project file type.'))
+      return
+    }
+    callback(null, true)
+  },
+})
+
+async function validateProjectFiles(request: express.Request, response: express.Response, next: express.NextFunction) {
+  const files = request.files as { coverImage?: Express.Multer.File[]; document?: Express.Multer.File[] } | undefined
+  const cover = files?.coverImage?.[0]
+  const document = files?.document?.[0]
+  const removeInvalid = async (message: string) => {
+    await Promise.all([cover, document].filter(Boolean).map((file) => fs.unlink(file!.path).catch(() => undefined)))
+    response.status(400).json({ message })
+  }
+  if (cover) {
+    if (cover.size > 8 * 1024 * 1024) { await removeInvalid('封面圖片請限制在 8 MB 以內。'); return }
+    const header = await fs.readFile(cover.path).then((buffer) => buffer.subarray(0, 12)).catch(() => Buffer.alloc(0))
+    const valid = (header[0] === 0xff && header[1] === 0xd8 && header[2] === 0xff) || header.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])) || (header.toString('ascii', 0, 4) === 'RIFF' && header.toString('ascii', 8, 12) === 'WEBP') || header.toString('ascii', 0, 3) === 'GIF'
+    if (!valid) { await removeInvalid('封面必須是有效的 JPEG、PNG、WebP 或 GIF 圖片。'); return }
+  }
+  if (document) {
+    const header = await fs.readFile(document.path).then((buffer) => buffer.subarray(0, 5).toString('ascii')).catch(() => '')
+    if (header !== '%PDF-') { await removeInvalid('文件必須是有效的 PDF。'); return }
+  }
+  next()
+}
 
 async function validateUploadedImages(
   request: express.Request,
@@ -155,6 +199,9 @@ async function ensureStorage() {
   } catch {
     await fs.writeFile(articlesFile, '[]\n', 'utf8')
   }
+
+  try { await fs.access(projectsFile) }
+  catch { await fs.writeFile(projectsFile, '[]\n', 'utf8') }
 
   try {
     await fs.access(siteSettingsFile)
@@ -212,6 +259,15 @@ async function readFriends(): Promise<Friend[]> {
 
 async function writeFriends(friends: Friend[]) {
   await fs.writeFile(friendsFile, `${JSON.stringify(friends, null, 2)}\n`, 'utf8')
+}
+
+async function readProjects(): Promise<Project[]> {
+  try { return JSON.parse(await fs.readFile(projectsFile, 'utf8')) as Project[] }
+  catch (error) { if ((error as NodeJS.ErrnoException).code === 'ENOENT') return []; throw error }
+}
+
+async function writeProjects(projects: Project[]) {
+  await fs.writeFile(projectsFile, `${JSON.stringify(projects, null, 2)}\n`, 'utf8')
 }
 
 async function readSiteSettings(): Promise<SiteSettings> {
@@ -274,7 +330,11 @@ function getClientIp(request: express.Request) {
 
 function requireSameOrigin(request: express.Request, response: express.Response, next: express.NextFunction) {
   const origin = request.get('origin')
-  const host = request.get('host')
+  const remoteAddress = request.socket.remoteAddress ?? ''
+  const localProxy = ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(remoteAddress)
+  const configuredProxy = trustedProxyIp && (remoteAddress === trustedProxyIp || remoteAddress === `::ffff:${trustedProxyIp}`)
+  const forwardedHost = localProxy || configuredProxy ? request.get('x-forwarded-host')?.split(',')[0]?.trim() : undefined
+  const host = forwardedHost || request.get('host')
   try {
     if (!origin || !host || new URL(origin).host !== host) throw new Error('Origin mismatch')
   } catch {
@@ -379,6 +439,57 @@ app.get('/api/home-profile', async (_request, response) => {
 })
 
 app.get('/api/friends', async (_request, response) => response.json(await readFriends()))
+
+app.get('/api/projects', async (_request, response) => {
+  const projects = await readProjects()
+  response.json(projects.sort((first, second) => second.publishedAt.localeCompare(first.publishedAt)))
+})
+
+const receiveProjectFiles = projectUpload.fields([{ name: 'coverImage', maxCount: 1 }, { name: 'document', maxCount: 1 }])
+app.post('/api/admin/projects', requireSameOrigin, requireAuthentication, receiveProjectFiles, validateProjectFiles, async (request, response) => {
+  const body = request.body as { title?: string; summary?: string; description?: string; category?: string; tags?: string; projectUrl?: string }
+  const { title, summary, description, category, tags, projectUrl } = body
+  if (!title?.trim() || !boundedText(title, 160) || !boundedText(summary ?? '', 500) || !boundedText(description ?? '', 100_000) || !boundedText(category ?? '', 80) || !boundedText(tags ?? '', 2000) || !boundedText(projectUrl ?? '', 2048) || (projectUrl?.trim() && !isSafeSocialUrl(projectUrl.trim()))) {
+    response.status(400).json({ message: '專案標題、內容或連結格式不正確，或超過字數限制。' }); return
+  }
+  const files = request.files as { coverImage?: Express.Multer.File[]; document?: Express.Multer.File[] } | undefined
+  const now = new Date().toISOString()
+  const project: Project = {
+    id: crypto.randomUUID(), title: title.trim(), summary: summary?.trim() ?? '', description: description?.trim() ?? '', category: category?.trim() ?? '',
+    tags: (tags ?? '').split(',').map((tag) => tag.trim()).filter(Boolean), projectUrl: projectUrl?.trim() ?? '',
+    ...(files?.coverImage?.[0] ? { coverImage: `/uploads/${files.coverImage[0].filename}` } : {}),
+    ...(files?.document?.[0] ? { documentUrl: `/uploads/${files.document[0].filename}` } : {}), publishedAt: now, updatedAt: now,
+  }
+  await writeProjects([project, ...await readProjects()]); response.status(201).json(project)
+})
+
+app.put('/api/admin/projects/:id', requireSameOrigin, requireAuthentication, receiveProjectFiles, validateProjectFiles, async (request, response) => {
+  const projects = await readProjects()
+  const index = projects.findIndex((project) => project.id === request.params.id)
+  if (index < 0) { response.status(404).json({ message: '找不到這個專案。' }); return }
+  const existing = projects[index]
+  if (!existing) { response.status(404).json({ message: '找不到這個專案。' }); return }
+  const body = request.body as { title?: string; summary?: string; description?: string; category?: string; tags?: string; projectUrl?: string; removeDocument?: string }
+  const { title, summary, description, category, tags, projectUrl } = body
+  if (!title?.trim() || !boundedText(title, 160) || !boundedText(summary ?? '', 500) || !boundedText(description ?? '', 100_000) || !boundedText(category ?? '', 80) || !boundedText(tags ?? '', 2000) || !boundedText(projectUrl ?? '', 2048) || (projectUrl?.trim() && !isSafeSocialUrl(projectUrl.trim()))) {
+    response.status(400).json({ message: '專案標題、內容或連結格式不正確，或超過字數限制。' }); return
+  }
+  const files = request.files as { coverImage?: Express.Multer.File[]; document?: Express.Multer.File[] } | undefined
+  projects[index] = {
+    ...existing, title: title.trim(), summary: summary?.trim() ?? '', description: description?.trim() ?? '', category: category?.trim() ?? '',
+    tags: (tags ?? '').split(',').map((tag) => tag.trim()).filter(Boolean), projectUrl: projectUrl?.trim() ?? '', updatedAt: new Date().toISOString(),
+    ...(files?.coverImage?.[0] ? { coverImage: `/uploads/${files.coverImage[0].filename}` } : {}),
+    ...(files?.document?.[0] ? { documentUrl: `/uploads/${files.document[0].filename}` } : body.removeDocument === 'true' ? { documentUrl: undefined } : {}),
+  }
+  await writeProjects(projects); response.json(projects[index])
+})
+
+app.delete('/api/admin/projects/:id', requireSameOrigin, requireAuthentication, async (request, response) => {
+  const projects = await readProjects()
+  const remaining = projects.filter((project) => project.id !== request.params.id)
+  if (remaining.length === projects.length) { response.status(404).json({ message: '找不到這個專案。' }); return }
+  await writeProjects(remaining); response.status(204).end()
+})
 
 app.post('/api/admin/friends', requireSameOrigin, requireAuthentication, upload.single('avatar'), validateUploadedImages, async (request, response) => {
   const { name, introduction, url } = request.body as { name?: string; introduction?: string; url?: string }
@@ -633,9 +744,11 @@ app.put('/api/admin/home-profile', requireSameOrigin, requireAuthentication, upl
   const body = request.body as Partial<Record<keyof HomeProfile, string>>
   let socials: HomeProfile['socials']
   let tags: string[]
+  let avatarMessages: string[]
   try {
     socials = JSON.parse(body.socials ?? '[]') as HomeProfile['socials']
     tags = JSON.parse(body.tags ?? '[]') as string[]
+    avatarMessages = JSON.parse(body.avatarMessages ?? '[]') as string[]
   } catch {
     response.status(400).json({ message: 'Social links and tags must be valid JSON.' })
     return
@@ -648,12 +761,17 @@ app.put('/api/admin/home-profile', requireSameOrigin, requireAuthentication, upl
     response.status(400).json({ message: 'Tags are invalid.' })
     return
   }
+  if (!Array.isArray(avatarMessages) || avatarMessages.length > 20 || !avatarMessages.every((message) => typeof message === 'string' && message.length <= 160)) {
+    response.status(400).json({ message: 'Avatar messages are invalid.' })
+    return
+  }
   const updated: HomeProfile = {
     name: body.name?.trim() || defaultHomeProfile.name,
     introduction: body.introduction?.trim() ?? '',
     quote: body.quote?.trim() ?? '',
     socials: socials.map(({ name, url }) => ({ name: name.trim(), url: url.trim() })).filter(({ name, url }) => name && url),
     tags: tags.map((tag) => tag.trim()).filter(Boolean),
+    avatarMessages: avatarMessages.map((message) => message.trim()).filter(Boolean),
     updateTitle: body.updateTitle?.trim() || defaultHomeProfile.updateTitle,
     updateText: body.updateText?.trim() ?? '',
     ...(request.file ? { avatarUrl: `/uploads/${request.file.filename}` } : existing.avatarUrl ? { avatarUrl: existing.avatarUrl } : {}),
@@ -750,8 +868,8 @@ app.delete('/api/articles/:id', requireSameOrigin, requireAuthentication, async 
 
 app.use((error: unknown, _request: express.Request, response: express.Response, _next: express.NextFunction) => {
   void _next
-  if (error instanceof multer.MulterError || (error instanceof Error && error.message === 'Unsupported image type.')) {
-    response.status(400).json({ message: 'Upload rejected. Use a supported image under 8 MB.' })
+  if (error instanceof multer.MulterError || (error instanceof Error && ['Unsupported image type.', 'Unsupported project file type.'].includes(error.message))) {
+    response.status(error instanceof multer.MulterError && error.code === 'LIMIT_FILE_SIZE' ? 413 : 400).json({ message: '上傳失敗：圖片需為有效圖片且小於 8 MB，PDF 須小於 25 MB。' })
     return
   }
   console.error('Unhandled API error:', error)

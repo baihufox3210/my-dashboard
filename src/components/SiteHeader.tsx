@@ -1,14 +1,12 @@
 import { useEffect, useState } from 'react'
 import { fetchAdminSession, fetchSiteSettings } from '../features/blog/api'
 
-const navItems = ['Home', 'About', 'Projects', 'Blog', 'Contact', 'Friends']
+const navItems = ['Home', 'About', 'Projects', 'Blog', 'Friends']
 
 function SiteHeader() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [siteName, setSiteName] = useState('Baihu Personal Website')
-  const currentRoute = window.location.hash.slice(1) || 'home'
-  const loginHref = `#admin/login/${encodeURIComponent(currentRoute)}`
 
   useEffect(() => {
     fetchAdminSession()
@@ -53,18 +51,7 @@ function SiteHeader() {
             {item}
           </a>
         ))}
-        <a
-          href={isAuthenticated ? '#admin' : loginHref}
-          className="admin-nav-item"
-          onClick={() => {
-            if (!isAuthenticated) {
-              sessionStorage.setItem('admin-return', currentRoute)
-            }
-            setIsMenuOpen(false)
-          }}
-        >
-          {isAuthenticated ? 'Admin' : 'Login'}
-        </a>
+        {isAuthenticated && <a href="#admin" className="admin-nav-item" onClick={() => setIsMenuOpen(false)}>Admin</a>}
       </nav>
     </header>
   )

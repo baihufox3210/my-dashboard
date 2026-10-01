@@ -46,6 +46,7 @@ export type HomeProfile = {
   avatarUrl?: string
   socials: { name: string; url: string }[]
   tags: string[]
+  avatarMessages: string[]
   updateTitle: string
   updateText: string
 }
@@ -56,4 +57,18 @@ export type Friend = {
   introduction: string
   url: string
   avatarUrl?: string
+}
+
+export type Project = {
+  id: string
+  title: string
+  summary: string
+  description: string
+  category: string
+  tags: string[]
+  projectUrl: string
+  coverImage?: string
+  documentUrl?: string
+  publishedAt: string
+  updatedAt?: string
 }

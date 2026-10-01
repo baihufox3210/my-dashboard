@@ -1,4 +1,4 @@
-import type { AnalyticsStats, Article, ArticleStats, Friend, HomeProfile, SiteSettings } from './article'
+import type { AnalyticsStats, Article, ArticleStats, Friend, HomeProfile, Project, SiteSettings } from './article'
 
 async function request<T>(input: RequestInfo, init?: RequestInit): Promise<T> {
   const response = await fetch(input, { credentials: 'include', ...init })
@@ -9,7 +9,7 @@ async function request<T>(input: RequestInfo, init?: RequestInit): Promise<T> {
       ? (await response.json().catch(() => ({}))) as { message?: string }
       : {}
     const fallbackMessage = response.status === 413
-      ? '圖片檔案過大，單張圖片請限制在 8 MB 以內。'
+      ? '上傳檔案過大。圖片請限制在 8 MB、PDF 請限制在 25 MB 以內。'
       : `Request failed (${response.status}).`
     throw new Error(error.message ?? fallbackMessage)
   }
@@ -109,4 +109,20 @@ export function updateFriend(id: string, formData: FormData) {
 
 export function deleteFriend(id: string) {
   return request<void>(`/api/admin/friends/${encodeURIComponent(id)}`, { method: 'DELETE' })
+}
+
+export function fetchProjects() {
+  return request<Project[]>('/api/projects')
+}
+
+export function createProject(formData: FormData) {
+  return request<Project>('/api/admin/projects', { method: 'POST', body: formData })
+}
+
+export function updateProject(id: string, formData: FormData) {
+  return request<Project>(`/api/admin/projects/${encodeURIComponent(id)}`, { method: 'PUT', body: formData })
+}
+
+export function deleteProject(id: string) {
+  return request<void>(`/api/admin/projects/${encodeURIComponent(id)}`, { method: 'DELETE' })
 }

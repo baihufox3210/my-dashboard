@@ -19,7 +19,7 @@ function App() {
       const parts = window.location.hash.slice(1).toLowerCase().split('/')
       const route = parts[0] || 'home'
       if (route === 'admin' || (route === 'blog' && ['new', 'edit'].includes(parts[1] ?? ''))) return
-      const trackedPages: AnalyticsPage[] = ['home', 'about', 'projects', 'blog', 'contact', 'friends']
+      const trackedPages: AnalyticsPage[] = ['home', 'about', 'projects', 'blog', 'friends']
       const page: AnalyticsPage = trackedPages.includes(route as AnalyticsPage) ? route as AnalyticsPage : 'home'
       if (lastTrackedPage.current === page) return
       lastTrackedPage.current = page

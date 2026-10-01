@@ -59,6 +59,14 @@ body:has(.blog-screen) {
   overflow: hidden;
 }
 
+html:has(.projects-page),
+body:has(.projects-page) {
+  height: auto;
+  min-height: 100vh;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
 @media (max-width: 768px) {
   body { background-position: center center; background-attachment: scroll; }
 
