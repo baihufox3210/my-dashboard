@@ -174,7 +174,7 @@ function BlogPage() {
   return (
     <main className="main-page blog-screen">
       <section
-        className="blog-workspace"
+        className={`blog-workspace${articles.length > 1 ? ' blog-workspace-multiple-articles' : ''}`}
         style={{ '--blog-shift': `${sidebarFit.shift}px` } as React.CSSProperties}
       >
         <div className="blog-article-viewport blog-article-test-surface" ref={articleViewportRef}>

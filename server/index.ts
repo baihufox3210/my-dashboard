@@ -136,7 +136,7 @@ async function validateProjectFiles(request: express.Request, response: express.
   const cover = files?.coverImage?.[0]
   const document = files?.document?.[0]
   const removeInvalid = async (message: string) => {
-    await Promise.all([cover, document].filter(Boolean).map((file) => fs.unlink(file!.path).catch(() => undefined)))
+    await removeProjectUploads([cover, document].filter((file): file is Express.Multer.File => Boolean(file)))
     response.status(400).json({ message })
   }
   if (cover) {
@@ -150,6 +150,24 @@ async function validateProjectFiles(request: express.Request, response: express.
     if (header !== '%PDF-') { await removeInvalid('文件必須是有效的 PDF。'); return }
   }
   next()
+}
+
+async function removeProjectUploads(files: Express.Multer.File[] = []) {
+  await Promise.all(files.map((file) => fs.unlink(file.path).catch(() => undefined)))
+}
+
+async function removeProjectAssets(...urls: (string | undefined)[]) {
+  const projects = await readProjects()
+  const referencedAssets = new Set(projects.flatMap((project) => [project.coverImage, project.documentUrl].filter((url): url is string => Boolean(url))))
+  const files = urls.flatMap((url) => {
+    if (!url?.startsWith('/uploads/') || referencedAssets.has(url)) return []
+    const filename = path.basename(url)
+    if (!filename || filename !== url.slice('/uploads/'.length)) return []
+    return [path.join(uploadsDirectory, filename)]
+  })
+  await Promise.all(files.map((file) => fs.unlink(file).catch((error: unknown) => {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
+  })))
 }
 
 async function validateUploadedImages(
@@ -450,6 +468,7 @@ app.post('/api/admin/projects', requireSameOrigin, requireAuthentication, receiv
   const body = request.body as { title?: string; summary?: string; description?: string; category?: string; tags?: string; projectUrl?: string }
   const { title, summary, description, category, tags, projectUrl } = body
   if (!title?.trim() || !boundedText(title, 160) || !boundedText(summary ?? '', 500) || !boundedText(description ?? '', 100_000) || !boundedText(category ?? '', 80) || !boundedText(tags ?? '', 2000) || !boundedText(projectUrl ?? '', 2048) || (projectUrl?.trim() && !isSafeSocialUrl(projectUrl.trim()))) {
+    await removeProjectUploads(Object.values(request.files ?? {}).flat())
     response.status(400).json({ message: '專案標題、內容或連結格式不正確，或超過字數限制。' }); return
   }
   const files = request.files as { coverImage?: Express.Multer.File[]; document?: Express.Multer.File[] } | undefined
@@ -460,35 +479,52 @@ app.post('/api/admin/projects', requireSameOrigin, requireAuthentication, receiv
     ...(files?.coverImage?.[0] ? { coverImage: `/uploads/${files.coverImage[0].filename}` } : {}),
     ...(files?.document?.[0] ? { documentUrl: `/uploads/${files.document[0].filename}` } : {}), publishedAt: now, updatedAt: now,
   }
-  await writeProjects([project, ...await readProjects()]); response.status(201).json(project)
+  const uploadedFiles = Object.values(request.files ?? {}).flat()
+  try { await writeProjects([project, ...await readProjects()]) }
+  catch (error) { await removeProjectUploads(uploadedFiles); throw error }
+  response.status(201).json(project)
 })
 
 app.put('/api/admin/projects/:id', requireSameOrigin, requireAuthentication, receiveProjectFiles, validateProjectFiles, async (request, response) => {
+  const files = request.files as { coverImage?: Express.Multer.File[]; document?: Express.Multer.File[] } | undefined
   const projects = await readProjects()
   const index = projects.findIndex((project) => project.id === request.params.id)
-  if (index < 0) { response.status(404).json({ message: '找不到這個專案。' }); return }
+  if (index < 0) {
+    await removeProjectUploads(Object.values(request.files ?? {}).flat())
+    response.status(404).json({ message: '找不到這個專案。' }); return
+  }
   const existing = projects[index]
   if (!existing) { response.status(404).json({ message: '找不到這個專案。' }); return }
   const body = request.body as { title?: string; summary?: string; description?: string; category?: string; tags?: string; projectUrl?: string; removeDocument?: string }
   const { title, summary, description, category, tags, projectUrl } = body
   if (!title?.trim() || !boundedText(title, 160) || !boundedText(summary ?? '', 500) || !boundedText(description ?? '', 100_000) || !boundedText(category ?? '', 80) || !boundedText(tags ?? '', 2000) || !boundedText(projectUrl ?? '', 2048) || (projectUrl?.trim() && !isSafeSocialUrl(projectUrl.trim()))) {
+    await removeProjectUploads(Object.values(request.files ?? {}).flat())
     response.status(400).json({ message: '專案標題、內容或連結格式不正確，或超過字數限制。' }); return
   }
-  const files = request.files as { coverImage?: Express.Multer.File[]; document?: Express.Multer.File[] } | undefined
+  const oldCover = existing.coverImage
+  const oldDocument = existing.documentUrl
   projects[index] = {
     ...existing, title: title.trim(), summary: summary?.trim() ?? '', description: description?.trim() ?? '', category: category?.trim() ?? '',
     tags: (tags ?? '').split(',').map((tag) => tag.trim()).filter(Boolean), projectUrl: projectUrl?.trim() ?? '', updatedAt: new Date().toISOString(),
     ...(files?.coverImage?.[0] ? { coverImage: `/uploads/${files.coverImage[0].filename}` } : {}),
     ...(files?.document?.[0] ? { documentUrl: `/uploads/${files.document[0].filename}` } : body.removeDocument === 'true' ? { documentUrl: undefined } : {}),
   }
-  await writeProjects(projects); response.json(projects[index])
+  try { await writeProjects(projects) }
+  catch (error) { await removeProjectUploads(Object.values(request.files ?? {}).flat()); throw error }
+  await removeProjectAssets(
+    files?.coverImage?.[0] ? oldCover : undefined,
+    files?.document?.[0] || body.removeDocument === 'true' ? oldDocument : undefined,
+  )
+  response.json(projects[index])
 })
 
 app.delete('/api/admin/projects/:id', requireSameOrigin, requireAuthentication, async (request, response) => {
   const projects = await readProjects()
-  const remaining = projects.filter((project) => project.id !== request.params.id)
-  if (remaining.length === projects.length) { response.status(404).json({ message: '找不到這個專案。' }); return }
-  await writeProjects(remaining); response.status(204).end()
+  const project = projects.find((item) => item.id === request.params.id)
+  if (!project) { response.status(404).json({ message: '找不到這個專案。' }); return }
+  await writeProjects(projects.filter((item) => item.id !== request.params.id))
+  await removeProjectAssets(project.coverImage, project.documentUrl)
+  response.status(204).end()
 })
 
 app.post('/api/admin/friends', requireSameOrigin, requireAuthentication, upload.single('avatar'), validateUploadedImages, async (request, response) => {

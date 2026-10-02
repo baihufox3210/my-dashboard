@@ -109,10 +109,9 @@ function ProjectsPage({ embedded = false }: { embedded?: boolean }) {
       {orderedProjects.map((project, index) => <article className={`project-card${index === 0 ? ' project-card-featured' : ''}`} key={project.id}>
         <button type="button" className="project-card-main" onClick={() => setSelected(project)} aria-label={`查看專案：${project.title}`}>
           <span className="project-card-top"><span>{project.category || 'UNCLASSIFIED'}</span><span>PRJ-{String(index + 1).padStart(3, '0')}</span></span>
-          <span className={`project-card-art${project.coverImage ? ' has-cover' : ''}`} aria-hidden="true">{project.coverImage ? <img src={project.coverImage} alt="" /> : <><i className="project-art-orbit orbit-one"/><i className="project-art-orbit orbit-two"/><b>✳</b><span>PROJECT<br/>SIGNAL</span></>}</span>
+          <span className={`project-card-art${project.coverImage ? ' has-cover' : ''}`} aria-hidden="true">{project.coverImage ? <img src={project.coverImage} alt="" /> : <span className="project-art-placeholder"><span>PROJECT FILE</span><b>{String(index + 1).padStart(2, '0')}</b></span>}</span>
           <span className="project-card-copy"><strong>{project.title}</strong><span className="project-description">{project.summary}</span><span className="project-tags">{project.tags.slice(0, 4).map((tag) => <span key={tag}>{tag}</span>)}</span><span className="project-action">OPEN PROJECT FILE <span aria-hidden="true">↗</span></span></span>
         </button>
-        {isAdmin && <span className="project-manage-controls"><button type="button" onClick={() => openEditor(project)}>EDIT</button><button type="button" onClick={() => removeProject(project)}>DELETE</button></span>}
       </article>)}
     </section> : <section className="projects-empty"><span className="projects-loading-mark">⌁</span><p>NO PROJECT FILES FOUND</p><span>The archive is ready for your first project.</span>{isAdmin && <button type="button" className="project-add-button" onClick={() => openEditor('new')}>＋ ADD YOUR FIRST PROJECT</button>}</section>}
     <footer className="projects-footer"><span>PERSONAL ARCHIVE</span><span>✳</span><span>END OF TRANSMISSION</span></footer>
@@ -124,7 +123,7 @@ function ProjectsPage({ embedded = false }: { embedded?: boolean }) {
         <h2 id="project-detail-title">{selected.title}</h2><p className="project-detail-summary">{selected.summary}</p>
         {selected.tags.length > 0 && <div className="project-tags">{selected.tags.map((tag) => <span key={tag}>{tag}</span>)}</div>}
         {selected.description && <div className="project-detail-content"><MarkdownPreview content={selected.description} /></div>}
-        <footer className="project-detail-actions">{selected.projectUrl && <a href={selected.projectUrl} target="_blank" rel="noreferrer">OPEN LIVE PROJECT <span>↗</span></a>}{selected.documentUrl && <a href={selected.documentUrl} target="_blank" rel="noreferrer">VIEW PROJECT PDF <span>↗</span></a>}</footer>
+        <footer className="project-detail-actions">{selected.projectUrl && <a href={selected.projectUrl} target="_blank" rel="noreferrer">OPEN LIVE PROJECT <span>↗</span></a>}{selected.documentUrl && <a href={selected.documentUrl} target="_blank" rel="noreferrer">VIEW PROJECT PDF <span>↗</span></a>}{isAdmin && <div className="project-detail-admin-actions"><button type="button" disabled={busy} onClick={() => openEditor(selected)}>EDIT</button><button type="button" className="project-delete-button" disabled={busy} onClick={() => void removeProject(selected)}>DELETE</button></div>}</footer>
       </article>
     </div>}
 
