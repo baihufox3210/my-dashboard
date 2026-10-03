@@ -13,7 +13,6 @@ import {
   port,
   sessionLifetimeMs,
   siteStartDate,
-  trustedProxyIp,
   uploadsDirectory,
 } from './config.js'
 import {
@@ -24,7 +23,6 @@ import {
   type AnalyticsPage,
   type AnalyticsRow,
   type AnalyticsSource,
-  type Article,
   type Friend,
   type HomeProfile,
   type Project,
@@ -42,72 +40,17 @@ import {
   recordActivity,
   waitForActivityWrites,
   waitForAnalyticsWrites,
-  writeArticles,
   writeFriends,
   writeProjects,
   writeSiteSettings,
 } from './storage.js'
 import { projectUpload, removeProjectAssets, removeProjectUploads, upload, validateProjectFiles, validateUploadedImages } from './uploads.js'
 import { boundedText, countWords, daysSince, getAnalyticsDevice, isSafeSocialUrl } from './validation.js'
+import { getClientIp, hashSessionId, isAuthenticated, loginFailures, requireAuthentication, requireSameOrigin, sessions } from './security.js'
+import articleRoutes from './routes/articles.js'
+import publicRoutes from './routes/public.js'
 
-const sessions = new Map<string, number>()
-const loginFailures = new Map<string, { count: number; windowStarted: number; blockedUntil: number }>()
 const analyticsRateLimits = new Map<string, { count: number; windowStarted: number }>()
-
-function hashSessionId(sessionId: string) {
-  return crypto.createHash('sha256').update(sessionId).digest('hex')
-}
-
-function isAuthenticated(request: express.Request) {
-  const sessionId = request.cookies.admin_session as string | undefined
-  if (!sessionId) return false
-  const sessionHash = hashSessionId(sessionId)
-  const expiresAt = sessions.get(sessionHash)
-  if (!expiresAt) return false
-  if (expiresAt <= Date.now()) {
-    sessions.delete(sessionHash)
-    void persistSessions(sessions).catch((error: unknown) => console.error('Could not persist admin sessions:', error))
-    return false
-  }
-  return true
-}
-
-function getClientIp(request: express.Request) {
-  const remoteAddress = request.socket.remoteAddress ?? 'unknown'
-  const isTrustedProxy = trustedProxyIp && (
-    remoteAddress === trustedProxyIp || remoteAddress === `::ffff:${trustedProxyIp}`
-  )
-  return isTrustedProxy ? request.get('x-real-ip') || remoteAddress : remoteAddress
-}
-
-function requireSameOrigin(request: express.Request, response: express.Response, next: express.NextFunction) {
-  const origin = request.get('origin')
-  const remoteAddress = request.socket.remoteAddress ?? ''
-  const localProxy = ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(remoteAddress)
-  const configuredProxy = trustedProxyIp && (remoteAddress === trustedProxyIp || remoteAddress === `::ffff:${trustedProxyIp}`)
-  const forwardedHost = localProxy || configuredProxy ? request.get('x-forwarded-host')?.split(',')[0]?.trim() : undefined
-  const host = forwardedHost || request.get('host')
-  try {
-    if (!origin || !host || new URL(origin).host !== host) throw new Error('Origin mismatch')
-  } catch {
-    response.status(403).json({ message: 'Request origin is not allowed.' })
-    return
-  }
-  next()
-}
-
-function requireAuthentication(
-  request: express.Request,
-  response: express.Response,
-  next: express.NextFunction,
-) {
-  if (!isAuthenticated(request)) {
-    response.status(401).json({ message: 'Authentication required.' })
-    return
-  }
-
-  next()
-}
 
 setInterval(() => {
   const now = Date.now()
@@ -133,24 +76,11 @@ app.use((_request, response, next) => {
 app.use(express.json({ limit: '1mb' }))
 app.use(cookieParser())
 app.use('/uploads', express.static(uploadsDirectory))
+app.use('/api/articles', articleRoutes)
+app.use('/api', publicRoutes)
 
 app.get('/api/auth/me', (request, response) => {
   response.json({ authenticated: isAuthenticated(request) })
-})
-
-app.get('/api/site-settings', async (_request, response) => {
-  response.json(await readSiteSettings())
-})
-
-app.get('/api/home-profile', async (_request, response) => {
-  response.json(await readHomeProfile())
-})
-
-app.get('/api/friends', async (_request, response) => response.json(await readFriends()))
-
-app.get('/api/projects', async (_request, response) => {
-  const projects = await readProjects()
-  response.json(projects.sort((first, second) => second.publishedAt.localeCompare(first.publishedAt)))
 })
 
 const receiveProjectFiles = projectUpload.fields([{ name: 'coverImage', maxCount: 1 }, { name: 'document', maxCount: 1 }])
@@ -306,10 +236,7 @@ app.post('/api/auth/logout', requireSameOrigin, async (request, response) => {
   response.json({ authenticated: false })
 })
 
-app.get('/api/articles', async (_request, response) => {
-  const articles = await readArticles()
-  response.json(articles.sort((first, second) => second.publishedAt.localeCompare(first.publishedAt)))
-})
+
 
 app.post('/api/analytics/view', requireSameOrigin, async (request, response) => {
   const clientKey = getClientIp(request)
@@ -407,23 +334,6 @@ app.get('/api/admin/activity', requireAuthentication, async (_request, response)
   response.json(JSON.parse(await fs.readFile(activityFile, 'utf8')) as ActivityEntry[])
 })
 
-app.get('/api/stats', async (_request, response) => {
-  const articles = await readArticles()
-  const tags = new Set(articles.flatMap((article) => article.tags))
-  const categories = new Set(articles.map((article) => article.category).filter(Boolean))
-  const totalWords = articles.reduce((total, article) => total + countWords(article.content), 0)
-  const latestArticle = [...articles].sort((first, second) => second.publishedAt.localeCompare(first.publishedAt))[0]
-
-  response.json({
-    articleCount: articles.length,
-    categoryCount: categories.size,
-    tagCount: tags.size,
-    totalWords,
-    runtimeDays: daysSince(siteStartDate),
-    lastActivity: latestArticle?.publishedAt ?? null,
-  })
-})
-
 app.put(
   '/api/admin/site-settings',
   requireSameOrigin,
@@ -505,91 +415,6 @@ app.put('/api/admin/home-profile', requireSameOrigin, requireAuthentication, upl
   await fs.writeFile(homeProfileFile, `${JSON.stringify(updated, null, 2)}\n`, 'utf8')
   await recordActivity({ at: new Date().toISOString(), type: 'homepage', action: 'saved', title: '首頁個人介紹' })
   response.json(updated)
-})
-
-app.post('/api/articles', requireSameOrigin, requireAuthentication, upload.single('coverImage'), validateUploadedImages, async (request, response) => {
-  const { title, content, category, tags } = request.body as {
-    title?: string
-    content?: string
-    category?: string
-    tags?: string
-  }
-
-  if (!title?.trim() || !content?.trim() || title.length > 200 || content.length > 500_000 || (category?.length ?? 0) > 100 || (tags?.length ?? 0) > 2000) {
-    response.status(400).json({ message: 'Title, content, category, or tags are invalid or too long.' })
-    return
-  }
-
-  const article: Article = {
-    id: crypto.randomUUID(),
-    title: title.trim(),
-    content,
-    category: category?.trim() || 'Uncategorized',
-    tags: (tags ?? '')
-      .split(',')
-      .map((tag) => tag.trim())
-      .filter(Boolean),
-    ...(request.file ? { coverImage: `/uploads/${request.file.filename}` } : {}),
-    publishedAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  }
-
-  const articles = await readArticles()
-  await writeArticles([article, ...articles])
-  await recordActivity({ at: new Date().toISOString(), type: 'article', action: 'published', title: article.title })
-  response.status(201).json(article)
-})
-
-app.put('/api/articles/:id', requireSameOrigin, requireAuthentication, upload.single('coverImage'), validateUploadedImages, async (request, response) => {
-  const articles = await readArticles()
-  const articleIndex = articles.findIndex((article) => article.id === request.params.id)
-
-  if (articleIndex === -1) {
-    response.status(404).json({ message: 'Article not found.' })
-    return
-  }
-
-  const { title, content, category, tags } = request.body as {
-    title?: string
-    content?: string
-    category?: string
-    tags?: string
-  }
-
-  if (!title?.trim() || !content?.trim() || title.length > 200 || content.length > 500_000 || (category?.length ?? 0) > 100 || (tags?.length ?? 0) > 2000) {
-    response.status(400).json({ message: 'Title, content, category, or tags are invalid or too long.' })
-    return
-  }
-
-  const existingArticle = articles[articleIndex]
-  const updatedArticle: Article = {
-    ...existingArticle,
-    title: title.trim(),
-    content,
-    category: category?.trim() || 'Uncategorized',
-    tags: (tags ?? '').split(',').map((tag) => tag.trim()).filter(Boolean),
-    updatedAt: new Date().toISOString(),
-    ...(request.file ? { coverImage: `/uploads/${request.file.filename}` } : {}),
-  }
-
-  articles[articleIndex] = updatedArticle
-  await writeArticles(articles)
-  await recordActivity({ at: new Date().toISOString(), type: 'article', action: 'updated', title: updatedArticle.title })
-  response.json(updatedArticle)
-})
-
-app.delete('/api/articles/:id', requireSameOrigin, requireAuthentication, async (request, response) => {
-  const articles = await readArticles()
-  const article = articles.find((entry) => entry.id === request.params.id)
-
-  if (!article) {
-    response.status(404).json({ message: 'Article not found.' })
-    return
-  }
-
-  await writeArticles(articles.filter((entry) => entry.id !== request.params.id))
-  await recordActivity({ at: new Date().toISOString(), type: 'article', action: 'deleted', title: article.title })
-  response.status(204).end()
 })
 
 app.use((error: unknown, _request: express.Request, response: express.Response, _next: express.NextFunction) => {
