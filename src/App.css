@@ -3828,7 +3828,17 @@ button, input, textarea, select { font-kerning: normal; }
 /* Projects use the same full-width, one-item-per-row rhythm as Blog. */
 .projects-page { width: min(100%,78.2rem); max-width: 78.2rem; }
 .projects-grid { grid-template-columns: 1fr; }
+.project-card, .project-card-featured { width: 90%; margin-inline: auto; }
+.projects-heading, .projects-toolbar { width: 90%; margin-inline: auto; }
+.project-card-art, .project-card-art.has-cover { height: 10rem; aspect-ratio: auto; }
+.project-card-copy, .project-card-featured .project-card-copy { padding-top: 11.7rem; }
 .project-card-featured { grid-column: auto; grid-row: auto; }
+.public-article-card img { height: 9.45rem; }
+@media (max-width: 768px) {
+  .project-card-art, .project-card-art.has-cover { height: 9rem; }
+  .project-card-copy, .project-card-featured .project-card-copy { padding-top: 10.7rem; }
+  .public-article-card img { height: 9.45rem; }
+}
 
 /* Keep the cover upload flush with its frame once an image exists. */
 .file-dropzone.has-image { padding: 0; border-style: solid; border-color: rgba(255,255,255,.5); background: rgba(255,255,255,.12); }
@@ -3837,6 +3847,27 @@ button, input, textarea, select { font-kerning: normal; }
 .file-dropzone.has-image .file-position-toggle { width: calc(100% - 28px); margin: 0 14px 14px; }
 .file-dropzone:not(.has-image) { border-color: rgba(100,111,151,.34); background: rgba(255,255,255,.16); }
 .file-dropzone:not(.has-image):hover, .file-dropzone:not(.has-image):focus-within { border-color: rgba(90,103,216,.58); background: rgba(255,255,255,.26); }
+
+/* Keep the project document below the cover and style removal as a switch. */
+.project-file-fields { display: flex; width: 100%; flex-direction: column; gap: 1.1rem; }
+.project-file-fields > .project-form-field { width: 100%; }
+.project-file-fields .file-dropzone, .project-file-fields .project-pdf-drop { width: 100%; }
+.project-file-fields .project-pdf-drop { min-height: 5.5rem; }
+.project-remove-file { display: inline-flex; width: fit-content; align-items: center; gap: .65rem; margin-top: .55rem; padding: .45rem .65rem; border: 1px solid rgba(139,107,79,.2); border-radius: 999px; color: #806348; background: rgba(255,255,255,.5); cursor: pointer; transition: border-color .16s ease, background .16s ease, color .16s ease; }
+.project-remove-file:hover { border-color: rgba(139,107,79,.45); background: rgba(255,255,255,.82); }
+.project-remove-file input { position: relative; width: 2.15rem; height: 1.15rem; margin: 0; appearance: none; border: 0; border-radius: 999px; background: #d8d0c8; cursor: pointer; transition: background .16s ease; }
+.project-remove-file input::after { position: absolute; top: .15rem; left: .15rem; width: .85rem; height: .85rem; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(50,38,30,.2); content: ''; transition: transform .16s ease; }
+.project-remove-file input:checked { background: #b86a72; }
+.project-remove-file input:checked::after { transform: translateX(1rem); }
+.projects-page > .projects-feedback { width: 90%; max-width: none; margin-inline: auto; box-sizing: border-box; }
+.projects-page > .projects-feedback:not(.project-load-error) { padding: .45rem .75rem; border-radius: 999px; font-size: .72rem; }
+.project-pdf-drop { position: relative; display: flex; min-height: 5.5rem; align-items: center; padding: .9rem 3rem .9rem .9rem; border: 1px solid rgba(255,255,255,.62); border-radius: .7rem; color: #806348; background: rgba(255,255,255,.3); cursor: pointer; transition: border-color .16s ease, background .16s ease, box-shadow .16s ease; }
+.project-pdf-drop:hover, .project-pdf-drop:focus-within { border-color: rgba(139,107,79,.62); background: rgba(255,255,255,.72); box-shadow: 0 0 0 3px rgba(139,107,79,.08); }
+.project-pdf-drop input { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); clip-path: inset(50%); }
+.project-pdf-icon { display: grid; width: 2.5rem; height: 2.5rem; flex: 0 0 auto; place-items: center; border: 1px solid rgba(139,107,79,.25); border-radius: .6rem; color: #806348; background: rgba(230,201,174,.25); font-size: .62rem; font-weight: 800; letter-spacing: .04em; }
+.project-pdf-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.project-pdf-remove { position: absolute; top: 50%; right: .75rem; display: grid; width: 2rem; height: 2rem; place-items: center; padding: 0; border: 1px solid rgba(157,79,72,.28); border-radius: 50%; color: #9d4f48; background: rgba(255,245,244,.8); font: 1.15rem/1 Arial, sans-serif; cursor: pointer; transform: translateY(-50%); transition: background .16s ease, border-color .16s ease, transform .16s ease; }
+.project-pdf-remove:hover { border-color: rgba(157,79,72,.55); background: #fff; transform: translateY(-50%) scale(1.06); }
 
 /* Wide glass modal for cover cropping and zooming. */
 .image-adjust-backdrop { position: fixed; z-index: 120; inset: 0; display: grid; place-items: center; padding: 1rem; background: rgba(8,12,26,.42); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); }

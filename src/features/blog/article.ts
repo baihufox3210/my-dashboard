@@ -70,7 +70,10 @@ export type Project = {
   tags: string[]
   projectUrl: string
   coverImage?: string
+  coverImagePosition?: string
+  coverImageScale?: number
   documentUrl?: string
+  documentName?: string
   publishedAt: string
   updatedAt?: string
 }

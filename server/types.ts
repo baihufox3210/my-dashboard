@@ -34,7 +34,7 @@ export type HomeProfile = {
 }
 
 export type Friend = { id: string; name: string; introduction: string; url: string; avatarUrl?: string }
-export type Project = { id: string; title: string; summary: string; description: string; category: string; tags: string[]; projectUrl: string; coverImage?: string; documentUrl?: string; publishedAt: string; updatedAt?: string }
+export type Project = { id: string; title: string; summary: string; description: string; category: string; tags: string[]; projectUrl: string; coverImage?: string; documentUrl?: string; documentName?: string; publishedAt: string; updatedAt?: string }
 
 export type AnalyticsPage = 'home' | 'about' | 'projects' | 'blog' | 'article' | 'contact' | 'friends'
 export type AnalyticsDevice = 'mobile' | 'tablet' | 'desktop'

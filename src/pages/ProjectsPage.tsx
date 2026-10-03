@@ -16,6 +16,8 @@ function ProjectsPage({ embedded = false }: { embedded?: boolean }) {
   const [selected, setSelected] = useState<Project | null>(null)
   const [draft, setDraft] = useState(blankDraft)
   const [cover, setCover] = useState<File | null>(null)
+  const [coverPosition, setCoverPosition] = useState('50% 50%')
+  const [coverScale, setCoverScale] = useState(1)
   const [document, setDocument] = useState<File | null>(null)
   const [removeDocument, setRemoveDocument] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -55,6 +57,8 @@ function ProjectsPage({ embedded = false }: { embedded?: boolean }) {
       category: project.category, tags: project.tags.join(', '), projectUrl: project.projectUrl,
     })
     setCover(null)
+    setCoverPosition(project === 'new' ? '50% 50%' : project.coverImagePosition ?? '50% 50%')
+    setCoverScale(project === 'new' ? 1 : project.coverImageScale ?? 1)
     setDocument(null)
     setRemoveDocument(false)
     setMessage('')
@@ -70,6 +74,8 @@ function ProjectsPage({ embedded = false }: { embedded?: boolean }) {
     setBusy(true); setMessage('')
     const form = new FormData()
     Object.entries(draft).forEach(([key, value]) => form.set(key, value))
+    form.set('coverImagePosition', coverPosition)
+    form.set('coverImageScale', String(coverScale))
     if (cover) form.set('coverImage', cover)
     if (document) form.set('document', document)
     if (removeDocument) form.set('removeDocument', 'true')
@@ -136,7 +142,7 @@ function ProjectsPage({ embedded = false }: { embedded?: boolean }) {
           <label className="project-form-field">SHORT SUMMARY <small>最多 500 字</small><textarea required rows={2} maxLength={500} value={draft.summary} onChange={(event) => setDraft({ ...draft, summary: event.target.value })} placeholder="用一句話介紹這個專案" /></label>
           <label className="project-form-field">TAGS <small>用逗號分隔</small><input value={draft.tags} onChange={(event) => setDraft({ ...draft, tags: event.target.value })} placeholder="React, Design, Open Source" /></label>
           <label className="project-form-field">PROJECT NOTES <small>支援 Markdown</small><textarea rows={6} maxLength={100000} value={draft.description} onChange={(event) => setDraft({ ...draft, description: event.target.value })} placeholder="記錄專案背景、特色、製作過程…" /></label>
-          <div className="project-form-two project-file-fields"><div className="project-form-field"><span>COVER IMAGE <small>JPG / PNG / WebP / GIF，最多 8 MB</small></span><FileDropzone title="上傳專案封面" hint="點擊選取圖片" file={cover} previewUrl={editor === 'new' ? undefined : editor.coverImage} onFile={setCover} /></div><div className="project-form-field"><span>PROJECT DOCUMENT <small>PDF，最多 25 MB</small></span><label className="project-pdf-drop"><input type="file" accept="application/pdf,.pdf" onChange={(event) => { setDocument(event.target.files?.[0] ?? null); setRemoveDocument(false); event.currentTarget.value = '' }} /><b>＋</b><span>{document?.name ?? (editor !== 'new' && editor.documentUrl ? '已附加 PDF 文件' : '選擇或拖入 PDF')}</span></label>{editor !== 'new' && editor.documentUrl && <label className="project-remove-file"><input type="checkbox" checked={removeDocument} onChange={(event) => { setRemoveDocument(event.target.checked); if (event.target.checked) setDocument(null) }} />移除目前的 PDF</label>}</div></div>
+          <div className="project-form-two project-file-fields"><div className="project-form-field"><span>COVER IMAGE <small>JPG / PNG / WebP / GIF，最多 8 MB</small></span><FileDropzone title="上傳專案封面" hint="點擊選取圖片" file={cover} previewUrl={editor === 'new' ? undefined : editor.coverImage} imagePosition={coverPosition} imageScale={coverScale} onImagePositionChange={setCoverPosition} onImageScaleChange={setCoverScale} onFile={setCover} /></div><div className="project-form-field"><span>PROJECT DOCUMENT <small>PDF，最多 25 MB</small></span><div className={`project-pdf-drop${document || (editor !== 'new' && editor.documentUrl && !removeDocument) ? ' has-document' : ''}`} onClick={(event) => { if (!(event.target as HTMLElement).closest('button')) event.currentTarget.querySelector<HTMLInputElement>('input')?.click() }} onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); const dropped = event.dataTransfer.files[0]; if (dropped?.type === 'application/pdf' || dropped?.name.toLowerCase().endsWith('.pdf')) { setDocument(dropped); setRemoveDocument(false) } }}><input type="file" accept="application/pdf,.pdf" onChange={(event) => { setDocument(event.target.files?.[0] ?? null); setRemoveDocument(false); event.currentTarget.value = '' }} /><span className="project-pdf-name">{removeDocument ? 'PDF 將在儲存時移除' : document?.name ?? (editor !== 'new' && editor.documentUrl ? editor.documentName ?? decodeURIComponent(editor.documentUrl.split('/').pop() ?? '已附加 PDF 文件') : '拖曳 PDF 到這裡，或點擊選擇檔案')}</span>{(document || (editor !== 'new' && editor.documentUrl && !removeDocument)) && <button type="button" className="project-pdf-remove" aria-label="移除 PDF" onClick={(event) => { event.preventDefault(); event.stopPropagation(); if (!window.confirm('確定要移除這份 PDF 嗎？')) return; setDocument(null); setRemoveDocument(editor !== 'new' && Boolean(editor.documentUrl)) }}>×</button>}</div></div></div>
           {message && <p className="projects-feedback" role="alert">{message}</p>}
           <footer className="project-editor-actions"><button type="button" disabled={busy} onClick={closeEditor}>CANCEL</button><button type="submit" disabled={busy}>{busy ? 'SAVING…' : 'SAVE PROJECT'}</button></footer>
         </form>

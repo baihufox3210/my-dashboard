@@ -96,7 +96,7 @@ app.post('/api/admin/projects', requireSameOrigin, requireAuthentication, receiv
     id: crypto.randomUUID(), title: title.trim(), summary: summary?.trim() ?? '', description: description?.trim() ?? '', category: category?.trim() ?? '',
     tags: (tags ?? '').split(',').map((tag) => tag.trim()).filter(Boolean), projectUrl: projectUrl?.trim() ?? '',
     ...(files?.coverImage?.[0] ? { coverImage: `/uploads/${files.coverImage[0].filename}` } : {}),
-    ...(files?.document?.[0] ? { documentUrl: `/uploads/${files.document[0].filename}` } : {}), publishedAt: now, updatedAt: now,
+    ...(files?.document?.[0] ? { documentUrl: `/uploads/${files.document[0].filename}`, documentName: files.document[0].originalname } : {}), publishedAt: now, updatedAt: now,
   }
   const uploadedFiles = Object.values(request.files ?? {}).flat()
   try { await writeProjects([project, ...await readProjects()]) }
@@ -126,7 +126,7 @@ app.put('/api/admin/projects/:id', requireSameOrigin, requireAuthentication, rec
     ...existing, title: title.trim(), summary: summary?.trim() ?? '', description: description?.trim() ?? '', category: category?.trim() ?? '',
     tags: (tags ?? '').split(',').map((tag) => tag.trim()).filter(Boolean), projectUrl: projectUrl?.trim() ?? '', updatedAt: new Date().toISOString(),
     ...(files?.coverImage?.[0] ? { coverImage: `/uploads/${files.coverImage[0].filename}` } : {}),
-    ...(files?.document?.[0] ? { documentUrl: `/uploads/${files.document[0].filename}` } : body.removeDocument === 'true' ? { documentUrl: undefined } : {}),
+    ...(files?.document?.[0] ? { documentUrl: `/uploads/${files.document[0].filename}`, documentName: files.document[0].originalname } : body.removeDocument === 'true' ? { documentUrl: undefined, documentName: undefined } : {}),
   }
   try { await writeProjects(projects) }
   catch (error) { await removeProjectUploads(Object.values(request.files ?? {}).flat()); throw error }
