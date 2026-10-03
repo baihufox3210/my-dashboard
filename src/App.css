@@ -2131,7 +2131,9 @@ textarea.editor-content-input:focus-visible {
 }
 
 .blog-workspace-multiple-articles .blog-sidebar-viewport {
-  height: var(--blog-viewport-height);
+  /* The React layout measurement supplies the height of the second card. */
+  height: min(var(--blog-viewport-height), var(--blog-sidebar-height, var(--blog-viewport-height)));
+  overflow: hidden;
 }
 
 .blog-workspace-multiple-articles .blog-sidebar-content {

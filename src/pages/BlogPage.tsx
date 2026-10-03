@@ -31,7 +31,7 @@ function BlogPage() {
   const articleViewportRef = useRef<HTMLDivElement>(null)
   const sidebarOuterRef = useRef<HTMLElement>(null)
   const sidebarContentRef = useRef<HTMLDivElement>(null)
-  const [sidebarFit, setSidebarFit] = useState({ shift: 0, scale: 1 })
+  const [sidebarFit, setSidebarFit] = useState({ shift: 0, scale: 1, height: 0 })
 
   useEffect(() => {
     if (selectedArticle && !isAdmin) void recordPageView('article', { articleId: selectedArticle.id })
@@ -99,10 +99,11 @@ function BlogPage() {
     finally { setDraftBusy(false) }
   }
 
-  // Move both columns up together first. If the sidebar still does not fit
-  // between the topbar and bottom edge, scale its contents to fit that space.
+  // Keep the desktop workspace below the topbar's 25vh breathing room.
+  // If the sidebar is taller than the measured card range, scale its contents
+  // instead of moving the article cards into the topbar.
   useEffect(() => {
-    const lastFit = { shift: sidebarFit.shift, scale: sidebarFit.scale }
+    const lastFit = { shift: sidebarFit.shift, scale: sidebarFit.scale, height: sidebarFit.height }
     let frameId = 0
 
     function measure() {
@@ -110,29 +111,35 @@ function BlogPage() {
       const outerEl = sidebarOuterRef.current
       const contentEl = sidebarContentRef.current
       if (!articleEl || !outerEl || !contentEl || window.innerWidth <= 768) {
-        return { shift: 0, scale: 1 }
+        return { shift: 0, scale: 1, height: 0 }
       }
 
-      const articleBottom = articleEl.getBoundingClientRect().bottom
+      const articleCards = articleEl.querySelectorAll<HTMLElement>('.article-card-wrap')
+      const firstCard = articleCards[0]
+      const secondCard = articleCards[1]
+      const articleGap = Number.parseFloat(getComputedStyle(articleEl).rowGap) || 0
+      const firstCardRect = firstCard?.getBoundingClientRect()
+      const targetBottom = secondCard?.getBoundingClientRect().bottom
+        ?? (firstCardRect ? firstCardRect.bottom + firstCardRect.height + articleGap : articleEl.getBoundingClientRect().bottom)
       const outerTop = outerEl.getBoundingClientRect().top
       const naturalHeight = contentEl.scrollHeight
       const topbarEl = document.querySelector('.topbar')
-      const minTop = (topbarEl?.getBoundingClientRect().bottom ?? 0) + 16
+      const preferredTop = (topbarEl?.getBoundingClientRect().bottom ?? 0) + window.innerHeight * 0.25
       const bottomGap = 0
       // The workspace has already moved by the current shift, so restore it
       // when measuring the unshifted overflow and available travel distance.
       const unshiftedTop = outerTop + sidebarFit.shift
-      const overflow = unshiftedTop + naturalHeight - (articleBottom - bottomGap)
-      if (overflow <= 0) return { shift: 0, scale: 1 }
+      const overflow = unshiftedTop + naturalHeight - (targetBottom - bottomGap)
+      if (overflow <= 0) return { shift: 0, scale: 1, height: Math.max(1, targetBottom - unshiftedTop) }
 
-      const maxShift = Math.max(0, unshiftedTop - minTop)
+      const maxShift = Math.max(0, unshiftedTop - preferredTop)
       const shift = Math.min(overflow, maxShift)
       const remainingOverflow = Math.max(0, overflow - shift)
-      if (remainingOverflow <= 0) return { shift, scale: 1 }
+      const availableHeight = Math.max(1, targetBottom - bottomGap - (unshiftedTop - shift))
+      if (remainingOverflow <= 0) return { shift, scale: 1, height: availableHeight }
 
-      const availableHeight = Math.max(1, articleBottom - bottomGap - (unshiftedTop - shift))
       const scale = Math.min(1, availableHeight / naturalHeight)
-      return { shift, scale }
+      return { shift, scale, height: availableHeight }
     }
 
     function recalculate() {
@@ -140,7 +147,7 @@ function BlogPage() {
       frameId = requestAnimationFrame(() => {
         const next = measure()
         // Ignore sub-pixel noise so ResizeObserver can't retrigger itself endlessly.
-        if (Math.abs(next.shift - lastFit.shift) < 0.5 && Math.abs(next.scale - lastFit.scale) < 0.002) {
+        if (Math.abs(next.shift - lastFit.shift) < 0.5 && Math.abs(next.scale - lastFit.scale) < 0.002 && Math.abs(next.height - lastFit.height) < 0.5) {
           return
         }
         lastFit.shift = next.shift
@@ -161,7 +168,7 @@ function BlogPage() {
       resizeObserver.disconnect()
       window.removeEventListener('resize', recalculate)
     }
-  }, [articles, recentArticles.length, stats, popularTags.length, sidebarFit.shift, sidebarFit.scale])
+  }, [articles, recentArticles.length, stats, popularTags.length, sidebarFit.shift, sidebarFit.scale, sidebarFit.height])
 
   if (editor && isAdmin) return <main className="main-page blog-screen blog-editor-screen">
     <form className="blog-editor-form" onSubmit={saveDraft}><header><div><small>BLOG CONTENT</small><h1>{editor.mode === 'new' ? '撰寫文章' : '編輯文章'}</h1><p>文章集中在 Blog 管理，儲存後會更新文章列表。</p></div><a href="#blog">返回 Blog</a></header>
@@ -175,7 +182,10 @@ function BlogPage() {
     <main className="main-page blog-screen">
       <section
         className={`blog-workspace${articles.length > 1 ? ' blog-workspace-multiple-articles' : ''}`}
-        style={{ '--blog-shift': `${sidebarFit.shift}px` } as React.CSSProperties}
+        style={{
+          '--blog-shift': `${sidebarFit.shift}px`,
+          '--blog-sidebar-height': sidebarFit.height > 0 ? `${sidebarFit.height}px` : undefined,
+        } as React.CSSProperties}
       >
         <div className="blog-article-viewport blog-article-test-surface" ref={articleViewportRef}>
           {articles.length === 0 ? (
