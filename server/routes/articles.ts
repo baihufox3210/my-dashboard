@@ -7,19 +7,23 @@ import { upload, validateUploadedImages, removeProjectUploads } from '../uploads
 
 const router = Router()
 
-type ArticleInput = { title: string; content: string; category?: string; tags?: string }
+type ArticleInput = { title: string; content: string; category?: string; tags?: string; coverImagePosition?: string; coverImageScale?: number }
 
 function parseArticleInput(value: unknown): ArticleInput | undefined {
   if (!value || typeof value !== 'object') return undefined
   const body = value as Record<string, unknown>
-  const { title, content, category, tags } = body
+  const { title, content, category, tags, coverImagePosition } = body
+  const rawCoverImageScale = body.coverImageScale
+  const coverImageScale = typeof rawCoverImageScale === 'string' && rawCoverImageScale.trim() ? Number(rawCoverImageScale) : rawCoverImageScale
   if (
     typeof title !== 'string' || !title.trim() || title.length > 200 ||
     typeof content !== 'string' || !content.trim() || content.length > 500_000 ||
     (category !== undefined && (typeof category !== 'string' || category.length > 100)) ||
-    (tags !== undefined && (typeof tags !== 'string' || tags.length > 2000))
+    (tags !== undefined && (typeof tags !== 'string' || tags.length > 2000)) ||
+    (coverImagePosition !== undefined && (typeof coverImagePosition !== 'string' || !/^\d{1,3}%\s+\d{1,3}%$/.test(coverImagePosition))) ||
+    (coverImageScale !== undefined && (typeof coverImageScale !== 'number' || !Number.isFinite(coverImageScale) || coverImageScale < 1 || coverImageScale > 3))
   ) return undefined
-  return { title, content, category, tags }
+  return { title, content, category, tags, coverImagePosition, coverImageScale }
 }
 
 function parseTags(tags: string | undefined) {
@@ -47,6 +51,8 @@ router.post('/', requireSameOrigin, requireAuthentication, upload.single('coverI
     category: input.category?.trim() || 'Uncategorized',
     tags: parseTags(input.tags),
     ...(request.file ? { coverImage: `/uploads/${request.file.filename}` } : {}),
+    ...(input.coverImagePosition ? { coverImagePosition: input.coverImagePosition } : {}),
+    ...(input.coverImageScale ? { coverImageScale: input.coverImageScale } : {}),
     publishedAt: now,
     updatedAt: now,
   }
@@ -88,6 +94,8 @@ router.put('/:id', requireSameOrigin, requireAuthentication, upload.single('cove
     tags: parseTags(input.tags),
     updatedAt: now,
     ...(request.file ? { coverImage: `/uploads/${request.file.filename}` } : {}),
+    ...(input.coverImagePosition ? { coverImagePosition: input.coverImagePosition } : {}),
+    ...(input.coverImageScale ? { coverImageScale: input.coverImageScale } : {}),
   }
 
   articles[articleIndex] = updatedArticle

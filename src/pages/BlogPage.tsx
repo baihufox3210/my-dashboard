@@ -26,6 +26,8 @@ function BlogPage() {
   const [draftTags, setDraftTags] = useState('')
   const [draftContent, setDraftContent] = useState('')
   const [draftCover, setDraftCover] = useState<File | null>(null)
+  const [draftCoverPosition, setDraftCoverPosition] = useState('50% 50%')
+  const [draftCoverScale, setDraftCoverScale] = useState(1)
   const [draftBusy, setDraftBusy] = useState(false)
   const [draftPreview, setDraftPreview] = useState(false)
   const articleViewportRef = useRef<HTMLDivElement>(null)
@@ -76,6 +78,8 @@ function BlogPage() {
       setDraftTags(article?.tags.join(', ') ?? '')
       setDraftContent(article?.content ?? '')
       setDraftCover(null)
+      setDraftCoverPosition(article?.coverImagePosition ?? '50% 50%')
+      setDraftCoverScale(article?.coverImageScale ?? 1)
       setDraftPreview(false)
       setAdminMessage('')
     }
@@ -87,7 +91,7 @@ function BlogPage() {
   async function saveDraft(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
     const form = new FormData()
-    form.set('title', draftTitle); form.set('category', draftCategory); form.set('tags', draftTags); form.set('content', draftContent)
+    form.set('title', draftTitle); form.set('category', draftCategory); form.set('tags', draftTags); form.set('content', draftContent); form.set('coverImagePosition', draftCoverPosition); form.set('coverImageScale', String(draftCoverScale))
     if (draftCover) form.set('coverImage', draftCover)
     setDraftBusy(true); setAdminMessage('')
     try {
@@ -172,8 +176,10 @@ function BlogPage() {
 
   if (editor && isAdmin) return <main className="main-page blog-screen blog-editor-screen">
     <form className="blog-editor-form" onSubmit={saveDraft}><header><div><small>BLOG CONTENT</small><h1>{editor.mode === 'new' ? '撰寫文章' : '編輯文章'}</h1><p>文章集中在 Blog 管理，儲存後會更新文章列表。</p></div><a href="#blog">返回 Blog</a></header>
-      <div className="blog-editor-meta"><label>文章標題<input value={draftTitle} onChange={(event) => setDraftTitle(event.target.value)} placeholder="輸入文章標題" required /></label><label>分類<input value={draftCategory} onChange={(event) => setDraftCategory(event.target.value)} placeholder="未分類" /></label><label>標籤<input value={draftTags} onChange={(event) => setDraftTags(event.target.value)} placeholder="以逗號分隔" /></label><div className="blog-upload-field"><span>封面圖片</span><FileDropzone title="上傳文章封面" file={draftCover} previewUrl={articles.find((article) => article.id === editor.id)?.coverImage} onFile={setDraftCover} /></div></div>
-      <div className="blog-editor-writing"><div className="blog-editor-toolbar"><strong>文章內容 <span>支援 Markdown</span></strong><div><button type="button" className={!draftPreview ? 'active' : ''} onClick={() => setDraftPreview(false)}>編輯</button><button type="button" className={draftPreview ? 'active' : ''} onClick={() => setDraftPreview(true)}>預覽</button></div></div>{draftPreview ? <div className="blog-editor-preview">{draftContent ? <MarkdownPreview content={draftContent} /> : <p>輸入內容後會在這裡預覽。</p>}</div> : <textarea value={draftContent} onChange={(event) => setDraftContent(event.target.value)} placeholder="開始撰寫…" required />}</div>
+      <div className="blog-editor-workspace">
+        <aside className="blog-editor-meta"><label><input aria-label="文章標題" value={draftTitle} onChange={(event) => setDraftTitle(event.target.value)} placeholder="文章標題" required /></label><label><input aria-label="分類" value={draftCategory} onChange={(event) => setDraftCategory(event.target.value)} placeholder="分類" /></label><label><input aria-label="標籤" value={draftTags} onChange={(event) => setDraftTags(event.target.value)} placeholder="標籤（以逗號分隔）" /></label><div className="blog-upload-field"><span>封面圖片</span><FileDropzone title="上傳文章封面" file={draftCover} previewUrl={articles.find((article) => article.id === editor.id)?.coverImage} imagePosition={draftCoverPosition} imageScale={draftCoverScale} onImagePositionChange={setDraftCoverPosition} onImageScaleChange={setDraftCoverScale} onFile={setDraftCover} /></div></aside>
+        <section className="blog-editor-writing"><div className="blog-editor-toolbar"><strong>文章內容 <span>支援 Markdown</span></strong><div><button type="button" className={!draftPreview ? 'active' : ''} onClick={() => setDraftPreview(false)}>編輯</button><button type="button" className={draftPreview ? 'active' : ''} onClick={() => setDraftPreview(true)}>預覽</button></div></div>{draftPreview ? <div className="blog-editor-preview">{draftContent ? <MarkdownPreview content={draftContent} /> : <p>輸入內容後會在這裡預覽。</p>}</div> : <textarea value={draftContent} onChange={(event) => setDraftContent(event.target.value)} placeholder="開始撰寫…" required />}</section>
+      </div>
       {adminMessage && <p className="error-message">{adminMessage}</p>}<footer><a href="#blog">取消</a><button className="save-button" disabled={draftBusy}>{draftBusy ? '儲存中…' : '儲存文章'}</button></footer>
     </form>
   </main>
@@ -197,7 +203,7 @@ function BlogPage() {
             articles.map((article) => (
               <div key={article.id} className="article-card-wrap">
               <button className="public-article-card" type="button" onClick={() => setSelectedArticle(article)}>
-                {article.coverImage && <img src={article.coverImage} alt="" />}
+                {article.coverImage && <img src={article.coverImage} alt="" style={{ objectPosition: article.coverImagePosition ?? '50% 50%', transform: `scale(${article.coverImageScale ?? 1})` }} />}
                 <span>
                   <small>{article.category} · {new Date(article.publishedAt).toLocaleDateString()}</small>
                   <strong>{article.title}</strong>
@@ -264,27 +270,33 @@ function BlogPage() {
       </section>
 
       {selectedArticle && (
-        <div className="article-reader-backdrop" role="presentation" onClick={() => setSelectedArticle(null)}>
-          <article className="article-reader" onClick={(event) => event.stopPropagation()}>
-            <button type="button" className="secondary-button" onClick={() => setSelectedArticle(null)}>Close</button>
-            <p className="placeholder-label">{selectedArticle.category} · {new Date(selectedArticle.publishedAt).toLocaleDateString()}</p>
-            <h2>{selectedArticle.title}</h2>
-            {selectedArticle.coverImage && <img src={selectedArticle.coverImage} alt="" />}
-            <MarkdownPreview content={selectedArticle.content} />
+        <div className="project-modal-backdrop article-reader-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setSelectedArticle(null) }}>
+          <article className="project-detail-modal article-reader" role="dialog" aria-modal="true" aria-labelledby="article-reader-title">
+            <header className="project-detail-header">
+              <p>{selectedArticle.category || 'BLOG POST'} <span>///</span> {new Date(selectedArticle.publishedAt).toLocaleDateString()}</p>
+              <button type="button" aria-label="關閉文章" onClick={() => setSelectedArticle(null)}>×</button>
+            </header>
+            {selectedArticle.coverImage && <img className="project-detail-cover" src={selectedArticle.coverImage} alt="" style={{ objectPosition: selectedArticle.coverImagePosition ?? '50% 50%', transform: `scale(${selectedArticle.coverImageScale ?? 1})` }} />}
+            <h2 id="article-reader-title">{selectedArticle.title}</h2>
+            <div className="project-detail-content article-reader-content">
+              <MarkdownPreview content={selectedArticle.content} />
+            </div>
             {isAdmin && (
-              <div className="article-admin-actions">
-                <a href={`#blog/edit/${encodeURIComponent(selectedArticle.id)}`}>編輯文章</a>
-                <button type="button" onClick={() => {
-                  if (window.confirm(`Delete "${selectedArticle.title}"?`)) {
-                    deleteArticle(selectedArticle.id)
-                      .then(() => {
-                        setArticles((current) => current.filter((item) => item.id !== selectedArticle.id))
-                        setSelectedArticle(null)
-                      })
-                      .catch((deleteError) => setAdminMessage(deleteError instanceof Error ? deleteError.message : 'Delete failed.'))
-                  }
-                }}>Delete</button>
-              </div>
+              <footer className="project-detail-actions">
+                <div className="project-detail-admin-actions">
+                  <a href={`#blog/edit/${encodeURIComponent(selectedArticle.id)}`}>EDIT ARTICLE</a>
+                  <button type="button" className="project-delete-button" onClick={() => {
+                    if (window.confirm(`Delete "${selectedArticle.title}"?`)) {
+                      deleteArticle(selectedArticle.id)
+                        .then(() => {
+                          setArticles((current) => current.filter((item) => item.id !== selectedArticle.id))
+                          setSelectedArticle(null)
+                        })
+                        .catch((deleteError) => setAdminMessage(deleteError instanceof Error ? deleteError.message : 'Delete failed.'))
+                    }
+                  }}>DELETE ARTICLE</button>
+                </div>
+              </footer>
             )}
             {adminMessage && <p className="error-message">{adminMessage}</p>}
           </article>

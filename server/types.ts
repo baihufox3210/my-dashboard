@@ -5,6 +5,8 @@ export type Article = {
   category: string
   tags: string[]
   coverImage?: string
+  coverImagePosition?: string
+  coverImageScale?: number
   publishedAt: string
   updatedAt?: string
 }
