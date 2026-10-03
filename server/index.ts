@@ -12,7 +12,6 @@ import {
   host,
   port,
   sessionLifetimeMs,
-  siteStartDate,
   uploadsDirectory,
 } from './config.js'
 import {
@@ -45,7 +44,7 @@ import {
   writeSiteSettings,
 } from './storage.js'
 import { projectUpload, removeProjectAssets, removeProjectUploads, upload, validateProjectFiles, validateUploadedImages } from './uploads.js'
-import { boundedText, countWords, daysSince, getAnalyticsDevice, isSafeSocialUrl } from './validation.js'
+import { boundedText, getAnalyticsDevice, isSafeSocialUrl } from './validation.js'
 import { getClientIp, hashSessionId, isAuthenticated, loginFailures, requireAuthentication, requireSameOrigin, sessions } from './security.js'
 import articleRoutes from './routes/articles.js'
 import publicRoutes from './routes/public.js'
