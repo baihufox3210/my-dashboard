@@ -3825,6 +3825,11 @@ button, input, textarea, select { font-kerning: normal; }
   .project-card, .project-action > span { transition: none; }
 }
 
+/* Projects use the same full-width, one-item-per-row rhythm as Blog. */
+.projects-page { width: min(100%,78.2rem); max-width: 78.2rem; }
+.projects-grid { grid-template-columns: 1fr; }
+.project-card-featured { grid-column: auto; grid-row: auto; }
+
 /* Keep the cover upload flush with its frame once an image exists. */
 .file-dropzone.has-image { padding: 0; border-style: solid; border-color: rgba(255,255,255,.5); background: rgba(255,255,255,.12); }
 .file-dropzone.has-image > img { width: 100%; margin: 0; border-radius: 10px 10px 0 0; }
