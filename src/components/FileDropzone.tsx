@@ -14,10 +14,14 @@ function FileDropzone({ title, hint = '點擊選取，或將圖片拖曳至此',
   const [localPreview, setLocalPreview] = useState('')
 
   useEffect(() => {
-    if (!file) { setLocalPreview(''); return }
+    let active = true
+    if (!file) {
+      queueMicrotask(() => { if (active) setLocalPreview('') })
+      return () => { active = false }
+    }
     const url = URL.createObjectURL(file)
-    setLocalPreview(url)
-    return () => URL.revokeObjectURL(url)
+    queueMicrotask(() => { if (active) setLocalPreview(url) })
+    return () => { active = false; URL.revokeObjectURL(url) }
   }, [file])
 
   function acceptFiles(files: FileList | null) {

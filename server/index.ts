@@ -8,7 +8,6 @@ import {
   adminPassword,
   adminUsername,
   analyticsFile,
-  homeProfileFile,
   host,
   port,
   sessionLifetimeMs,
@@ -40,6 +39,7 @@ import {
   waitForActivityWrites,
   waitForAnalyticsWrites,
   writeFriends,
+  writeHomeProfile,
   writeProjects,
   writeSiteSettings,
 } from './storage.js'
@@ -411,7 +411,7 @@ app.put('/api/admin/home-profile', requireSameOrigin, requireAuthentication, upl
     updateText: body.updateText?.trim() ?? '',
     ...(request.file ? { avatarUrl: `/uploads/${request.file.filename}` } : existing.avatarUrl ? { avatarUrl: existing.avatarUrl } : {}),
   }
-  await fs.writeFile(homeProfileFile, `${JSON.stringify(updated, null, 2)}\n`, 'utf8')
+  await writeHomeProfile(updated)
   await recordActivity({ at: new Date().toISOString(), type: 'homepage', action: 'saved', title: '首頁個人介紹' })
   response.json(updated)
 })

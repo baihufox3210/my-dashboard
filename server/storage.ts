@@ -27,19 +27,33 @@ import {
   type SiteSettings,
 } from './types.js'
 
+let sessionWriteQueue: Promise<void> = Promise.resolve()
 let analyticsWriteQueue: Promise<void> = Promise.resolve()
 let activityWriteQueue: Promise<void> = Promise.resolve()
 
-export async function persistSessions(sessions: Map<string, number>) {
-  const temporaryFile = `${sessionsFile}.${crypto.randomUUID()}.tmp`
+type AtomicWriteOptions = { mode?: number; pretty?: boolean }
+
+export async function writeJsonAtomically(file: string, value: unknown, options: AtomicWriteOptions = {}) {
+  const temporaryFile = `${file}.${crypto.randomUUID()}.tmp`
+  const serialized = JSON.stringify(value, null, options.pretty ? 2 : undefined)
   try {
-    await fs.writeFile(temporaryFile, `${JSON.stringify([...sessions.entries()])}\n`, { encoding: 'utf8', mode: 0o600, flag: 'wx' })
-    await fs.rename(temporaryFile, sessionsFile)
-    await fs.chmod(sessionsFile, 0o600)
+    await fs.writeFile(temporaryFile, `${serialized}\n`, {
+      encoding: 'utf8',
+      flag: 'wx',
+      ...(options.mode === undefined ? {} : { mode: options.mode }),
+    })
+    await fs.rename(temporaryFile, file)
+    if (options.mode !== undefined) await fs.chmod(file, options.mode)
   } catch (error) {
     await fs.unlink(temporaryFile).catch(() => undefined)
     throw error
   }
+}
+
+export function persistSessions(sessions: Map<string, number>) {
+  const operation = sessionWriteQueue.then(() => writeJsonAtomically(sessionsFile, [...sessions.entries()], { mode: 0o600 }))
+  sessionWriteQueue = operation.catch((error: unknown) => console.error('Could not persist admin sessions:', error))
+  return operation
 }
 
 export async function ensureStorage(sessions: Map<string, number>) {
@@ -87,7 +101,7 @@ export async function readArticles(): Promise<Article[]> {
 }
 
 export async function writeArticles(articles: Article[]) {
-  await fs.writeFile(articlesFile, `${JSON.stringify(articles, null, 2)}\n`, 'utf8')
+  await writeJsonAtomically(articlesFile, articles, { pretty: true })
 }
 
 export async function readFriends(): Promise<Friend[]> {
@@ -96,7 +110,7 @@ export async function readFriends(): Promise<Friend[]> {
 }
 
 export async function writeFriends(friends: Friend[]) {
-  await fs.writeFile(friendsFile, `${JSON.stringify(friends, null, 2)}\n`, 'utf8')
+  await writeJsonAtomically(friendsFile, friends, { pretty: true })
 }
 
 export async function readProjects(): Promise<Project[]> {
@@ -105,7 +119,7 @@ export async function readProjects(): Promise<Project[]> {
 }
 
 export async function writeProjects(projects: Project[]) {
-  await fs.writeFile(projectsFile, `${JSON.stringify(projects, null, 2)}\n`, 'utf8')
+  await writeJsonAtomically(projectsFile, projects, { pretty: true })
 }
 
 export async function readSiteSettings(): Promise<SiteSettings> {
@@ -119,11 +133,15 @@ export async function readSiteSettings(): Promise<SiteSettings> {
 }
 
 export async function writeSiteSettings(settings: SiteSettings) {
-  await fs.writeFile(siteSettingsFile, `${JSON.stringify(settings, null, 2)}\n`, 'utf8')
+  await writeJsonAtomically(siteSettingsFile, settings, { pretty: true })
 }
 
 export async function readHomeProfile(): Promise<HomeProfile> {
   return { ...defaultHomeProfile, ...(JSON.parse(await fs.readFile(homeProfileFile, 'utf8')) as Partial<HomeProfile>) }
+}
+
+export async function writeHomeProfile(profile: HomeProfile) {
+  await writeJsonAtomically(homeProfileFile, profile, { pretty: true })
 }
 
 export async function queuePageView(page: AnalyticsPage, device: AnalyticsDevice, articleId?: string, source?: AnalyticsSource) {
@@ -135,9 +153,7 @@ export async function queuePageView(page: AnalyticsPage, device: AnalyticsDevice
     else rows.push({ day, page, device, views: 1, ...(articleId ? { articleId } : {}), ...(source ? { source } : {}) })
     const cutoff = new Date(Date.now() - 120 * 86_400_000).toISOString().slice(0, 10)
     const retained = rows.filter((row) => row.day >= cutoff)
-    const temporaryFile = `${analyticsFile}.${crypto.randomUUID()}.tmp`
-    await fs.writeFile(temporaryFile, `${JSON.stringify(retained)}\n`, { encoding: 'utf8', mode: 0o600, flag: 'wx' })
-    await fs.rename(temporaryFile, analyticsFile)
+    await writeJsonAtomically(analyticsFile, retained, { mode: 0o600 })
   })
   analyticsWriteQueue = operation.catch((error: unknown) => console.error('Could not save page view:', error))
   return operation
@@ -151,9 +167,7 @@ export function recordActivity(entry: ActivityEntry) {
   const operation = activityWriteQueue.then(async () => {
     const entries = JSON.parse(await fs.readFile(activityFile, 'utf8')) as ActivityEntry[]
     entries.unshift(entry)
-    const temporaryFile = `${activityFile}.${crypto.randomUUID()}.tmp`
-    await fs.writeFile(temporaryFile, `${JSON.stringify(entries.slice(0, 50), null, 2)}\n`, { encoding: 'utf8', mode: 0o600, flag: 'wx' })
-    await fs.rename(temporaryFile, activityFile)
+    await writeJsonAtomically(activityFile, entries.slice(0, 50), { mode: 0o600, pretty: true })
   })
   activityWriteQueue = operation.catch((error: unknown) => console.error('Could not save admin activity:', error))
   return activityWriteQueue

@@ -6,11 +6,26 @@ import path from 'node:path'
 import { uploadsDirectory } from './config.js'
 import { readProjects } from './storage.js'
 
+const imageMimeTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'] as const
+const projectMimeTypes = [...imageMimeTypes, 'application/pdf'] as const
+const pngSignature = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])
+
+function isValidImageHeader(header: Buffer) {
+  return (header[0] === 0xff && header[1] === 0xd8 && header[2] === 0xff) ||
+    header.subarray(0, 8).equals(pngSignature) ||
+    (header.toString('ascii', 0, 4) === 'RIFF' && header.toString('ascii', 8, 12) === 'WEBP') ||
+    header.toString('ascii', 0, 3) === 'GIF'
+}
+
+async function readHeader(file: Express.Multer.File, length: number) {
+  return fs.readFile(file.path).then((buffer) => buffer.subarray(0, length)).catch(() => Buffer.alloc(0))
+}
+
 export const upload = multer({
   dest: uploadsDirectory,
   limits: { fileSize: 8 * 1024 * 1024, files: 2, fields: 20, fieldSize: 1024 * 1024 },
   fileFilter: (_request, file, callback) => {
-    if (!['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(file.mimetype)) {
+    if (!imageMimeTypes.includes(file.mimetype as typeof imageMimeTypes[number])) {
       callback(new Error('Unsupported image type.'))
       return
     }
@@ -31,7 +46,7 @@ export const projectUpload = multer({
   }),
   limits: { fileSize: 25 * 1024 * 1024, files: 2, fields: 20, fieldSize: 1024 * 1024 },
   fileFilter: (_request, file, callback) => {
-    if (!['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'application/pdf'].includes(file.mimetype)) {
+    if (!projectMimeTypes.includes(file.mimetype as typeof projectMimeTypes[number])) {
       callback(new Error('Unsupported project file type.'))
       return
     }
@@ -49,13 +64,12 @@ export async function validateProjectFiles(request: express.Request, response: e
   }
   if (cover) {
     if (cover.size > 8 * 1024 * 1024) { await removeInvalid('封面圖片請限制在 8 MB 以內。'); return }
-    const header = await fs.readFile(cover.path).then((buffer) => buffer.subarray(0, 12)).catch(() => Buffer.alloc(0))
-    const valid = (header[0] === 0xff && header[1] === 0xd8 && header[2] === 0xff) || header.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])) || (header.toString('ascii', 0, 4) === 'RIFF' && header.toString('ascii', 8, 12) === 'WEBP') || header.toString('ascii', 0, 3) === 'GIF'
-    if (!valid) { await removeInvalid('封面必須是有效的 JPEG、PNG、WebP 或 GIF 圖片。'); return }
+    const header = await readHeader(cover, 12)
+    if (!isValidImageHeader(header)) { await removeInvalid('封面必須是有效的 JPEG、PNG、WebP 或 GIF 圖片。'); return }
   }
   if (document) {
-    const header = await fs.readFile(document.path).then((buffer) => buffer.subarray(0, 5).toString('ascii')).catch(() => '')
-    if (header !== '%PDF-') { await removeInvalid('文件必須是有效的 PDF。'); return }
+    const header = await readHeader(document, 5)
+    if (header.toString('ascii') !== '%PDF-') { await removeInvalid('文件必須是有效的 PDF。'); return }
   }
   next()
 }
@@ -88,13 +102,8 @@ export async function validateUploadedImages(
     ...(Array.isArray(request.files) ? request.files : Object.values(request.files ?? {}).flat()),
   ]
   for (const file of files) {
-    const header = await fs.readFile(file.path).then((buffer) => buffer.subarray(0, 12)).catch(() => Buffer.alloc(0))
-    const valid =
-      (header[0] === 0xff && header[1] === 0xd8 && header[2] === 0xff) ||
-      header.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])) ||
-      (header.toString('ascii', 0, 4) === 'RIFF' && header.toString('ascii', 8, 12) === 'WEBP') ||
-      header.toString('ascii', 0, 3) === 'GIF'
-    if (!valid) {
+    const header = await readHeader(file, 12)
+    if (!isValidImageHeader(header)) {
       await Promise.all(files.map((uploaded) => fs.unlink(uploaded.path).catch(() => undefined)))
       response.status(400).json({ message: 'Only valid JPEG, PNG, WebP, or GIF images are accepted.' })
       return
