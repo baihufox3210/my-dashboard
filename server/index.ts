@@ -3,325 +3,59 @@ import crypto from 'node:crypto'
 import express from 'express'
 import fs from 'node:fs/promises'
 import multer from 'multer'
-import path from 'node:path'
-import { fileURLToPath } from 'node:url'
-import 'dotenv/config'
+import {
+  activityFile,
+  adminPassword,
+  adminUsername,
+  analyticsFile,
+  homeProfileFile,
+  host,
+  port,
+  sessionLifetimeMs,
+  siteStartDate,
+  trustedProxyIp,
+  uploadsDirectory,
+} from './config.js'
+import {
+  defaultHomeProfile,
+  defaultSiteSettings,
+  type ActivityEntry,
+  type AnalyticsDevice,
+  type AnalyticsPage,
+  type AnalyticsRow,
+  type AnalyticsSource,
+  type Article,
+  type Friend,
+  type HomeProfile,
+  type Project,
+  type SiteSettings,
+} from './types.js'
+import {
+  ensureStorage,
+  persistSessions,
+  queuePageView,
+  readArticles,
+  readFriends,
+  readHomeProfile,
+  readProjects,
+  readSiteSettings,
+  recordActivity,
+  waitForActivityWrites,
+  waitForAnalyticsWrites,
+  writeArticles,
+  writeFriends,
+  writeProjects,
+  writeSiteSettings,
+} from './storage.js'
+import { projectUpload, removeProjectAssets, removeProjectUploads, upload, validateProjectFiles, validateUploadedImages } from './uploads.js'
+import { boundedText, countWords, daysSince, getAnalyticsDevice, isSafeSocialUrl } from './validation.js'
 
-const currentFile = fileURLToPath(import.meta.url)
-const currentDirectory = path.dirname(currentFile)
-const projectDirectory = path.resolve(currentDirectory, '..')
-const dataDirectory = path.join(projectDirectory, 'data')
-const articlesFile = path.join(dataDirectory, 'articles.json')
-const siteSettingsFile = path.join(dataDirectory, 'site-settings.json')
-const homeProfileFile = path.join(dataDirectory, 'home-profile.json')
-const sessionsFile = path.join(dataDirectory, 'admin-sessions.json')
-const analyticsFile = path.join(dataDirectory, 'analytics.json')
-const activityFile = path.join(dataDirectory, 'admin-activity.json')
-const friendsFile = path.join(dataDirectory, 'friends.json')
-const projectsFile = path.join(dataDirectory, 'projects.json')
-const uploadsDirectory = path.join(projectDirectory, 'public', 'uploads')
-const sessionLifetimeMs = 24 * 60 * 60 * 1000
 const sessions = new Map<string, number>()
 const loginFailures = new Map<string, { count: number; windowStarted: number; blockedUntil: number }>()
 const analyticsRateLimits = new Map<string, { count: number; windowStarted: number }>()
-type AnalyticsPage = 'home' | 'about' | 'projects' | 'blog' | 'article' | 'contact' | 'friends'
-type AnalyticsDevice = 'mobile' | 'tablet' | 'desktop'
-type AnalyticsSource = 'direct' | 'search' | 'social' | 'referral'
-type AnalyticsRow = { day: string; page: AnalyticsPage; device: AnalyticsDevice; views: number; articleId?: string; source?: AnalyticsSource }
-type ActivityEntry = { at: string; type: 'article' | 'homepage' | 'site'; action: 'published' | 'updated' | 'deleted' | 'saved'; title: string }
-let analyticsWriteQueue: Promise<void> = Promise.resolve()
-let activityWriteQueue: Promise<void> = Promise.resolve()
-const port = Number(process.env.PORT ?? 3001)
-const host = process.env.API_HOST ?? '127.0.0.1'
-const trustedProxyIp = process.env.TRUSTED_PROXY_IP
-const adminUsername = process.env.ADMIN_USERNAME
-const adminPassword = process.env.ADMIN_PASSWORD
-const siteStartDate = process.env.SITE_START_DATE ?? new Date().toISOString()
-
-if (!adminUsername || !adminPassword || adminPassword.length < 8 || adminUsername === 'admin' || adminPassword === 'change-me') {
-  throw new Error('Set ADMIN_USERNAME and a unique ADMIN_PASSWORD of at least 8 characters before starting the server.')
-}
-
-type Article = {
-  id: string
-  title: string
-  content: string
-  category: string
-  tags: string[]
-  coverImage?: string
-  publishedAt: string
-  updatedAt?: string
-}
-
-type SiteSettings = {
-  siteName: string
-  biography: string
-  experience: string
-  avatarUrl?: string
-  backgroundUrl?: string
-  backgroundPositionX?: number
-  backgroundPositionY?: number
-}
-
-type HomeProfile = {
-  name: string
-  introduction: string
-  quote: string
-  avatarUrl?: string
-  socials: { name: string; url: string }[]
-  tags: string[]
-  avatarMessages: string[]
-  updateTitle: string
-  updateText: string
-}
-
-type Friend = { id: string; name: string; introduction: string; url: string; avatarUrl?: string }
-type Project = { id: string; title: string; summary: string; description: string; category: string; tags: string[]; projectUrl: string; coverImage?: string; documentUrl?: string; publishedAt: string; updatedAt?: string }
-
-const defaultHomeProfile: HomeProfile = {
-  name: 'baihu',
-  introduction: '喜歡動手做，也喜歡把有趣的想法變成作品。',
-  quote: 'Stay curious, keep building.',
-  socials: [
-    { name: 'Instagram', url: 'https://www.instagram.com/baihu3210' },
-    { name: 'Discord', url: 'https://discord.com/users/808972376619483137' },
-    { name: 'GitHub', url: 'https://github.com/baihufox3210' },
-  ],
-  tags: [],
-  avatarMessages: ['嗨，歡迎來逛逛！ (｡•̀ᴗ-)✧', '今天也要保持好奇心！ (ง •̀_•́)ง', '謝謝你來看我的網站～ (´▽`ʃ♡ƪ)'],
-  updateTitle: '最近在做什麼',
-  updateText: '目前專注在機器人、程式與新點子的實作。',
-}
-
-const defaultSiteSettings: SiteSettings = {
-  siteName: 'Baihu Personal Website',
-  biography: '',
-  experience: '',
-}
-
-const upload = multer({
-  dest: uploadsDirectory,
-  limits: { fileSize: 8 * 1024 * 1024, files: 2, fields: 20, fieldSize: 1024 * 1024 },
-  fileFilter: (_request, file, callback) => {
-    if (!['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(file.mimetype)) {
-      callback(new Error('Unsupported image type.'))
-      return
-    }
-    callback(null, true)
-  },
-})
-const projectUpload = multer({
-  storage: multer.diskStorage({
-    destination: uploadsDirectory,
-    filename: (_request, file, callback) => {
-      const extension = file.mimetype === 'application/pdf' ? '.pdf'
-        : file.mimetype === 'image/jpeg' ? '.jpg'
-          : file.mimetype === 'image/png' ? '.png'
-            : file.mimetype === 'image/webp' ? '.webp' : '.gif'
-      callback(null, `${crypto.randomUUID()}${extension}`)
-    },
-  }),
-  limits: { fileSize: 25 * 1024 * 1024, files: 2, fields: 20, fieldSize: 1024 * 1024 },
-  fileFilter: (_request, file, callback) => {
-    if (!['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'application/pdf'].includes(file.mimetype)) {
-      callback(new Error('Unsupported project file type.'))
-      return
-    }
-    callback(null, true)
-  },
-})
-
-async function validateProjectFiles(request: express.Request, response: express.Response, next: express.NextFunction) {
-  const files = request.files as { coverImage?: Express.Multer.File[]; document?: Express.Multer.File[] } | undefined
-  const cover = files?.coverImage?.[0]
-  const document = files?.document?.[0]
-  const removeInvalid = async (message: string) => {
-    await removeProjectUploads([cover, document].filter((file): file is Express.Multer.File => Boolean(file)))
-    response.status(400).json({ message })
-  }
-  if (cover) {
-    if (cover.size > 8 * 1024 * 1024) { await removeInvalid('封面圖片請限制在 8 MB 以內。'); return }
-    const header = await fs.readFile(cover.path).then((buffer) => buffer.subarray(0, 12)).catch(() => Buffer.alloc(0))
-    const valid = (header[0] === 0xff && header[1] === 0xd8 && header[2] === 0xff) || header.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])) || (header.toString('ascii', 0, 4) === 'RIFF' && header.toString('ascii', 8, 12) === 'WEBP') || header.toString('ascii', 0, 3) === 'GIF'
-    if (!valid) { await removeInvalid('封面必須是有效的 JPEG、PNG、WebP 或 GIF 圖片。'); return }
-  }
-  if (document) {
-    const header = await fs.readFile(document.path).then((buffer) => buffer.subarray(0, 5).toString('ascii')).catch(() => '')
-    if (header !== '%PDF-') { await removeInvalid('文件必須是有效的 PDF。'); return }
-  }
-  next()
-}
-
-async function removeProjectUploads(files: Express.Multer.File[] = []) {
-  await Promise.all(files.map((file) => fs.unlink(file.path).catch(() => undefined)))
-}
-
-async function removeProjectAssets(...urls: (string | undefined)[]) {
-  const projects = await readProjects()
-  const referencedAssets = new Set(projects.flatMap((project) => [project.coverImage, project.documentUrl].filter((url): url is string => Boolean(url))))
-  const files = urls.flatMap((url) => {
-    if (!url?.startsWith('/uploads/') || referencedAssets.has(url)) return []
-    const filename = path.basename(url)
-    if (!filename || filename !== url.slice('/uploads/'.length)) return []
-    return [path.join(uploadsDirectory, filename)]
-  })
-  await Promise.all(files.map((file) => fs.unlink(file).catch((error: unknown) => {
-    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
-  })))
-}
-
-async function validateUploadedImages(
-  request: express.Request,
-  response: express.Response,
-  next: express.NextFunction,
-) {
-  const files = [
-    ...(request.file ? [request.file] : []),
-    ...(Array.isArray(request.files) ? request.files : Object.values(request.files ?? {}).flat()),
-  ]
-  for (const file of files) {
-    const header = await fs.readFile(file.path).then((buffer) => buffer.subarray(0, 12)).catch(() => Buffer.alloc(0))
-    const valid =
-      (header[0] === 0xff && header[1] === 0xd8 && header[2] === 0xff) ||
-      (header.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))) ||
-      (header.toString('ascii', 0, 4) === 'RIFF' && header.toString('ascii', 8, 12) === 'WEBP') ||
-      (header.toString('ascii', 0, 3) === 'GIF')
-    if (!valid) {
-      await Promise.all(files.map((uploaded) => fs.unlink(uploaded.path).catch(() => undefined)))
-      response.status(400).json({ message: 'Only valid JPEG, PNG, WebP, or GIF images are accepted.' })
-      return
-    }
-  }
-  next()
-}
-
-function boundedText(value: unknown, maxLength: number) {
-  return typeof value === 'string' && value.length <= maxLength
-}
-
-function isSafeSocialUrl(value: string) {
-  try {
-    const parsed = new URL(value)
-    return (parsed.protocol === 'https:' || parsed.protocol === 'http:') && value.length <= 2048
-  } catch {
-    return false
-  }
-}
-
-async function ensureStorage() {
-  await fs.mkdir(dataDirectory, { recursive: true })
-  await fs.mkdir(uploadsDirectory, { recursive: true })
-
-  try {
-    await fs.access(articlesFile)
-  } catch {
-    await fs.writeFile(articlesFile, '[]\n', 'utf8')
-  }
-
-  try { await fs.access(projectsFile) }
-  catch { await fs.writeFile(projectsFile, '[]\n', 'utf8') }
-
-  try {
-    await fs.access(siteSettingsFile)
-  } catch {
-    await fs.writeFile(siteSettingsFile, `${JSON.stringify(defaultSiteSettings, null, 2)}\n`, 'utf8')
-  }
-
-  try {
-    await fs.access(homeProfileFile)
-  } catch {
-    await fs.writeFile(homeProfileFile, `${JSON.stringify(defaultHomeProfile, null, 2)}\n`, 'utf8')
-  }
-
-  try {
-    await fs.access(analyticsFile)
-  } catch {
-    await fs.writeFile(analyticsFile, '[]\n', 'utf8')
-  }
-  try {
-    await fs.access(activityFile)
-  } catch {
-    await fs.writeFile(activityFile, '[]\n', 'utf8')
-  }
-
-  try {
-    const savedSessions = JSON.parse(await fs.readFile(sessionsFile, 'utf8')) as unknown
-    if (Array.isArray(savedSessions)) {
-      for (const entry of savedSessions) {
-        if (!Array.isArray(entry)) continue
-        const [sessionHash, expiresAt] = entry as [unknown, unknown]
-        if (typeof sessionHash === 'string' && /^[a-f0-9]{64}$/.test(sessionHash) && typeof expiresAt === 'number' && expiresAt > Date.now()) {
-          sessions.set(sessionHash, expiresAt)
-        }
-      }
-    }
-    await persistSessions()
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
-  }
-}
-
-async function readArticles(): Promise<Article[]> {
-  const content = await fs.readFile(articlesFile, 'utf8')
-  return JSON.parse(content) as Article[]
-}
-
-async function writeArticles(articles: Article[]) {
-  await fs.writeFile(articlesFile, `${JSON.stringify(articles, null, 2)}\n`, 'utf8')
-}
-
-async function readFriends(): Promise<Friend[]> {
-  try { return JSON.parse(await fs.readFile(friendsFile, 'utf8')) as Friend[] }
-  catch (error) { if ((error as NodeJS.ErrnoException).code === 'ENOENT') return []; throw error }
-}
-
-async function writeFriends(friends: Friend[]) {
-  await fs.writeFile(friendsFile, `${JSON.stringify(friends, null, 2)}\n`, 'utf8')
-}
-
-async function readProjects(): Promise<Project[]> {
-  try { return JSON.parse(await fs.readFile(projectsFile, 'utf8')) as Project[] }
-  catch (error) { if ((error as NodeJS.ErrnoException).code === 'ENOENT') return []; throw error }
-}
-
-async function writeProjects(projects: Project[]) {
-  await fs.writeFile(projectsFile, `${JSON.stringify(projects, null, 2)}\n`, 'utf8')
-}
-
-async function readSiteSettings(): Promise<SiteSettings> {
-  const content = await fs.readFile(siteSettingsFile, 'utf8')
-  const settings = JSON.parse(content) as Partial<SiteSettings>
-  return {
-    ...defaultSiteSettings,
-    ...settings,
-    backgroundPositionX: settings.backgroundPositionX ?? 50,
-    backgroundPositionY: settings.backgroundPositionY ?? 50,
-  }
-}
-
-async function writeSiteSettings(settings: SiteSettings) {
-  await fs.writeFile(siteSettingsFile, `${JSON.stringify(settings, null, 2)}\n`, 'utf8')
-}
 
 function hashSessionId(sessionId: string) {
   return crypto.createHash('sha256').update(sessionId).digest('hex')
-}
-
-async function persistSessions() {
-  const temporaryFile = `${sessionsFile}.${crypto.randomUUID()}.tmp`
-  try {
-    await fs.writeFile(temporaryFile, `${JSON.stringify([...sessions.entries()])}\n`, { encoding: 'utf8', mode: 0o600, flag: 'wx' })
-    await fs.rename(temporaryFile, sessionsFile)
-    await fs.chmod(sessionsFile, 0o600)
-  } catch (error) {
-    await fs.unlink(temporaryFile).catch(() => undefined)
-    throw error
-  }
-}
-
-async function readHomeProfile(): Promise<HomeProfile> {
-  const content = await fs.readFile(homeProfileFile, 'utf8')
-  return { ...defaultHomeProfile, ...(JSON.parse(content) as Partial<HomeProfile>) }
 }
 
 function isAuthenticated(request: express.Request) {
@@ -332,7 +66,7 @@ function isAuthenticated(request: express.Request) {
   if (!expiresAt) return false
   if (expiresAt <= Date.now()) {
     sessions.delete(sessionHash)
-    void persistSessions().catch((error: unknown) => console.error('Could not persist admin sessions:', error))
+    void persistSessions(sessions).catch((error: unknown) => console.error('Could not persist admin sessions:', error))
     return false
   }
   return true
@@ -375,58 +109,14 @@ function requireAuthentication(
   next()
 }
 
-function countWords(content: string) {
-  return content.trim() ? content.trim().split(/\s+/u).length : 0
-}
-
-function queuePageView(page: AnalyticsPage, device: AnalyticsDevice, articleId?: string, source?: AnalyticsSource) {
-  const day = new Date().toISOString().slice(0, 10)
-  const operation = analyticsWriteQueue.then(async () => {
-    const rows = JSON.parse(await fs.readFile(analyticsFile, 'utf8')) as AnalyticsRow[]
-    const existing = rows.find((row) => row.day === day && row.page === page && row.device === device && row.articleId === articleId && row.source === source)
-    if (existing) existing.views += 1
-    else rows.push({ day, page, device, views: 1, ...(articleId ? { articleId } : {}), ...(source ? { source } : {}) })
-    const cutoff = new Date(Date.now() - 120 * 86_400_000).toISOString().slice(0, 10)
-    const retained = rows.filter((row) => row.day >= cutoff)
-    const temporaryFile = `${analyticsFile}.${crypto.randomUUID()}.tmp`
-    await fs.writeFile(temporaryFile, `${JSON.stringify(retained)}\n`, { encoding: 'utf8', mode: 0o600, flag: 'wx' })
-    await fs.rename(temporaryFile, analyticsFile)
-  })
-  analyticsWriteQueue = operation.catch((error: unknown) => console.error('Could not save page view:', error))
-  return operation
-}
-
-function recordActivity(entry: ActivityEntry) {
-  const operation = activityWriteQueue.then(async () => {
-    const entries = JSON.parse(await fs.readFile(activityFile, 'utf8')) as ActivityEntry[]
-    entries.unshift(entry)
-    const temporaryFile = `${activityFile}.${crypto.randomUUID()}.tmp`
-    await fs.writeFile(temporaryFile, `${JSON.stringify(entries.slice(0, 50), null, 2)}\n`, { encoding: 'utf8', mode: 0o600, flag: 'wx' })
-    await fs.rename(temporaryFile, activityFile)
-  })
-  activityWriteQueue = operation.catch((error: unknown) => console.error('Could not save admin activity:', error))
-  return activityWriteQueue
-}
-
-function getAnalyticsDevice(userAgent: string): AnalyticsDevice {
-  if (/ipad|tablet/i.test(userAgent)) return 'tablet'
-  if (/mobile|iphone|ipod|android/i.test(userAgent)) return 'mobile'
-  return 'desktop'
-}
-
 setInterval(() => {
   const now = Date.now()
   let removed = false
   for (const [sessionId, expiresAt] of sessions) {
     if (expiresAt <= now) { sessions.delete(sessionId); removed = true }
   }
-  if (removed) void persistSessions().catch((error: unknown) => console.error('Could not persist admin sessions:', error))
+  if (removed) void persistSessions(sessions).catch((error: unknown) => console.error('Could not persist admin sessions:', error))
 }, 60 * 60 * 1000).unref()
-
-function daysSince(dateString: string) {
-  const start = new Date(dateString).getTime()
-  return Math.max(0, Math.floor((Date.now() - start) / 86_400_000))
-}
 
 const app = express()
 app.disable('x-powered-by')
@@ -597,7 +287,7 @@ app.post('/api/auth/login', requireSameOrigin, async (request, response) => {
     if (expiresAt <= now) sessions.delete(sessionHash)
   }
   sessions.set(hashSessionId(sessionId), now + sessionLifetimeMs)
-  await persistSessions()
+  await persistSessions(sessions)
   response.cookie('admin_session', sessionId, {
     httpOnly: true,
     sameSite: 'lax',
@@ -611,7 +301,7 @@ app.post('/api/auth/login', requireSameOrigin, async (request, response) => {
 app.post('/api/auth/logout', requireSameOrigin, async (request, response) => {
   const sessionId = request.cookies.admin_session as string | undefined
   if (sessionId) sessions.delete(hashSessionId(sessionId))
-  await persistSessions()
+  await persistSessions(sessions)
   response.clearCookie('admin_session')
   response.json({ authenticated: false })
 })
@@ -669,7 +359,7 @@ app.post('/api/analytics/view', requireSameOrigin, async (request, response) => 
 })
 
 app.get('/api/admin/analytics', requireAuthentication, async (request, response) => {
-  await analyticsWriteQueue
+  await waitForAnalyticsWrites()
   const days = request.query.days === '7' ? 7 : 30
   const today = new Date()
   today.setUTCHours(0, 0, 0, 0)
@@ -713,7 +403,7 @@ app.get('/api/admin/analytics', requireAuthentication, async (request, response)
 })
 
 app.get('/api/admin/activity', requireAuthentication, async (_request, response) => {
-  await activityWriteQueue
+  await waitForActivityWrites()
   response.json(JSON.parse(await fs.readFile(activityFile, 'utf8')) as ActivityEntry[])
 })
 
@@ -912,7 +602,7 @@ app.use((error: unknown, _request: express.Request, response: express.Response, 
   response.status(500).json({ message: 'Internal server error.' })
 })
 
-ensureStorage().then(() => {
+ensureStorage(sessions).then(() => {
   const server = app.listen(port, host, (error?: Error) => {
     if (error) {
       console.error('API server failed to listen:', error)
