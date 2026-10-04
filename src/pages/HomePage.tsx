@@ -2,9 +2,9 @@ import { useEffect, useRef, useState } from 'react'
 import MarkdownPreview from '../components/MarkdownPreview'
 import SocialLinks from '../components/SocialLinks'
 import useEscapeKey from '../components/useEscapeKey'
-import { fetchArticles, fetchHomeProfile, fetchMusicTracks, fetchServerStatus, recordPageView } from '../features/blog/api'
-import type { Article, HomeProfile, MusicTrack, ServerStatus } from '../features/blog/article'
-import { resolveSameOriginMediaUrl } from '../features/blog/media'
+import { fetchArticles, fetchHomeProfile, fetchServerStatus, recordPageView } from '../features/blog/api'
+import type { Article, HomeProfile, ServerStatus } from '../features/blog/article'
+import { useMusicPlayer } from '../components/MusicPlayerContext'
 
 const fallback: HomeProfile = {
   name: 'baihu',
@@ -27,93 +27,33 @@ function HomePage() {
   const [selectedArticle, setSelectedArticle] = useState<Article | null>(null)
   const [avatarMessage, setAvatarMessage] = useState('')
   const [articleListHeight, setArticleListHeight] = useState<number | null>(null)
-  const [musicTracks, setMusicTracks] = useState<MusicTrack[]>([])
-  const [currentTrackIndex, setCurrentTrackIndex] = useState(0)
-  const [isPlaying, setIsPlaying] = useState(false)
-  const [musicProgress, setMusicProgress] = useState(0)
-  const [musicDuration, setMusicDuration] = useState(0)
   const [serverStatus, setServerStatus] = useState<ServerStatus | null>(null)
-  const audioRef = useRef<HTMLAudioElement>(null)
-  const shouldKeepPlayingRef = useRef(true)
+  const {
+    tracks: musicTracks,
+    currentTrackIndex,
+    isPlaying,
+    progress: musicProgress,
+    duration: musicDuration,
+    toggle: toggleMusic,
+    changeTrack,
+    seek: seekMusicValue,
+    requestAutoplay,
+  } = useMusicPlayer()
   const articleListRef = useRef<HTMLDivElement>(null)
   const homeTagsRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     fetchHomeProfile().then(setProfile).catch(() => undefined)
     fetchArticles().then(setArticles).catch(() => undefined)
-    fetchMusicTracks().then(setMusicTracks).catch(() => undefined)
     fetchServerStatus().then(setServerStatus).catch(() => undefined)
   }, [])
 
   useEffect(() => {
-    const audio = audioRef.current
-    const track = musicTracks[currentTrackIndex]
-    if (!audio || !track) return
-
-    const source = resolveSameOriginMediaUrl(track.fileUrl)
-    if (!source) return
-    const shouldPlay = shouldKeepPlayingRef.current
-    let active = true
-    const startPlayback = () => {
-      if (!active || !shouldPlay) return
-      void audio.play()
-        .then(() => { if (active) setIsPlaying(true) })
-        .catch(() => { if (active) { shouldKeepPlayingRef.current = false; setIsPlaying(false) } })
-    }
-
-    audio.pause()
-    audio.src = source
-    audio.load()
-    queueMicrotask(() => {
-      if (!active) return
-      setMusicProgress(0)
-      setMusicDuration(0)
-      setIsPlaying(false)
-    })
-    audio.addEventListener('canplay', startPlayback, { once: true })
-    startPlayback()
-
-    return () => {
-      active = false
-      audio.removeEventListener('canplay', startPlayback)
-    }
-  }, [currentTrackIndex, musicTracks])
-
-  useEffect(() => {
-    const audio = audioRef.current
-    if (!audio) return
-    const updateProgress = () => { setMusicProgress(audio.currentTime); setMusicDuration(audio.duration || 0) }
-    audio.addEventListener('timeupdate', updateProgress)
-    audio.addEventListener('loadedmetadata', updateProgress)
-    return () => { audio.removeEventListener('timeupdate', updateProgress); audio.removeEventListener('loadedmetadata', updateProgress) }
-  }, [musicTracks.length])
-
-  function toggleMusic() {
-    const audio = audioRef.current
-    if (!audio || !musicTracks.length) return
-    if (audio.paused) {
-      shouldKeepPlayingRef.current = true
-      void audio.play().then(() => setIsPlaying(true)).catch(() => {
-        shouldKeepPlayingRef.current = false
-        setIsPlaying(false)
-      })
-    } else {
-      shouldKeepPlayingRef.current = false
-      audio.pause()
-      setIsPlaying(false)
-    }
-  }
-
-  function changeTrack(direction: -1 | 1) {
-    if (!musicTracks.length) return
-    shouldKeepPlayingRef.current = Boolean(audioRef.current && !audioRef.current.paused)
-    setCurrentTrackIndex((index) => (index + direction + musicTracks.length) % musicTracks.length)
-  }
+    requestAutoplay()
+  }, [requestAutoplay])
 
   function seekMusic(event: React.ChangeEvent<HTMLInputElement>) {
-    const next = Number(event.target.value)
-    if (audioRef.current) audioRef.current.currentTime = next
-    setMusicProgress(next)
+    seekMusicValue(Number(event.target.value))
   }
 
   function formatMusicTime(seconds: number) {
@@ -241,7 +181,7 @@ function HomePage() {
       <div className="home-right-column">
         <aside className="home-updates home-panel"><p className="home-eyebrow">NOW</p><h2>{profile.updateTitle}</h2><p>{profile.updateText}</p><div className="home-update-rule" /></aside>
         <aside className="home-server-card home-panel" aria-label="伺服器資訊"><p className="home-eyebrow">SERVER STATUS</p><div className="home-server-stats"><div><span>運作時間</span><strong>{serverStatus ? formatUptime(serverStatus.uptimeSeconds) : '--:--:--'}</strong><small>DD : HH : MM</small></div><div><span>最後活動</span><strong>{serverStatus?.lastActivity ? new Date(serverStatus.lastActivity).toLocaleDateString('zh-TW', { month: 'numeric', day: 'numeric' }) : '—'}</strong><small>{serverStatus?.lastActivity ? new Date(serverStatus.lastActivity).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' }) : '尚無紀錄'}</small></div></div></aside>
-        <aside className="home-music-card home-panel" aria-label="音樂播放器"><p className="home-eyebrow">LISTENING NOW</p>{musicTracks.length ? <><strong className="home-music-title">{musicTracks[currentTrackIndex]?.title}</strong><input className="home-music-progress" type="range" min="0" max={musicDuration || 0} step="0.1" value={Math.min(musicProgress, musicDuration || 0)} onChange={seekMusic} aria-label="音樂播放進度" /><div className="home-music-times"><span>{formatMusicTime(musicProgress)}</span><span>{formatMusicTime(musicDuration)}</span></div><div className="home-music-controls"><button type="button" onClick={() => changeTrack(-1)} aria-label="上一首">◀</button><button type="button" className="home-music-play" onClick={toggleMusic} aria-label={isPlaying ? '停止播放' : '播放'}>{isPlaying ? 'Ⅱ' : '▶'}</button><button type="button" onClick={() => changeTrack(1)} aria-label="下一首">▶</button></div><div className={`home-music-orbit${isPlaying ? ' is-playing' : ''}`} aria-hidden="true"><span /></div></> : <p className="home-music-empty">尚未加入音樂。</p>}<audio ref={audioRef} preload="metadata" loop /></aside>
+        <aside className="home-music-card home-panel" aria-label="音樂播放器"><p className="home-eyebrow">LISTENING NOW</p>{musicTracks.length ? <><strong className="home-music-title">{musicTracks[currentTrackIndex]?.title}</strong><input className="home-music-progress" type="range" min="0" max={musicDuration || 0} step="0.1" value={Math.min(musicProgress, musicDuration || 0)} onChange={seekMusic} aria-label="音樂播放進度" /><div className="home-music-times"><span>{formatMusicTime(musicProgress)}</span><span>{formatMusicTime(musicDuration)}</span></div><div className="home-music-controls"><button type="button" onClick={() => changeTrack(-1)} aria-label="上一首">◀</button><button type="button" className="home-music-play" onClick={toggleMusic} aria-label={isPlaying ? '停止播放' : '播放'}>{isPlaying ? 'Ⅱ' : '▶'}</button><button type="button" onClick={() => changeTrack(1)} aria-label="下一首">▶</button></div></> : <p className="home-music-empty">尚未加入音樂。</p>}</aside>
       </div>
       {selectedArticle && <div className="project-modal-backdrop article-reader-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setSelectedArticle(null) }}>
         <article className="project-detail-modal article-reader" role="dialog" aria-modal="true" aria-labelledby="home-article-title">

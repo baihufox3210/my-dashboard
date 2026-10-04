@@ -24,6 +24,8 @@ export type AnalyticsStats = {
   days: number
   totalViews: number
   previousViews: number
+  regionCount: number
+  topRegions: { country: string; region: string; views: number }[]
   daily: { day: string; views: number }[]
   topPages: { page: string; label: string; views: number }[]
   topArticles: { id: string; title: string; views: number }[]

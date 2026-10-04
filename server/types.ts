@@ -44,6 +44,8 @@ export type MusicTrack = { id: string; title: string; fileUrl: string; fileName:
 export type AnalyticsPage = 'home' | 'about' | 'projects' | 'blog' | 'article' | 'contact' | 'friends'
 export type AnalyticsDevice = 'mobile' | 'tablet' | 'desktop'
 export type AnalyticsSource = 'direct' | 'search' | 'social' | 'referral'
+export type AnalyticsRegion = { country: string; region: string }
+export type AnalyticsRegionRow = AnalyticsRegion & { day: string; views: number }
 export type AnalyticsRow = { day: string; page: AnalyticsPage; device: AnalyticsDevice; views: number; articleId?: string; source?: AnalyticsSource }
 export type ActivityEntry = { at: string; type: 'article' | 'homepage' | 'site'; action: 'published' | 'updated' | 'deleted' | 'saved'; title: string }
 

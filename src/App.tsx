@@ -4,6 +4,7 @@ import './theme.css'
 import { fetchSiteSettings, recordPageView } from './features/blog/api'
 import type { AnalyticsPage } from './features/blog/api'
 import { applySiteBackground } from './features/blog/background'
+import MusicPlayerProvider from './components/MusicPlayerContext'
 import SiteLayout from './layouts/SiteLayout'
 import PageRouter from './routes/PageRouter'
 import { getRouteSegments, isAdminRoute, isLoginRoute } from './routes/routes'
@@ -36,6 +37,22 @@ function App() {
       document.body.classList.remove('site-background-loading')
       window.removeEventListener('resize', syncBackground)
     }
+  }, [])
+
+  useEffect(() => {
+    const handleInternalNavigation = (event: MouseEvent) => {
+      if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
+      const target = event.target instanceof Element ? event.target.closest<HTMLAnchorElement>('a[href]') : null
+      if (!target || target.target === '_blank' || target.hasAttribute('download')) return
+      const url = new URL(target.href, window.location.href)
+      if (url.origin !== window.location.origin || !['http:', 'https:'].includes(url.protocol)) return
+      if (url.pathname === window.location.pathname && url.search === window.location.search && url.hash === window.location.hash) return
+      event.preventDefault()
+      window.history.pushState({}, '', `${url.pathname}${url.search}${url.hash}`)
+      window.dispatchEvent(new PopStateEvent('popstate'))
+    }
+    document.addEventListener('click', handleInternalNavigation)
+    return () => document.removeEventListener('click', handleInternalNavigation)
   }, [])
 
   useEffect(() => {
@@ -78,9 +95,11 @@ function App() {
   if (!backgroundReady) return null
 
   return (
-    <SiteLayout>
-      <PageRouter />
-    </SiteLayout>
+    <MusicPlayerProvider>
+      <SiteLayout>
+        <PageRouter />
+      </SiteLayout>
+    </MusicPlayerProvider>
   )
 }
 

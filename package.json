@@ -2,6 +2,9 @@
   "name": "my-dashboard",
   "private": true,
   "version": "0.0.0",
+  "engines": {
+    "node": ">=22.5.0"
+  },
   "type": "module",
   "scripts": {
     "dev": "API_HOST=127.0.0.1 concurrently -k \"vite\" \"tsx watch server/index.ts\"",

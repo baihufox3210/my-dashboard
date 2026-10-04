@@ -190,11 +190,7 @@
 .home-music-controls button { display: grid; width: 30px; height: 30px; place-items: center; padding: 0; border: 0; border-radius: 50%; color: var(--theme-primary-strong); background: transparent; font: inherit; font-size: .78rem; cursor: pointer; }
 .home-music-controls button:hover { background: color-mix(in srgb, var(--theme-primary) 16%, transparent); }
 .home-music-controls .home-music-play { width: 30px; height: 30px; color: var(--theme-primary-strong); background: transparent; font-size: .78rem; }
-.home-music-orbit { position: relative; display: grid; width: 1rem; height: 1rem; margin: .15rem auto 0; place-items: center; }
-.home-music-orbit::before { content: ''; position: absolute; width: .62rem; height: .62rem; border: 1px solid color-mix(in srgb, var(--theme-primary) 65%, transparent); border-radius: 50%; opacity: .8; }
-.home-music-orbit span { width: .22rem; height: .22rem; border-radius: 50%; background: var(--theme-primary-strong); box-shadow: 0 0 0 3px color-mix(in srgb, var(--theme-primary) 14%, transparent); }
-.home-music-orbit.is-playing::before { animation: home-music-orbit-pulse 1.8s ease-in-out infinite; }
-@keyframes home-music-orbit-pulse { 0%, 100% { transform: scale(.9); opacity: .55; } 50% { transform: scale(1.12); opacity: 1; } }
+
 .home-music-empty { margin: .2rem 0 0; color: var(--theme-muted); font-size: .78rem; }
 .home-music-player audio { display: none; }
 .home-right-column { display: grid; min-width: 0; grid-template-rows: minmax(0, 1fr) auto auto; gap: .85rem; }
@@ -2518,6 +2514,8 @@ body.menu-open {
 .admin-traffic-heading .admin-kicker { margin: 0 0 7px; }
 .admin-traffic-heading h2 { margin: 0; color: var(--theme-card-ink); font-size: 23px; letter-spacing: -.03em; }
 .admin-traffic-heading p:not(.admin-kicker) { margin: 7px 0 0; color: var(--theme-muted); font-size: 12px; }
+.admin-traffic-tracking { display: inline-flex; align-items: center; gap: .4rem; margin-top: .65rem; color: var(--theme-success); font-size: 10px; font-weight: 700; }
+.admin-traffic-tracking i { width: .42rem; height: .42rem; border-radius: 50%; background: var(--theme-success); box-shadow: 0 0 0 3px color-mix(in srgb, var(--theme-success) 16%, transparent); }
 .admin-refresh-button { padding: 9px 13px; border: 1px solid var(--theme-line); border-radius: 7px; color: var(--theme-muted); background: #fff; font: inherit; font-size: 11px; cursor: pointer; }
 .admin-refresh-button:disabled { opacity: .55; cursor: wait; }
 .admin-traffic-toolbar { display: flex; align-items: center; gap: 11px; min-height: 44px; padding: 0 0 12px; border-bottom: 1px solid var(--theme-line); color: var(--theme-muted); font-size: 11px; }
@@ -2525,7 +2523,7 @@ body.menu-open {
 .admin-period-switch button { padding: 5px 11px; border: 0; border-radius: 5px; color: var(--theme-muted); background: transparent; font: inherit; cursor: pointer; }
 .admin-period-switch button.active { color: var(--theme-card-ink); background: #fff; box-shadow: 0 1px 3px #20242d14; font-weight: 700; }
 .admin-traffic-toolbar > small { margin-left: auto; color: var(--theme-muted); font-size: 10px; }
-.admin-traffic-kpis { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); border: 1px solid var(--theme-line); border-radius: 10px; background: #fff; }
+.admin-traffic-kpis { display: grid; grid-template-columns: repeat(5,minmax(0,1fr)); border: 1px solid var(--theme-line); border-radius: 10px; background: #fff; }
 .admin-traffic-kpis article { display: flex; min-width: 0; min-height: 112px; flex-direction: column; padding: 16px 19px; border-right: 1px solid var(--theme-line); }
 .admin-traffic-kpis article:last-child { border-right: 0; }
 .admin-traffic-kpis article > span { color: var(--theme-muted); font-size: 11px; }
@@ -2564,6 +2562,15 @@ body.menu-open {
 .admin-top-pages-list > div > span:last-child { color: var(--theme-muted); text-align: right; }
 .admin-top-pages-list > div > span:last-child small { color: var(--theme-muted); font-size: 10px; }
 .admin-traffic-no-pages { margin: 0; padding: 22px 0 10px; color: var(--theme-muted); font-size: 11px; }
+.admin-region-list { display: grid; gap: 13px; margin-top: 16px; }
+.admin-region-row { display: grid; grid-template-columns: minmax(140px,.8fr) minmax(80px,1fr) 90px; align-items: center; gap: 14px; }
+.admin-region-row > span { display: flex; min-width: 0; flex-direction: column; gap: 3px; }
+.admin-region-row > span strong { overflow: hidden; color: var(--theme-card-ink); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.admin-region-row > span small { overflow: hidden; color: var(--theme-muted); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.admin-region-row > i { display: block; height: 5px; overflow: hidden; border-radius: 8px; background: var(--theme-control-background); }
+.admin-region-row > i b { display: block; height: 100%; border-radius: inherit; background: var(--theme-primary); }
+.admin-region-count { color: var(--theme-card-ink); font-size: 11px; text-align: right; white-space: nowrap; }
+.admin-region-count small { color: var(--theme-muted); font-size: 10px; font-weight: 500; }
 .admin-analytics-note { margin: -5px 0 0; color: var(--theme-muted); font-size: 10px; line-height: 1.6; }
 @media (max-width: 760px) {
   .admin-mobile-nav { grid-template-columns: repeat(6, minmax(0,1fr)); }
@@ -2589,6 +2596,8 @@ body.menu-open {
   .admin-chart-column > i { width: 60%; }
   .admin-chart-column > small { font-size: 8px; }
   .admin-top-pages-list > div { grid-template-columns: 22px minmax(65px,.6fr) minmax(40px,1fr) 66px; gap: 7px; font-size: 10px; }
+  .admin-region-row { grid-template-columns: minmax(0,1fr) auto; gap: 7px 10px; }
+  .admin-region-row > i { grid-column: 1 / -1; grid-row: 2; }
 }
 
 .admin-overview-grid { display: grid; grid-template-columns: minmax(0,1.2fr) minmax(280px,.8fr); gap: 16px; margin-top: 20px; }
@@ -3362,6 +3371,20 @@ button, input, textarea, select { font-kerning: normal; }
   .home-page .home-tags.is-wrapped span { white-space: nowrap; }
 }
 
+/* A single interest only needs one compact row; let its pill use spare width. */
+@media (min-width: 769px) {
+  .home-page .home-profile-column:has(.home-tags-card .home-tags > span:only-child),
+  .about-page .about-profile-column:has(.home-tags-card .home-tags > span:only-child) {
+    grid-template-rows: minmax(18rem, 1fr) auto auto;
+  }
+  .home-page .home-profile-column:has(.home-tags-card .home-tags > span:only-child) .home-tags-card,
+  .about-page .about-profile-column:has(.home-tags-card .home-tags > span:only-child) .home-tags-card {
+    height: auto;
+    min-height: 0;
+  }
+
+}
+
 /* Projects layout refinements; visual roles live in theme.css. */
 .projects-page {
   width: min(1160px, 100%);
@@ -4062,4 +4085,11 @@ button, input, textarea, select { font-kerning: normal; }
 .admin-overview-page .admin-category-list,
 .admin-overview-page .admin-activity-list {
   margin-top: 1rem;
+}
+
+/* Keep the desktop logout control close to the viewport edge. */
+@media (min-width: 761px) {
+  .admin-topbar {
+    padding-right: clamp(12px, 2vw, 24px);
+  }
 }

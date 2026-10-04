@@ -8,7 +8,6 @@ import {
   activityFile,
   adminPassword,
   adminUsername,
-  analyticsFile,
   host,
   port,
   sessionLifetimeMs,
@@ -20,7 +19,6 @@ import {
   type ActivityEntry,
   type AnalyticsDevice,
   type AnalyticsPage,
-  type AnalyticsRow,
   type AnalyticsSource,
   type Friend,
   type HomeProfile,
@@ -32,6 +30,8 @@ import {
   ensureStorage,
   persistSessions,
   queuePageView,
+  readAnalyticsRows,
+  readAnalyticsRegionStats,
   readArticles,
   readFriends,
   readHomeProfile,
@@ -49,7 +49,7 @@ import {
 } from './storage.js'
 import { musicUpload, projectUpload, removeMusicAsset, removeProjectAssets, removeProjectUploads, upload, validateMusicFiles, validateProjectFiles, validateUploadedImages } from './uploads.js'
 import { boundedText, getAnalyticsDevice, isSafeSocialUrl } from './validation.js'
-import { getClientIp, hashSessionId, isAuthenticated, loginFailures, requireAuthentication, requireSameOrigin, sessions } from './security.js'
+import { getAnalyticsRegion, getClientIp, hashSessionId, isAuthenticated, loginFailures, requireAuthentication, requireSameOrigin, sessions } from './security.js'
 import articleRoutes from './routes/articles.js'
 import publicRoutes from './routes/public.js'
 
@@ -413,8 +413,9 @@ app.post('/api/analytics/view', requireSameOrigin, async (request, response) => 
     return
   }
   const device = getAnalyticsDevice(request.get('user-agent') ?? '')
+  const region = getAnalyticsRegion(request)
   try {
-    await queuePageView(page, device, articleId, source)
+    await queuePageView(page, device, articleId, source, region)
     response.status(204).end()
   } catch {
     response.status(500).json({ message: 'Could not record page view.' })
@@ -431,7 +432,8 @@ app.get('/api/admin/analytics', requireAuthentication, async (request, response)
   const currentStartDay = currentStart.toISOString().slice(0, 10)
   const previousStartDay = previousStart.toISOString().slice(0, 10)
   const todayDay = today.toISOString().slice(0, 10)
-  const rows = JSON.parse(await fs.readFile(analyticsFile, 'utf8')) as AnalyticsRow[]
+  const rows = await readAnalyticsRows()
+  const regionStats = await readAnalyticsRegionStats(currentStartDay, todayDay)
   const pageTotals = new Map<AnalyticsPage, number>()
   const articleTotals = new Map<string, number>()
   const sourceTotals: Record<AnalyticsSource, number> = { direct: 0, search: 0, social: 0, referral: 0 }
@@ -462,7 +464,7 @@ app.get('/api/admin/analytics', requireAuthentication, async (request, response)
     const article = articleById.get(id)
     return { id, title: article?.title ?? '已刪除文章', views }
   }).sort((first, second) => second.views - first.views).slice(0, 10)
-  response.json({ days, totalViews, previousViews, daily, topPages, topArticles, sources: sourceTotals, devices: deviceTotals })
+  response.json({ days, totalViews, previousViews, ...regionStats, daily, topPages, topArticles, sources: sourceTotals, devices: deviceTotals })
 })
 
 app.get('/api/admin/activity', requireAuthentication, async (_request, response) => {

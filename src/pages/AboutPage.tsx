@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import MarkdownPreview from '../components/MarkdownPreview'
 import SocialLinks from '../components/SocialLinks'
-import { fetchHomeProfile, fetchSiteSettings, recordPageView } from '../features/blog/api'
+import { fetchHomeProfile, fetchSiteSettings } from '../features/blog/api'
 import type { HomeProfile, SiteSettings } from '../features/blog/article'
 
 const emptyProfile: HomeProfile = {
@@ -15,7 +15,6 @@ function AboutPage() {
   const [avatarMessage, setAvatarMessage] = useState('')
 
   useEffect(() => {
-    recordPageView('about')
     Promise.all([fetchHomeProfile(), fetchSiteSettings()]).then(([loadedProfile, loadedSettings]) => {
       setProfile(loadedProfile)
       setSettings(loadedSettings)

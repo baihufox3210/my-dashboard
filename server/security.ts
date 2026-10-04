@@ -1,6 +1,7 @@
 import crypto from 'node:crypto'
 import type { Request, RequestHandler } from 'express'
 import { trustedProxyIp } from './config.js'
+import type { AnalyticsRegion } from './types.js'
 import { persistSessions } from './storage.js'
 
 export const sessions = new Map<string, number>()
@@ -9,6 +10,7 @@ export const loginFailures = new Map<string, { count: number; windowStarted: num
 export function hashSessionId(sessionId: string) {
   return crypto.createHash('sha256').update(sessionId).digest('hex')
 }
+
 
 export function isAuthenticated(request: Request) {
   const sessionId = request.cookies.admin_session as string | undefined
@@ -24,12 +26,32 @@ export function isAuthenticated(request: Request) {
   return true
 }
 
+function isTrustedProxyRequest(request: Request) {
+  const remoteAddress = request.socket.remoteAddress ?? ''
+  return Boolean(trustedProxyIp && (remoteAddress === trustedProxyIp || remoteAddress === `::ffff:${trustedProxyIp}`))
+}
+
 export function getClientIp(request: Request) {
   const remoteAddress = request.socket.remoteAddress ?? 'unknown'
-  const isTrustedProxy = trustedProxyIp && (
-    remoteAddress === trustedProxyIp || remoteAddress === `::ffff:${trustedProxyIp}`
-  )
-  return isTrustedProxy ? request.get('x-real-ip') || remoteAddress : remoteAddress
+  return isTrustedProxyRequest(request) ? request.get('x-real-ip') || remoteAddress : remoteAddress
+}
+
+export function getAnalyticsRegion(request: Request): AnalyticsRegion | null {
+  if (!isTrustedProxyRequest(request)) return null
+
+  const countryCode = (request.get('cf-ipcountry') ?? request.get('x-geo-country') ?? '').trim().toUpperCase()
+  if (!/^[A-Z]{2}$/.test(countryCode) || countryCode === 'XX' || countryCode === 'T1') return null
+
+  const country = new Intl.DisplayNames(['zh-TW'], { type: 'region' }).of(countryCode)
+  if (!country || country === countryCode) return null
+
+  const rawRegion = request.get('cf-region') ?? request.get('x-geo-region') ?? ''
+  const region = [...rawRegion].filter((character) => {
+    const code = character.charCodeAt(0)
+    return code >= 32 && code !== 127
+  }).join('').trim().slice(0, 80) || '未細分'
+
+  return { country, region }
 }
 
 export const requireSameOrigin: RequestHandler = (request, response, next) => {

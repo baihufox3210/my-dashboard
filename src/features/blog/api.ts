@@ -29,8 +29,20 @@ export function fetchArticleStats() {
   return request<ArticleStats>('/api/stats')
 }
 
-export function fetchAnalyticsStats(days: 7 | 30) {
-  return request<AnalyticsStats>(`/api/admin/analytics?days=${days}`)
+export async function fetchAnalyticsStats(days: 7 | 30): Promise<AnalyticsStats> {
+  const stats = await request<Partial<AnalyticsStats>>(`/api/admin/analytics?days=${days}`)
+  return {
+    days: stats.days ?? days,
+    totalViews: stats.totalViews ?? 0,
+    previousViews: stats.previousViews ?? 0,
+    regionCount: stats.regionCount ?? 0,
+    topRegions: stats.topRegions ?? [],
+    daily: stats.daily ?? [],
+    topPages: stats.topPages ?? [],
+    topArticles: stats.topArticles ?? [],
+    sources: stats.sources ?? { direct: 0, search: 0, social: 0, referral: 0 },
+    devices: stats.devices ?? { mobile: 0, tablet: 0, desktop: 0 },
+  }
 }
 
 export type AnalyticsPage = 'home' | 'about' | 'projects' | 'blog' | 'article' | 'contact' | 'friends'
