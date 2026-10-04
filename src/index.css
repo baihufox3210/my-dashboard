@@ -36,10 +36,16 @@ body {
   min-height: 100vh;
   background-color: #d8c8be;
   background-image: var(--site-background-image, none);
-  background-position: var(--site-background-position, center);
+  background-position: var(--site-background-position-desktop, var(--site-background-position, center));
   background-size: cover;
   background-attachment: fixed;
   background-repeat: no-repeat;
+}
+
+@media (max-width: 768px) {
+  body {
+    background-position: var(--site-background-position-mobile, var(--site-background-position, center));
+  }
 }
 
 /* Blog owns a fixed-viewport layout; only its article column scrolls, so the
@@ -60,7 +66,7 @@ body:has(.projects-page) {
 }
 
 @media (max-width: 768px) {
-  body { background-position: center center; background-attachment: scroll; }
+  body { background-position: var(--site-background-position-mobile, var(--site-background-position, center)); background-attachment: scroll; }
 
   html:has(.blog-screen),
   body:has(.blog-screen) {

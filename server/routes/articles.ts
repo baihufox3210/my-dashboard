@@ -9,6 +9,13 @@ const router = Router()
 
 type ArticleInput = { title: string; content: string; category?: string; tags?: string; coverImagePosition?: string; coverImageScale?: number }
 
+function isValidCoverPosition(value: unknown) {
+  if (typeof value !== 'string') return false
+  const match = /^(\d{1,3}(?:\.\d{1,2})?)%\s+(\d{1,3}(?:\.\d{1,2})?)%$/.exec(value)
+  if (!match) return false
+  return Number(match[1]) <= 100 && Number(match[2]) <= 100
+}
+
 function parseArticleInput(value: unknown): ArticleInput | undefined {
   if (!value || typeof value !== 'object') return undefined
   const body = value as Record<string, unknown>
@@ -20,10 +27,10 @@ function parseArticleInput(value: unknown): ArticleInput | undefined {
     typeof content !== 'string' || !content.trim() || content.length > 500_000 ||
     (category !== undefined && (typeof category !== 'string' || category.length > 100)) ||
     (tags !== undefined && (typeof tags !== 'string' || tags.length > 2000)) ||
-    (coverImagePosition !== undefined && (typeof coverImagePosition !== 'string' || !/^\d{1,3}%\s+\d{1,3}%$/.test(coverImagePosition))) ||
+    (coverImagePosition !== undefined && !isValidCoverPosition(coverImagePosition)) ||
     (coverImageScale !== undefined && (typeof coverImageScale !== 'number' || !Number.isFinite(coverImageScale) || coverImageScale < 1 || coverImageScale > 3))
   ) return undefined
-  return { title, content, category, tags, coverImagePosition, coverImageScale }
+  return { title, content, category, tags, coverImagePosition: coverImagePosition as string | undefined, coverImageScale }
 }
 
 function parseTags(tags: string | undefined) {

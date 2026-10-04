@@ -51,6 +51,26 @@ import publicRoutes from './routes/public.js'
 
 const analyticsRateLimits = new Map<string, { count: number; windowStarted: number }>()
 
+function parseProjectCoverSettings(value: unknown): Pick<Project, 'coverImagePosition' | 'coverImageScale'> | null {
+  if (!value || typeof value !== 'object') return null
+  const body = value as Record<string, unknown>
+  const position = body.coverImagePosition
+  const rawScale = body.coverImageScale
+  const scale = typeof rawScale === 'string' && rawScale.trim() ? Number(rawScale) : rawScale
+
+  if (position !== undefined) {
+    if (typeof position !== 'string') return null
+    const match = /^(\d{1,3}(?:\.\d{1,2})?)%\s+(\d{1,3}(?:\.\d{1,2})?)%$/.exec(position)
+    if (!match || Number(match[1]) > 100 || Number(match[2]) > 100) return null
+  }
+  if (scale !== undefined && (typeof scale !== 'number' || !Number.isFinite(scale) || scale < 1 || scale > 3)) return null
+
+  return {
+    ...(typeof position === 'string' ? { coverImagePosition: position } : {}),
+    ...(typeof scale === 'number' ? { coverImageScale: scale } : {}),
+  }
+}
+
 setInterval(() => {
   const now = Date.now()
   let removed = false
@@ -74,6 +94,10 @@ app.use((_request, response, next) => {
 })
 app.use(express.json({ limit: '1mb' }))
 app.use(cookieParser())
+app.use('/api', (_request, response, next) => {
+  response.setHeader('Cache-Control', 'no-store')
+  next()
+})
 app.use('/uploads', express.static(uploadsDirectory))
 app.use('/api/articles', articleRoutes)
 app.use('/api', publicRoutes)
@@ -85,8 +109,9 @@ app.get('/api/auth/me', (request, response) => {
 const receiveProjectFiles = projectUpload.fields([{ name: 'coverImage', maxCount: 1 }, { name: 'document', maxCount: 1 }])
 app.post('/api/admin/projects', requireSameOrigin, requireAuthentication, receiveProjectFiles, validateProjectFiles, async (request, response) => {
   const body = request.body as { title?: string; summary?: string; description?: string; category?: string; tags?: string; projectUrl?: string }
+  const coverSettings = parseProjectCoverSettings(request.body)
   const { title, summary, description, category, tags, projectUrl } = body
-  if (!title?.trim() || !boundedText(title, 160) || !boundedText(summary ?? '', 500) || !boundedText(description ?? '', 100_000) || !boundedText(category ?? '', 80) || !boundedText(tags ?? '', 2000) || !boundedText(projectUrl ?? '', 2048) || (projectUrl?.trim() && !isSafeSocialUrl(projectUrl.trim()))) {
+  if (!coverSettings || !title?.trim() || !boundedText(title, 160) || !boundedText(summary ?? '', 500) || !boundedText(description ?? '', 100_000) || !boundedText(category ?? '', 80) || !boundedText(tags ?? '', 2000) || !boundedText(projectUrl ?? '', 2048) || (projectUrl?.trim() && !isSafeSocialUrl(projectUrl.trim()))) {
     await removeProjectUploads(Object.values(request.files ?? {}).flat())
     response.status(400).json({ message: '專案標題、內容或連結格式不正確，或超過字數限制。' }); return
   }
@@ -96,6 +121,7 @@ app.post('/api/admin/projects', requireSameOrigin, requireAuthentication, receiv
     id: crypto.randomUUID(), title: title.trim(), summary: summary?.trim() ?? '', description: description?.trim() ?? '', category: category?.trim() ?? '',
     tags: (tags ?? '').split(',').map((tag) => tag.trim()).filter(Boolean), projectUrl: projectUrl?.trim() ?? '',
     ...(files?.coverImage?.[0] ? { coverImage: `/uploads/${files.coverImage[0].filename}` } : {}),
+    ...coverSettings,
     ...(files?.document?.[0] ? { documentUrl: `/uploads/${files.document[0].filename}`, documentName: files.document[0].originalname } : {}), publishedAt: now, updatedAt: now,
   }
   const uploadedFiles = Object.values(request.files ?? {}).flat()
@@ -115,8 +141,9 @@ app.put('/api/admin/projects/:id', requireSameOrigin, requireAuthentication, rec
   const existing = projects[index]
   if (!existing) { response.status(404).json({ message: '找不到這個專案。' }); return }
   const body = request.body as { title?: string; summary?: string; description?: string; category?: string; tags?: string; projectUrl?: string; removeDocument?: string }
+  const coverSettings = parseProjectCoverSettings(request.body)
   const { title, summary, description, category, tags, projectUrl } = body
-  if (!title?.trim() || !boundedText(title, 160) || !boundedText(summary ?? '', 500) || !boundedText(description ?? '', 100_000) || !boundedText(category ?? '', 80) || !boundedText(tags ?? '', 2000) || !boundedText(projectUrl ?? '', 2048) || (projectUrl?.trim() && !isSafeSocialUrl(projectUrl.trim()))) {
+  if (!coverSettings || !title?.trim() || !boundedText(title, 160) || !boundedText(summary ?? '', 500) || !boundedText(description ?? '', 100_000) || !boundedText(category ?? '', 80) || !boundedText(tags ?? '', 2000) || !boundedText(projectUrl ?? '', 2048) || (projectUrl?.trim() && !isSafeSocialUrl(projectUrl.trim()))) {
     await removeProjectUploads(Object.values(request.files ?? {}).flat())
     response.status(400).json({ message: '專案標題、內容或連結格式不正確，或超過字數限制。' }); return
   }
@@ -126,6 +153,7 @@ app.put('/api/admin/projects/:id', requireSameOrigin, requireAuthentication, rec
     ...existing, title: title.trim(), summary: summary?.trim() ?? '', description: description?.trim() ?? '', category: category?.trim() ?? '',
     tags: (tags ?? '').split(',').map((tag) => tag.trim()).filter(Boolean), projectUrl: projectUrl?.trim() ?? '', updatedAt: new Date().toISOString(),
     ...(files?.coverImage?.[0] ? { coverImage: `/uploads/${files.coverImage[0].filename}` } : {}),
+    ...coverSettings,
     ...(files?.document?.[0] ? { documentUrl: `/uploads/${files.document[0].filename}`, documentName: files.document[0].originalname } : body.removeDocument === 'true' ? { documentUrl: undefined, documentName: undefined } : {}),
   }
   try { await writeProjects(projects) }
@@ -345,12 +373,26 @@ app.put(
   async (request, response) => {
     const files = request.files as { avatar?: Express.Multer.File[]; background?: Express.Multer.File[] } | undefined
     const existingSettings = await readSiteSettings()
-    const { siteName, biography, experience, backgroundPositionX, backgroundPositionY } = request.body as {
+    const {
+      siteName,
+      biography,
+      experience,
+      backgroundPositionX,
+      backgroundPositionY,
+      backgroundDesktopPositionX,
+      backgroundDesktopPositionY,
+      backgroundMobilePositionX,
+      backgroundMobilePositionY,
+    } = request.body as {
       siteName?: string
       biography?: string
       experience?: string
       backgroundPositionX?: string
       backgroundPositionY?: string
+      backgroundDesktopPositionX?: string
+      backgroundDesktopPositionY?: string
+      backgroundMobilePositionX?: string
+      backgroundMobilePositionY?: string
     }
     const position = (value: string | undefined, fallback: number) => {
       const parsed = Number(value)
@@ -364,6 +406,10 @@ app.put(
       experience: experience?.trim() || '',
       backgroundPositionX: position(backgroundPositionX, existingSettings.backgroundPositionX ?? 50),
       backgroundPositionY: position(backgroundPositionY, existingSettings.backgroundPositionY ?? 50),
+      backgroundDesktopPositionX: position(backgroundDesktopPositionX, existingSettings.backgroundDesktopPositionX ?? existingSettings.backgroundPositionX ?? 50),
+      backgroundDesktopPositionY: position(backgroundDesktopPositionY, existingSettings.backgroundDesktopPositionY ?? existingSettings.backgroundPositionY ?? 50),
+      backgroundMobilePositionX: position(backgroundMobilePositionX, existingSettings.backgroundMobilePositionX ?? existingSettings.backgroundPositionX ?? 50),
+      backgroundMobilePositionY: position(backgroundMobilePositionY, existingSettings.backgroundMobilePositionY ?? existingSettings.backgroundPositionY ?? 50),
       ...(files?.avatar?.[0] ? { avatarUrl: `/uploads/${files.avatar[0].filename}` } : {}),
       ...(files?.background?.[0] ? { backgroundUrl: `/uploads/${files.background[0].filename}` } : {}),
     }

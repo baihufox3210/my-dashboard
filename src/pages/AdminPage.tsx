@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import FileDropzone from '../components/FileDropzone'
+import ConfirmDialog from '../components/ConfirmDialog'
 import ProjectsPage from './ProjectsPage'
 import { applySiteBackground } from '../features/blog/background'
 import {
@@ -23,8 +24,9 @@ import type { AnalyticsStats, Article, ArticleStats, Friend, HomeProfile, SiteSe
 import type { AdminActivity } from '../features/blog/api'
 
 type Section = 'overview' | 'home' | 'site' | 'traffic' | 'friends' | 'projects' | 'login'
+type BackgroundViewport = 'desktop' | 'mobile'
 const blankProfile: HomeProfile = { name: '', introduction: '', quote: '', socials: [], tags: [], avatarMessages: [], updateTitle: '', updateText: '' }
-const blankSettings: SiteSettings = { siteName: '', biography: '', experience: '', backgroundPositionX: 50, backgroundPositionY: 50 }
+const blankSettings: SiteSettings = { siteName: '', biography: '', experience: '', backgroundPositionX: 50, backgroundPositionY: 50, backgroundDesktopPositionX: 50, backgroundDesktopPositionY: 50, backgroundMobilePositionX: 50, backgroundMobilePositionY: 50 }
 const blankStats: ArticleStats = { articleCount: 0, categoryCount: 0, tagCount: 0, totalWords: 0, runtimeDays: 0, lastActivity: null }
 const blankAnalytics: AnalyticsStats = { days: 7, totalViews: 0, previousViews: 0, daily: [], topPages: [], topArticles: [], sources: { direct: 0, search: 0, social: 0, referral: 0 }, devices: { mobile: 0, tablet: 0, desktop: 0 } }
 
@@ -52,6 +54,7 @@ function AdminPage() {
   const [settings, setSettings] = useState(blankSettings)
   const [friends, setFriends] = useState<Friend[]>([])
   const [editingFriend, setEditingFriend] = useState<Friend | null>(null)
+  const [friendToDelete, setFriendToDelete] = useState<Friend | null>(null)
   const [friendName, setFriendName] = useState('')
   const [friendIntroduction, setFriendIntroduction] = useState('')
   const [friendUrl, setFriendUrl] = useState('')
@@ -63,11 +66,14 @@ function AdminPage() {
   const [avatar, setAvatar] = useState<File | null>(null)
   const [background, setBackground] = useState<File | null>(null)
   const [backgroundPreview, setBackgroundPreview] = useState('')
-  const [backgroundDragMode, setBackgroundDragMode] = useState(false)
+
   const [backgroundDragging, setBackgroundDragging] = useState(false)
+  const [backgroundAdjustOpen, setBackgroundAdjustOpen] = useState(false)
+  const [backgroundViewport, setBackgroundViewport] = useState<BackgroundViewport>('desktop')
   const previewFrameRef = useRef<HTMLDivElement>(null)
   const previewImageRef = useRef<HTMLImageElement>(null)
-  const pointerStartRef = useRef<{ pointerId: number; x: number; y: number; positionX: number; positionY: number; active: boolean } | null>(null)
+  const pointerStartRef = useRef<{ pointerId: number; x: number; y: number; positionX: number; positionY: number; overflowX: number; overflowY: number; active: boolean } | null>(null)
+  const backgroundPositionLabelRef = useRef<HTMLSpanElement>(null)
   const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => () => { if (holdTimerRef.current) clearTimeout(holdTimerRef.current) }, [])
@@ -149,6 +155,10 @@ function AdminPage() {
     const form = new FormData(); form.set('siteName', settings.siteName); form.set('biography', settings.biography); form.set('experience', settings.experience)
     form.set('backgroundPositionX', String(settings.backgroundPositionX ?? 50))
     form.set('backgroundPositionY', String(settings.backgroundPositionY ?? 50))
+    form.set('backgroundDesktopPositionX', String(settings.backgroundDesktopPositionX ?? settings.backgroundPositionX ?? 50))
+    form.set('backgroundDesktopPositionY', String(settings.backgroundDesktopPositionY ?? settings.backgroundPositionY ?? 50))
+    form.set('backgroundMobilePositionX', String(settings.backgroundMobilePositionX ?? settings.backgroundPositionX ?? 50))
+    form.set('backgroundMobilePositionY', String(settings.backgroundMobilePositionY ?? settings.backgroundPositionY ?? 50))
     if (background) form.set('background', background)
     try {
       const saved = await updateSiteSettings(form)
@@ -183,31 +193,35 @@ function AdminPage() {
   }
 
   async function removeFriend(friend: Friend) {
-    if (!window.confirm(`確定要刪除「${friend.name}」嗎？`)) return
     setBusy(true); setMessage('')
-    try { await deleteFriend(friend.id); setFriends((current) => current.filter((item) => item.id !== friend.id)); setMessage(`已刪除「${friend.name}」。`) }
+    try { await deleteFriend(friend.id); setFriends((current) => current.filter((item) => item.id !== friend.id)); setFriendToDelete(null); setMessage(`已刪除「${friend.name}」。`) }
     catch (error) { setMessage(error instanceof Error ? error.message : '刪除失敗。') }
     finally { setBusy(false) }
   }
 
   function startBackgroundDrag(event: React.PointerEvent<HTMLDivElement>) {
-    if (!backgroundDragMode || (event.pointerType === 'mouse' && event.button !== 0)) return
+    if (!backgroundAdjustOpen || (event.pointerType === 'mouse' && event.button !== 0)) return
     event.preventDefault()
     event.currentTarget.setPointerCapture(event.pointerId)
+    const image = previewImageRef.current
+    const frame = previewFrameRef.current
+    if (!image || !frame || !image.naturalWidth || !image.naturalHeight) return
+    const coverScale = Math.max(frame.clientWidth / image.naturalWidth, frame.clientHeight / image.naturalHeight)
     pointerStartRef.current = {
       pointerId: event.pointerId,
       x: event.clientX,
       y: event.clientY,
-      positionX: settings.backgroundPositionX ?? 50,
-      positionY: settings.backgroundPositionY ?? 50,
-      active: false,
+      positionX: backgroundViewport === 'desktop'
+        ? settings.backgroundDesktopPositionX ?? settings.backgroundPositionX ?? 50
+        : settings.backgroundMobilePositionX ?? settings.backgroundPositionX ?? 50,
+      positionY: backgroundViewport === 'desktop'
+        ? settings.backgroundDesktopPositionY ?? settings.backgroundPositionY ?? 50
+        : settings.backgroundMobilePositionY ?? settings.backgroundPositionY ?? 50,
+      overflowX: Math.max(1, image.naturalWidth * coverScale - frame.clientWidth),
+      overflowY: Math.max(1, image.naturalHeight * coverScale - frame.clientHeight),
+      active: true,
     }
-    holdTimerRef.current = setTimeout(() => {
-      if (pointerStartRef.current?.pointerId === event.pointerId) {
-        pointerStartRef.current.active = true
-        setBackgroundDragging(true)
-      }
-    }, 350)
+    setBackgroundDragging(true)
   }
 
   function moveBackgroundDrag(event: React.PointerEvent<HTMLDivElement>) {
@@ -222,24 +236,30 @@ function AdminPage() {
       return
     }
     const image = previewImageRef.current
-    const frame = previewFrameRef.current
-    if (!image || !frame) return
+    if (!image) return
     event.preventDefault()
-    const scale = Math.max(frame.clientWidth / image.naturalWidth, frame.clientHeight / image.naturalHeight)
-    const overflowX = Math.max(1, image.naturalWidth * scale - frame.clientWidth)
-    const overflowY = Math.max(1, image.naturalHeight * scale - frame.clientHeight)
-    setSettings((current) => ({
-      ...current,
-      backgroundPositionX: Math.max(0, Math.min(100, start.positionX - ((event.clientX - start.x) / overflowX) * 100)),
-      backgroundPositionY: Math.max(0, Math.min(100, start.positionY - ((event.clientY - start.y) / overflowY) * 100)),
-    }))
+    const positionX = Math.max(0, Math.min(100, start.positionX - ((event.clientX - start.x) / start.overflowX) * 100))
+    const positionY = Math.max(0, Math.min(100, start.positionY - ((event.clientY - start.y) / start.overflowY) * 100))
+    start.x = event.clientX
+    start.y = event.clientY
+    start.positionX = positionX
+    start.positionY = positionY
+    image.style.objectPosition = `${positionX}% ${positionY}%`
+    if (backgroundPositionLabelRef.current) backgroundPositionLabelRef.current.textContent = `${backgroundViewport === 'desktop' ? '電腦' : '手機'}位置 ${Math.round(positionX)}% / ${Math.round(positionY)}%`
   }
 
   function stopBackgroundDrag(event: React.PointerEvent<HTMLDivElement>) {
     if (holdTimerRef.current) clearTimeout(holdTimerRef.current)
     holdTimerRef.current = null
+    const start = pointerStartRef.current
+    if (start?.pointerId === event.pointerId && start.active) {
+      setSettings((current) => backgroundViewport === 'desktop'
+        ? { ...current, backgroundDesktopPositionX: start.positionX, backgroundDesktopPositionY: start.positionY }
+        : { ...current, backgroundMobilePositionX: start.positionX, backgroundMobilePositionY: start.positionY })
+    }
     pointerStartRef.current = null
     setBackgroundDragging(false)
+
     if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId)
   }
 
@@ -251,8 +271,13 @@ function AdminPage() {
     {message && <p className="admin-feedback error">{message}</p>}<button className="admin-primary" disabled={busy}>{busy ? '登入中…' : '登入後台'}</button>
   </form></main>
 
-  const nav: { id: Exclude<Section, 'login'>; label: string; icon: string }[] = [
-    { id: 'overview', label: '總覽', icon: '⌂' }, { id: 'traffic', label: '流量分析', icon: '↗' }, { id: 'home', label: '首頁內容', icon: '◉' }, { id: 'projects', label: 'Projects', icon: '✳' }, { id: 'friends', label: 'Friends', icon: '✳' }, { id: 'site', label: '網站設定', icon: '⚙' },
+  const nav: { id: Exclude<Section, 'login'>; label: string; mobileLabel: string; icon: string }[] = [
+    { id: 'overview', label: '總覽', mobileLabel: '總覽', icon: '⌂' },
+    { id: 'home', label: '首頁內容', mobileLabel: '首頁', icon: '◎' },
+    { id: 'projects', label: 'Projects', mobileLabel: '作品', icon: '▦' },
+    { id: 'friends', label: 'Friends', mobileLabel: '友站', icon: '♧' },
+    { id: 'traffic', label: '流量分析', mobileLabel: '流量', icon: '◔' },
+    { id: 'site', label: '網站設定', mobileLabel: '設定', icon: '⚙' },
   ]
   const title = section === 'home' ? '首頁內容' : section === 'site' ? '網站設定' : section === 'traffic' ? '流量分析' : section === 'friends' ? 'Friends 管理' : section === 'projects' ? 'Projects 管理' : '總覽'
   const homeChecks = [
@@ -285,11 +310,11 @@ function AdminPage() {
   return <main className="admin-app">
     <aside className="admin-rail"><a className="admin-brand" href="#admin"><span className="admin-brand-main">BAIHU</span><span className="admin-brand-sub">STUDIO</span></a><nav>{nav.map((item) => <a key={item.id} className={section === item.id ? 'active' : ''} href={`#admin${item.id === 'overview' ? '' : `/${item.id}`}`}><i>{item.icon}</i>{item.label}</a>)}</nav><a className="admin-rail-site" href="#home">↗ 查看網站</a></aside>
     <div className="admin-main"><header className="admin-topbar"><div className="admin-topbar-title"><strong>網站管理</strong><span aria-hidden="true">/</span><h1>{title}</h1></div><button className="admin-logout" onClick={() => logoutAdmin().then(() => { setAuthenticated(false); window.location.hash = '#blog' }).catch((error: unknown) => setMessage(error instanceof Error ? error.message : '登出失敗。'))}>登出</button></header>
-      <nav className="admin-mobile-nav">{nav.map((item) => <a key={item.id} className={section === item.id ? 'active' : ''} href={`#admin${item.id === 'overview' ? '' : `/${item.id}`}`}><i>{item.icon}</i><span>{item.label}</span></a>)}</nav>
+      <nav className="admin-mobile-nav">{nav.map((item) => <a key={item.id} className={section === item.id ? 'active' : ''} href={`#admin${item.id === 'overview' ? '' : `/${item.id}`}`}><i>{item.icon}</i><span className="admin-nav-label-desktop">{item.label}</span><span className="admin-nav-label-mobile">{item.mobileLabel}</span></a>)}</nav>
       <div className="admin-content">
         {message && <p className="admin-feedback">{message}</p>}
         {section === 'overview' && <>
-          <section className="admin-welcome"><div><p className="admin-kicker">CONTENT DESK</p><h2>網站營運一覽</h2><p>管理首頁資訊與網站外觀；文章集中在 Blog 維護。</p></div><a className="admin-primary as-link" href="#blog">前往 Blog 管理文章 <span>↗</span></a></section>
+          <section className="admin-welcome admin-mobile-home-link"><div><p className="admin-kicker">CONTENT DESK</p><h2>網站營運一覽</h2><p>管理首頁資訊與網站外觀；文章集中在 Blog 維護。</p></div><a className="admin-primary as-link" href="#home">回到主頁 <span>↗</span></a></section>
           <div className="admin-metrics"><article><span>已發布文章</span><strong>{stats.articleCount}</strong><a href="#blog">在 Blog 管理 ↗</a></article><article><span>分類</span><strong>{stats.categoryCount}</strong><small>文章整理狀況</small></article><article><span>標籤</span><strong>{stats.tagCount}</strong><small>文章主題索引</small></article><article><span>文章總字數</span><strong>{stats.totalWords.toLocaleString()}</strong><small>已發布內容累積</small></article><article><span>網站運作</span><strong>{stats.runtimeDays.toLocaleString()}<em> 天</em></strong><small>持續更新中</small></article><article><span>最後更新</span><strong className="metric-date">{stats.lastActivity ? new Date(stats.lastActivity).toLocaleDateString() : '尚無紀錄'}</strong><small>最近發布文章</small></article></div>
           <section className="admin-home-status"><div className="admin-home-status-head"><div><p className="admin-kicker">HOMEPAGE CHECK</p><h2>首頁內容狀態</h2><p>快速確認訪客會看到的主要資訊是否已備妥。</p></div><a href="#admin/home">編輯首頁 →</a></div><div className="admin-home-status-body"><div className="admin-home-progress"><strong>{completedHomeChecks}<small> / {homeChecks.length}</small></strong><span>項目已完成</span><div className="admin-progress-track"><i style={{ width: `${(completedHomeChecks / homeChecks.length) * 100}%` }} /></div></div><div className="admin-home-checks">{homeChecks.map((item) => <div key={item.label} className={item.ready ? 'is-ready' : ''}><i>{item.ready ? '✓' : '—'}</i><span>{item.label}</span><small>{item.ready ? '已設定' : '尚未設定'}</small></div>)}</div></div></section>
           <div className="admin-overview-grid">
@@ -312,7 +337,7 @@ function AdminPage() {
         </section>}
         {section === 'home' && <form className="admin-form-card" onSubmit={saveProfile}><div className="admin-form-intro"><div><h2>首頁個人介紹</h2><p>這些內容會顯示在網站首頁。</p></div><button className="admin-primary" disabled={busy}>{busy ? '儲存中…' : '儲存變更'}</button></div>
           <div className="admin-form-grid"><div className="admin-form-section span-two"><span>個人介紹</span></div><div className="admin-field span-two">頭像<FileDropzone title="上傳首頁頭像" file={avatar} previewUrl={profile.avatarUrl} onFile={setAvatar} /></div>
-            <label className="admin-field span-two">點擊頭像時顯示的文字 <small>每行一則，點擊頭像時隨機顯示一則</small><textarea rows={3} maxLength={3200} value={avatarMessages} onChange={(event) => setAvatarMessages(event.target.value)} placeholder={'嗨，歡迎來逛逛！ (｡•̀ᴗ-)✧\n今天也要保持好奇心！ (ง •̀_•́)ง'} /></label>
+            <label className="admin-field span-two avatar-messages-field">點擊頭像時顯示的文字 <small>每行一則，點擊頭像時隨機顯示一則</small><textarea rows={8} maxLength={3200} value={avatarMessages} onChange={(event) => setAvatarMessages(event.target.value)} placeholder={'嗨，歡迎來逛逛！ (｡•̀ᴗ-)✧\n今天也要保持好奇心！ (ง •̀_•́)ง'} /></label>
             <label className="admin-field">顯示名稱<input value={profile.name} onChange={(event) => setProfile({ ...profile, name: event.target.value })} /></label><label className="admin-field">首頁短句<input value={profile.quote} onChange={(event) => setProfile({ ...profile, quote: event.target.value })} /></label>
             <label className="admin-field span-two">個人介紹<textarea rows={4} value={profile.introduction} onChange={(event) => setProfile({ ...profile, introduction: event.target.value })} /></label><label className="admin-field span-two">社群連結 <small>每行一筆：名稱 | 網址</small><textarea rows={3} value={socials} onChange={(event) => setSocials(event.target.value)} placeholder={'Instagram | https://…\nGitHub | https://…'} /></label>
             <label className="admin-field span-two">個人標籤 <small>以逗號分隔</small><input value={tags} onChange={(event) => setTags(event.target.value)} placeholder="設計, 開發, 日常" /></label><div className="admin-form-section span-two"><span>首頁動態</span></div><label className="admin-field span-two">區塊標題<input value={profile.updateTitle} onChange={(event) => setProfile({ ...profile, updateTitle: event.target.value })} /></label><label className="admin-field span-two">動態內容<textarea rows={3} value={profile.updateText} onChange={(event) => setProfile({ ...profile, updateText: event.target.value })} /></label>
@@ -320,7 +345,7 @@ function AdminPage() {
         </form>}
         {section === 'friends' && <section className="admin-friends-manager">
           <div className="admin-friends-heading"><div><p className="admin-kicker">FRIENDS DIRECTORY</p><h2>朋友連結</h2><p>管理公開 Friends 頁面上的人物卡片。</p></div><div className="admin-friends-actions"><a className="admin-primary as-link" href="#friends" target="_blank" rel="noreferrer">預覽頁面 ↗</a><button type="button" className="admin-primary" onClick={() => startFriendEdit()}>＋ 新增朋友</button></div></div>
-          <div className="admin-friend-list">{friends.length ? friends.map((friend) => <article key={friend.id}>{friend.avatarUrl ? <img src={friend.avatarUrl} alt="" /> : <span className="admin-friend-avatar-fallback">{friend.name.slice(0, 1)}</span>}<div><strong>{friend.name}</strong><p>{friend.introduction || '尚未填寫自介'}</p><a href={friend.url} target="_blank" rel="noreferrer">{friend.url}</a></div><div className="admin-friend-actions"><button type="button" className="admin-friend-edit" onClick={() => startFriendEdit(friend)}>編輯</button><button type="button" className="admin-friend-delete" disabled={busy} onClick={() => removeFriend(friend)}>刪除</button></div></article>) : <p className="admin-friend-empty">尚未新增朋友，建立第一張卡片吧。</p>}</div>
+          <div className="admin-friend-list">{friends.length ? friends.map((friend) => <article key={friend.id}>{friend.avatarUrl ? <img src={friend.avatarUrl} alt="" /> : <span className="admin-friend-avatar-fallback">{friend.name.slice(0, 1)}</span>}<div><strong>{friend.name}</strong><p>{friend.introduction || '尚未填寫自介'}</p><a href={friend.url} target="_blank" rel="noreferrer">{friend.url}</a></div><div className="admin-friend-actions"><button type="button" className="admin-friend-edit" onClick={() => startFriendEdit(friend)}>編輯</button><button type="button" className="admin-friend-delete" disabled={busy} onClick={() => setFriendToDelete(friend)}>刪除</button></div></article>) : <p className="admin-friend-empty">尚未新增朋友，建立第一張卡片吧。</p>}</div>
           {friendModalOpen && <div className="friend-modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) closeFriendModal() }}><section className="friend-modal" role="dialog" aria-modal="true" aria-labelledby="friend-modal-title"><header className="friend-modal-heading"><div><p className="admin-kicker">FRIENDS DIRECTORY</p><h2 id="friend-modal-title">{editingFriend ? '編輯朋友' : '新增朋友'}</h2></div><button type="button" className="friend-modal-close" aria-label="關閉" onClick={closeFriendModal}>×</button></header>
             <form className="admin-friend-form" onSubmit={saveFriend}><div className="admin-form-grid"><div className="admin-field span-two">頭像 <FileDropzone title="上傳朋友頭像" file={friendAvatar} previewUrl={editingFriend?.avatarUrl} onFile={setFriendAvatar} /></div>
               <label className="admin-field">名稱<input required maxLength={120} value={friendName} onChange={(event) => setFriendName(event.target.value)} placeholder="朋友名稱" /></label>
@@ -333,17 +358,30 @@ function AdminPage() {
         {section === 'site' && <form className="admin-form-card admin-site-settings-form" onSubmit={saveSite}><div className="admin-form-intro"><div><h2>網站設定</h2></div><button className="admin-primary" disabled={busy}>{busy ? '儲存中…' : '儲存'}</button></div><div className="admin-form-grid">
           <label className="admin-field span-two">網站名稱<input value={settings.siteName} onChange={(event) => setSettings({ ...settings, siteName: event.target.value })} /></label><label className="admin-field span-two">About 自介（Markdown） <small>支援標題、清單、粗體與連結</small><textarea rows={8} value={settings.biography} onChange={(event) => setSettings({ ...settings, biography: event.target.value })} placeholder={'## 關於我\n\n在這裡寫下你的故事…'} /></label><label className="admin-field span-two">經歷<textarea rows={5} value={settings.experience} onChange={(event) => setSettings({ ...settings, experience: event.target.value })} /></label>
           <div className="admin-form-section span-two"><span>首頁背景</span></div><div className="admin-field span-two"><span>背景圖片</span><FileDropzone title="選擇或拖入圖片" file={background} previewUrl={settings.backgroundUrl} onFile={setBackground} />
-            {(backgroundPreview || settings.backgroundUrl) && <div className="background-adjuster">
-              <div className={`background-adjuster-frame${backgroundDragMode ? ' is-adjustable' : ''}${backgroundDragging ? ' is-dragging' : ''}`} ref={previewFrameRef} onPointerDown={startBackgroundDrag} onPointerMove={moveBackgroundDrag} onPointerUp={stopBackgroundDrag} onPointerCancel={stopBackgroundDrag} onLostPointerCapture={stopBackgroundDrag}>
-                <img ref={previewImageRef} className="background-adjuster-preview" src={backgroundPreview || settings.backgroundUrl} alt="首頁背景預覽" draggable={false} style={{ objectPosition: `${settings.backgroundPositionX ?? 50}% ${settings.backgroundPositionY ?? 50}%` }} />
-                {backgroundDragMode && <span className="background-drag-hint">長按圖片後拖曳調整位置</span>}
-              </div>
-              <div className="background-adjuster-controls"><span>首頁背景位置 <small>{Math.round(settings.backgroundPositionX ?? 50)}% / {Math.round(settings.backgroundPositionY ?? 50)}%</small></span><button type="button" className={`background-drag-toggle${backgroundDragMode ? ' active' : ''}`} onClick={() => { setBackgroundDragMode((enabled) => !enabled); setBackgroundDragging(false) }}>{backgroundDragMode ? '完成調整' : '啟用拖曳調整'}</button></div>
+            {(backgroundPreview || settings.backgroundUrl) && <button type="button" className="background-open-editor" onClick={() => { setBackgroundViewport('desktop'); setBackgroundAdjustOpen(true) }}>開啟背景編輯器 <span>電腦／手機分別調整</span></button>}
+            {backgroundAdjustOpen && (backgroundPreview || settings.backgroundUrl) && <div className="image-adjust-backdrop background-adjust-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setBackgroundAdjustOpen(false) }}>
+              <section className={`image-adjust-modal background-adjust-modal ${backgroundViewport === 'mobile' ? 'is-mobile' : 'is-desktop'}`} role="dialog" aria-modal="true" aria-labelledby="background-adjust-title">
+                <header><div><strong id="background-adjust-title">調整首頁背景</strong><small>拖曳圖片定位 · 電腦與手機會分別保存位置</small></div><button type="button" aria-label="關閉背景編輯器" onClick={() => setBackgroundAdjustOpen(false)}>×</button></header>
+                <div className="background-modal-toolbar" role="tablist" aria-label="選擇背景預覽裝置"><span>預覽裝置</span><div><button type="button" className={backgroundViewport === 'desktop' ? 'active' : ''} onClick={() => setBackgroundViewport('desktop')}>電腦</button><button type="button" className={backgroundViewport === 'mobile' ? 'active' : ''} onClick={() => setBackgroundViewport('mobile')}>手機</button></div></div>
+                <div className={`image-adjust-viewport background-adjust-viewport ${backgroundViewport === 'mobile' ? 'is-mobile' : 'is-desktop'}${backgroundDragging ? ' is-dragging' : ''}`} ref={previewFrameRef} onPointerDown={startBackgroundDrag} onPointerMove={moveBackgroundDrag} onPointerUp={stopBackgroundDrag} onPointerCancel={stopBackgroundDrag} onLostPointerCapture={stopBackgroundDrag}>
+                  <img ref={previewImageRef} src={backgroundPreview || settings.backgroundUrl} alt={`${backgroundViewport === 'mobile' ? '手機' : '電腦'}首頁背景預覽`} draggable={false} style={{ objectPosition: `${(backgroundViewport === 'desktop' ? settings.backgroundDesktopPositionX ?? settings.backgroundPositionX : settings.backgroundMobilePositionX ?? settings.backgroundPositionX) ?? 50}% ${(backgroundViewport === 'desktop' ? settings.backgroundDesktopPositionY ?? settings.backgroundPositionY : settings.backgroundMobilePositionY ?? settings.backgroundPositionY) ?? 50}%` }} />
+                  <span className="background-modal-hint">{backgroundDragging ? '正在調整位置' : '左鍵拖曳 · 手機長按後拖曳'}</span>
+                </div>
+                <footer><span ref={backgroundPositionLabelRef}>{backgroundViewport === 'desktop' ? '電腦' : '手機'}位置 {Math.round((backgroundViewport === 'desktop' ? settings.backgroundDesktopPositionX ?? settings.backgroundPositionX : settings.backgroundMobilePositionX ?? settings.backgroundPositionX) ?? 50)}% / {Math.round((backgroundViewport === 'desktop' ? settings.backgroundDesktopPositionY ?? settings.backgroundPositionY : settings.backgroundMobilePositionY ?? settings.backgroundPositionY) ?? 50)}%</span><button type="button" className="save-button" onClick={() => setBackgroundAdjustOpen(false)}>完成調整</button></footer>
+              </section>
             </div>}
           </div>
         </div></form>}
       </div>
     </div>
+    <ConfirmDialog
+      open={Boolean(friendToDelete)}
+      title="刪除這位朋友？"
+      message={friendToDelete ? `「${friendToDelete.name}」刪除後將無法復原。` : ''}
+      busy={busy}
+      onConfirm={() => friendToDelete ? removeFriend(friendToDelete) : undefined}
+      onCancel={() => { if (!busy) setFriendToDelete(null) }}
+    />
   </main>
 }
 

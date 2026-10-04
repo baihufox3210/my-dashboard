@@ -22,7 +22,7 @@ async function request<T>(input: RequestInfo, init?: RequestInit): Promise<T> {
 }
 
 export function fetchArticles() {
-  return request<Article[]>('/api/articles')
+  return request<Article[]>('/api/articles', { cache: 'no-store' })
 }
 
 export function fetchArticleStats() {
@@ -75,6 +75,7 @@ export function updateArticle(id: string, formData: FormData) {
   return request<Article>(`/api/articles/${id}`, { method: 'PUT', body: formData })
 }
 
+
 export function deleteArticle(id: string) {
   return request<void>(`/api/articles/${id}`, { method: 'DELETE' })
 }
@@ -112,7 +113,7 @@ export function deleteFriend(id: string) {
 }
 
 export function fetchProjects() {
-  return request<Project[]>('/api/projects')
+  return request<Project[]>('/api/projects', { cache: 'no-store' })
 }
 
 export function createProject(formData: FormData) {

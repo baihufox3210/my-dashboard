@@ -9,9 +9,18 @@ import PageRouter from './routes/PageRouter'
 function App() {
   const lastTrackedPage = useRef('')
   useEffect(() => {
+    let settings: Awaited<ReturnType<typeof fetchSiteSettings>> | null = null
+    const syncBackground = () => {
+      if (settings) applySiteBackground(settings)
+    }
     fetchSiteSettings()
-      .then(applySiteBackground)
+      .then((loaded) => {
+        settings = loaded
+        applySiteBackground(loaded)
+      })
       .catch(() => undefined)
+    window.addEventListener('resize', syncBackground)
+    return () => window.removeEventListener('resize', syncBackground)
   }, [])
 
   useEffect(() => {

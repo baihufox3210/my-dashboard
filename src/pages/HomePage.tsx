@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import MarkdownPreview from '../components/MarkdownPreview'
 import SocialLinks from '../components/SocialLinks'
 import { fetchArticles, fetchHomeProfile, recordPageView } from '../features/blog/api'
@@ -24,6 +24,9 @@ function HomePage() {
   const [articles, setArticles] = useState<Article[]>([])
   const [selectedArticle, setSelectedArticle] = useState<Article | null>(null)
   const [avatarMessage, setAvatarMessage] = useState('')
+  const [articleListHeight, setArticleListHeight] = useState<number | null>(null)
+  const articleListRef = useRef<HTMLDivElement>(null)
+  const homeTagsRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     fetchHomeProfile().then(setProfile).catch(() => undefined)
@@ -35,6 +38,73 @@ function HomePage() {
     const timer = window.setTimeout(() => setAvatarMessage(''), 3200)
     return () => window.clearTimeout(timer)
   }, [avatarMessage])
+
+  useEffect(() => {
+    const tags = homeTagsRef.current
+    if (!tags) return
+    let frame = 0
+
+    const fitTags = () => {
+      cancelAnimationFrame(frame)
+      frame = requestAnimationFrame(() => {
+        tags.classList.remove('is-wrapped')
+        if (!tags.clientWidth) return
+        if (tags.scrollWidth > tags.clientWidth + 1) tags.classList.add('is-wrapped')
+      })
+    }
+
+    fitTags()
+    const observer = new ResizeObserver(fitTags)
+    observer.observe(tags)
+    if (tags.parentElement) observer.observe(tags.parentElement)
+    window.addEventListener('resize', fitTags)
+    return () => {
+      cancelAnimationFrame(frame)
+      observer.disconnect()
+      window.removeEventListener('resize', fitTags)
+    }
+  }, [profile.tags])
+
+  useEffect(() => {
+    const list = articleListRef.current
+    if (!list) return
+    let frame = 0
+    let lastHeight = -1
+
+    const measureArticleWindow = () => {
+      cancelAnimationFrame(frame)
+      frame = requestAnimationFrame(() => {
+        const cards = [...list.querySelectorAll<HTMLElement>(':scope > .home-article')]
+        if (cards.length <= 2) {
+          if (lastHeight !== 0) {
+            lastHeight = 0
+            setArticleListHeight(null)
+          }
+          return
+        }
+
+        const listStyle = getComputedStyle(list)
+        const gap = Number.parseFloat(listStyle.rowGap || listStyle.gap) || 0
+        const padding = (Number.parseFloat(listStyle.paddingTop) || 0) + (Number.parseFloat(listStyle.paddingBottom) || 0)
+        const nextHeight = Math.ceil((cards[0]?.getBoundingClientRect().height ?? 0) + (cards[1]?.getBoundingClientRect().height ?? 0) + gap + padding)
+        if (nextHeight > 0 && Math.abs(nextHeight - lastHeight) > 1) {
+          lastHeight = nextHeight
+          setArticleListHeight(nextHeight)
+        }
+      })
+    }
+
+    measureArticleWindow()
+    const observer = new ResizeObserver(measureArticleWindow)
+    observer.observe(list)
+    list.querySelectorAll('img').forEach((image) => image.addEventListener('load', measureArticleWindow, { once: true }))
+    window.addEventListener('resize', measureArticleWindow)
+    return () => {
+      cancelAnimationFrame(frame)
+      observer.disconnect()
+      window.removeEventListener('resize', measureArticleWindow)
+    }
+  }, [articles])
 
   function showAvatarMessage() {
     const messages = profile.avatarMessages.filter(Boolean)
@@ -68,14 +138,14 @@ function HomePage() {
           <h1>{profile.name}</h1>
           <blockquote>{profile.quote}</blockquote>
         </section>
-        <section className="home-tags-card home-panel" aria-label="興趣標籤"><p className="home-eyebrow">INTERESTS</p><div className="home-tags">{profile.tags.map((tag) => <span key={tag}>#{tag}</span>)}</div></section>
+        <section className="home-tags-card home-panel" aria-label="興趣標籤"><p className="home-eyebrow">INTERESTS</p><div className="home-tags" ref={homeTagsRef}>{profile.tags.map((tag) => <span key={tag}>#{tag}</span>)}</div></section>
         <section className="home-contact-card home-panel" aria-label="聯絡方式"><SocialLinks socials={profile.socials} /></section>
       </div>
 
       <section className="home-blog home-panel">
         <div className="home-section-heading"><div><p className="home-eyebrow">FROM THE BLOG</p><h2>最新文章</h2></div><span className="home-post-count">{articles.length} 篇文章</span></div>
-        {articles.length ? <div className="home-article-list">{articles.map((article) => <button className="home-article" type="button" onClick={() => setSelectedArticle(article)} key={article.id}>
-          {article.coverImage && <img className="home-article-cover" src={article.coverImage} alt="" />}
+        {articles.length ? <div className={`home-article-list${articles.length > 2 ? ' is-scrollable' : ''}`} ref={articleListRef} style={articleListHeight ? { height: `${articleListHeight}px`, maxHeight: `${articleListHeight}px`, flex: '0 0 auto' } : undefined}>{articles.map((article) => <button className="home-article" type="button" onClick={() => setSelectedArticle(article)} key={article.id}>
+          {article.coverImage && <img className="home-article-cover" src={article.coverImage} alt="" style={{ objectPosition: article.coverImagePosition ?? '50% 50%', transform: `scale(${article.coverImageScale ?? 1})`, transformOrigin: 'center' }} />}
           <span className="home-article-copy"><small>{article.category}</small><strong>{article.title}</strong><span>{article.content.replace(/[#*`>_[\]!~]/g, '').slice(0, 140)}{article.content.length > 140 ? '…' : ''}</span><time className="home-article-date">{new Date(article.publishedAt).toLocaleDateString()}</time></span><span className="home-article-arrow" aria-hidden="true">↗</span></button>)}</div> : <div className="home-blog-empty"><span>✳</span><strong>新文章正在路上</strong><p>最近的想法與作品會出現在這裡。</p></div>}
       </section>
 
@@ -89,7 +159,7 @@ function HomePage() {
           <button type="button" className="secondary-button" onClick={() => setSelectedArticle(null)}>關閉</button>
           <p className="placeholder-label">{selectedArticle.category} · {new Date(selectedArticle.publishedAt).toLocaleDateString()}</p>
           <h2 id="home-article-title">{selectedArticle.title}</h2>
-          {selectedArticle.coverImage && <img src={selectedArticle.coverImage} alt="" />}
+          {selectedArticle.coverImage && <img src={selectedArticle.coverImage} alt="" style={{ objectPosition: selectedArticle.coverImagePosition ?? '50% 50%', transform: `scale(${selectedArticle.coverImageScale ?? 1})`, transformOrigin: 'center' }} />}
           <MarkdownPreview content={selectedArticle.content} />
         </article>
       </div>}

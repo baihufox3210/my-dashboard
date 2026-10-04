@@ -39,6 +39,10 @@ export type SiteSettings = {
   backgroundUrl?: string
   backgroundPositionX?: number
   backgroundPositionY?: number
+  backgroundDesktopPositionX?: number
+  backgroundDesktopPositionY?: number
+  backgroundMobilePositionX?: number
+  backgroundMobilePositionY?: number
 }
 
 export type HomeProfile = {

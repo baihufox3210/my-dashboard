@@ -1,8 +1,33 @@
 import { useEffect, useRef, useState } from 'react'
 import MarkdownPreview from '../components/MarkdownPreview'
 import FileDropzone from '../components/FileDropzone'
+import ConfirmDialog from '../components/ConfirmDialog'
 import { deleteArticle, fetchAdminSession, fetchArticleStats, fetchArticles, publishArticle, recordPageView, updateArticle } from '../features/blog/api'
 import type { Article, ArticleStats } from '../features/blog/article'
+
+function measureArticleCoverAspectRatio(articleId?: string) {
+  const cards = [...document.querySelectorAll<HTMLButtonElement>('.public-article-card')]
+  const card = cards.find((item) => item.dataset.articleId === articleId) ?? cards[0]
+  if (card) {
+    const frame = card.querySelector<HTMLElement>('.public-article-cover-frame')
+    if (frame?.offsetWidth && frame.offsetHeight) return frame.offsetWidth / frame.offsetHeight
+
+    const probe = document.createElement('span')
+    probe.className = 'public-article-cover-frame'
+    const cardStyle = getComputedStyle(card)
+    const horizontalPadding = Number.parseFloat(cardStyle.paddingLeft) + Number.parseFloat(cardStyle.paddingRight)
+    probe.style.cssText = `position:absolute;visibility:hidden;pointer-events:none;width:${Math.max(0, card.clientWidth - horizontalPadding)}px`
+    card.append(probe)
+    const ratio = probe.offsetWidth / probe.offsetHeight
+    probe.remove()
+    if (Number.isFinite(ratio) && ratio > 0) return ratio
+  }
+
+  const viewport = document.querySelector<HTMLElement>('.blog-article-viewport')
+  const rem = Number.parseFloat(getComputedStyle(document.documentElement).fontSize) || 16
+  const availableWidth = viewport?.clientWidth || window.innerWidth - rem * 2
+  return Math.max(1, (availableWidth - rem * 2) / (rem * 9.45))
+}
 
 const emptyStats: ArticleStats = {
   articleCount: 0,
@@ -17,6 +42,7 @@ function BlogPage() {
   const [articles, setArticles] = useState<Article[]>([])
   const [stats, setStats] = useState<ArticleStats>(emptyStats)
   const [selectedArticle, setSelectedArticle] = useState<Article | null>(null)
+  const [articleToDelete, setArticleToDelete] = useState<Article | null>(null)
   const [currentTime] = useState(() => Date.now())
   const [isAdmin, setIsAdmin] = useState(false)
   const [adminMessage, setAdminMessage] = useState('')
@@ -28,6 +54,7 @@ function BlogPage() {
   const [draftCover, setDraftCover] = useState<File | null>(null)
   const [draftCoverPosition, setDraftCoverPosition] = useState('50% 50%')
   const [draftCoverScale, setDraftCoverScale] = useState(1)
+  const [draftCoverAspectRatio, setDraftCoverAspectRatio] = useState(16 / 9)
   const [draftBusy, setDraftBusy] = useState(false)
   const [draftPreview, setDraftPreview] = useState(false)
   const articleViewportRef = useRef<HTMLDivElement>(null)
@@ -43,6 +70,8 @@ function BlogPage() {
     const publishedAt = new Date(article.publishedAt).getTime()
     return currentTime - publishedAt <= 7 * 86_400_000
   })
+  const visibleRecentArticles = recentArticles.slice(0, 4)
+  const recentArticlePlaceholders = Math.max(0, 5 - visibleRecentArticles.length)
 
   const tagCounts = articles.reduce<Record<string, number>>((counts, article) => {
     article.tags.forEach((tag) => {
@@ -72,6 +101,7 @@ function BlogPage() {
       if (!isAdmin) return
       const id = rawId ? decodeURIComponent(rawId) : undefined
       const article = action === 'edit' ? articles.find((item) => item.id === id) : undefined
+      setDraftCoverAspectRatio(measureArticleCoverAspectRatio(id))
       setEditor({ mode: action, ...(id ? { id } : {}) })
       setDraftTitle(article?.title ?? '')
       setDraftCategory(article?.category ?? '')
@@ -88,6 +118,18 @@ function BlogPage() {
     return () => window.removeEventListener('hashchange', sync)
   }, [isAdmin, articles])
 
+  async function confirmArticleDelete() {
+    if (!articleToDelete) return
+    try {
+      await deleteArticle(articleToDelete.id)
+      setArticles((current) => current.filter((item) => item.id !== articleToDelete.id))
+      if (selectedArticle?.id === articleToDelete.id) setSelectedArticle(null)
+      setArticleToDelete(null)
+    } catch (error) {
+      setAdminMessage(error instanceof Error ? error.message : 'Delete failed.')
+    }
+  }
+
   async function saveDraft(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
     const form = new FormData()
@@ -96,12 +138,16 @@ function BlogPage() {
     setDraftBusy(true); setAdminMessage('')
     try {
       const saved = editor?.mode === 'edit' && editor.id ? await updateArticle(editor.id, form) : await publishArticle(form)
+      if (saved.coverImagePosition !== draftCoverPosition || saved.coverImageScale !== draftCoverScale) {
+        throw new Error('伺服器沒有回傳最新的封面位置與縮放，請確認後端已重新啟動後再儲存。')
+      }
       setArticles((current) => editor?.mode === 'edit' ? current.map((item) => item.id === saved.id ? saved : item) : [saved, ...current])
       fetchArticleStats().then(setStats).catch(() => undefined)
       window.location.hash = '#blog'
     } catch (error) { setAdminMessage(error instanceof Error ? error.message : '儲存文章失敗。') }
     finally { setDraftBusy(false) }
   }
+
 
   // Keep the desktop workspace below the topbar's 25vh breathing room.
   // If the sidebar is taller than the measured card range, scale its contents
@@ -123,9 +169,12 @@ function BlogPage() {
       const secondCard = articleCards[1]
       const articleGap = Number.parseFloat(getComputedStyle(articleEl).rowGap) || 0
       const firstCardRect = firstCard?.getBoundingClientRect()
-      const targetBottom = secondCard?.getBoundingClientRect().bottom
-        ?? (firstCardRect ? firstCardRect.bottom + firstCardRect.height + articleGap : articleEl.getBoundingClientRect().bottom)
       const outerTop = outerEl.getBoundingClientRect().top
+      const articleBottom = articleEl.getBoundingClientRect().bottom
+      const targetBottom = articleCards.length >= 3
+        ? articleBottom + sidebarFit.shift
+        : secondCard?.getBoundingClientRect().bottom
+          ?? (firstCardRect ? firstCardRect.bottom + firstCardRect.height + articleGap : articleBottom)
       const naturalHeight = contentEl.scrollHeight
       const topbarEl = document.querySelector('.topbar')
       const preferredTop = (topbarEl?.getBoundingClientRect().bottom ?? 0) + window.innerHeight * 0.25
@@ -177,7 +226,7 @@ function BlogPage() {
   if (editor && isAdmin) return <main className="main-page blog-screen blog-editor-screen">
     <form className="blog-editor-form" onSubmit={saveDraft}><header><div><small>BLOG CONTENT</small><h1>{editor.mode === 'new' ? '撰寫文章' : '編輯文章'}</h1><p>文章集中在 Blog 管理，儲存後會更新文章列表。</p></div><a href="#blog">返回 Blog</a></header>
       <div className="blog-editor-workspace">
-        <aside className="blog-editor-meta"><label><input aria-label="文章標題" value={draftTitle} onChange={(event) => setDraftTitle(event.target.value)} placeholder="文章標題" required /></label><label><input aria-label="分類" value={draftCategory} onChange={(event) => setDraftCategory(event.target.value)} placeholder="分類" /></label><label><input aria-label="標籤" value={draftTags} onChange={(event) => setDraftTags(event.target.value)} placeholder="標籤（以逗號分隔）" /></label><div className="blog-upload-field"><span>封面圖片</span><FileDropzone title="上傳文章封面" file={draftCover} previewUrl={articles.find((article) => article.id === editor.id)?.coverImage} imagePosition={draftCoverPosition} imageScale={draftCoverScale} onImagePositionChange={setDraftCoverPosition} onImageScaleChange={setDraftCoverScale} onFile={setDraftCover} /></div></aside>
+        <aside className="blog-editor-meta"><label><input aria-label="文章標題" value={draftTitle} onChange={(event) => setDraftTitle(event.target.value)} placeholder="文章標題" required /></label><label><input aria-label="分類" value={draftCategory} onChange={(event) => setDraftCategory(event.target.value)} placeholder="分類" /></label><label><input aria-label="標籤" value={draftTags} onChange={(event) => setDraftTags(event.target.value)} placeholder="標籤（以逗號分隔）" /></label><div className="blog-upload-field"><span>封面圖片</span><FileDropzone title="上傳文章封面" file={draftCover} previewUrl={articles.find((article) => article.id === editor.id)?.coverImage} imagePosition={draftCoverPosition} imageScale={draftCoverScale} aspectRatio={draftCoverAspectRatio} onImagePositionChange={setDraftCoverPosition} onImageScaleChange={setDraftCoverScale} onFile={setDraftCover} /></div></aside>
         <section className="blog-editor-writing"><div className="blog-editor-toolbar"><strong>文章內容 <span>支援 Markdown</span></strong><div><button type="button" className={!draftPreview ? 'active' : ''} onClick={() => setDraftPreview(false)}>編輯</button><button type="button" className={draftPreview ? 'active' : ''} onClick={() => setDraftPreview(true)}>預覽</button></div></div>{draftPreview ? <div className="blog-editor-preview">{draftContent ? <MarkdownPreview content={draftContent} /> : <p>輸入內容後會在這裡預覽。</p>}</div> : <textarea value={draftContent} onChange={(event) => setDraftContent(event.target.value)} placeholder="開始撰寫…" required />}</section>
       </div>
       {adminMessage && <p className="error-message">{adminMessage}</p>}<footer><a href="#blog">取消</a><button className="save-button" disabled={draftBusy}>{draftBusy ? '儲存中…' : '儲存文章'}</button></footer>
@@ -187,7 +236,7 @@ function BlogPage() {
   return (
     <main className="main-page blog-screen">
       <section
-        className={`blog-workspace${articles.length > 1 ? ' blog-workspace-multiple-articles' : ''}`}
+        className={`blog-workspace${articles.length ? ' blog-workspace-multiple-articles' : ''}`}
         style={{
           '--blog-shift': `${sidebarFit.shift}px`,
           '--blog-sidebar-height': sidebarFit.height > 0 ? `${sidebarFit.height}px` : undefined,
@@ -202,8 +251,8 @@ function BlogPage() {
           ) : (
             articles.map((article) => (
               <div key={article.id} className="article-card-wrap">
-              <button className="public-article-card" type="button" onClick={() => setSelectedArticle(article)}>
-                {article.coverImage && <img src={article.coverImage} alt="" style={{ objectPosition: article.coverImagePosition ?? '50% 50%', transform: `scale(${article.coverImageScale ?? 1})` }} />}
+              <button className="public-article-card" data-article-id={article.id} type="button" onClick={() => setSelectedArticle(article)}>
+                {article.coverImage && <span className="public-article-cover-frame"><img className="public-article-cover" src={article.coverImage} alt="" style={{ objectPosition: article.coverImagePosition ?? '50% 50%', transform: `scale(${article.coverImageScale ?? 1})` }} /></span>}
                 <span>
                   <small>{article.category} · {new Date(article.publishedAt).toLocaleDateString()}</small>
                   <strong>{article.title}</strong>
@@ -238,13 +287,16 @@ function BlogPage() {
             {recentArticles.length === 0 ? (
               <p className="side-empty">還沒有發布動態</p>
             ) : (
-              recentArticles.map((article) => (
+              visibleRecentArticles.map((article) => (
                 <button key={article.id} type="button" onClick={() => setSelectedArticle(article)}>
                   <strong>{article.title}</strong>
                   <span>{new Date(article.publishedAt).toLocaleDateString()}</span>
                 </button>
               ))
             )}
+            {recentArticlePlaceholders > 0 && Array.from({ length: recentArticlePlaceholders }, (_, index) => (
+              <span className="recent-article-placeholder" aria-hidden="true" key={`recent-placeholder-${index}`} />
+            ))}
           </section>
           <section className="site-stats">
             <div className="side-card-heading"><span />站點統計</div>
@@ -285,16 +337,7 @@ function BlogPage() {
               <footer className="project-detail-actions">
                 <div className="project-detail-admin-actions">
                   <a href={`#blog/edit/${encodeURIComponent(selectedArticle.id)}`}>EDIT ARTICLE</a>
-                  <button type="button" className="project-delete-button" onClick={() => {
-                    if (window.confirm(`Delete "${selectedArticle.title}"?`)) {
-                      deleteArticle(selectedArticle.id)
-                        .then(() => {
-                          setArticles((current) => current.filter((item) => item.id !== selectedArticle.id))
-                          setSelectedArticle(null)
-                        })
-                        .catch((deleteError) => setAdminMessage(deleteError instanceof Error ? deleteError.message : 'Delete failed.'))
-                    }
-                  }}>DELETE ARTICLE</button>
+                  <button type="button" className="project-delete-button" onClick={() => setArticleToDelete(selectedArticle)}>DELETE ARTICLE</button>
                 </div>
               </footer>
             )}
@@ -303,6 +346,13 @@ function BlogPage() {
         </div>
       )}
       {isAdmin && <a className="new-article-button" href="#blog/new">＋ 撰寫文章</a>}
+      <ConfirmDialog
+        open={Boolean(articleToDelete)}
+        title="刪除這篇文章？"
+        message={articleToDelete ? `「${articleToDelete.title}」刪除後將無法復原。` : ''}
+        onConfirm={confirmArticleDelete}
+        onCancel={() => setArticleToDelete(null)}
+      />
     </main>
   )
 }

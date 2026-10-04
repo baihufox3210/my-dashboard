@@ -19,6 +19,10 @@ export type SiteSettings = {
   backgroundUrl?: string
   backgroundPositionX?: number
   backgroundPositionY?: number
+  backgroundDesktopPositionX?: number
+  backgroundDesktopPositionY?: number
+  backgroundMobilePositionX?: number
+  backgroundMobilePositionY?: number
 }
 
 export type HomeProfile = {
@@ -34,7 +38,7 @@ export type HomeProfile = {
 }
 
 export type Friend = { id: string; name: string; introduction: string; url: string; avatarUrl?: string }
-export type Project = { id: string; title: string; summary: string; description: string; category: string; tags: string[]; projectUrl: string; coverImage?: string; documentUrl?: string; documentName?: string; publishedAt: string; updatedAt?: string }
+export type Project = { id: string; title: string; summary: string; description: string; category: string; tags: string[]; projectUrl: string; coverImage?: string; coverImagePosition?: string; coverImageScale?: number; documentUrl?: string; documentName?: string; publishedAt: string; updatedAt?: string }
 
 export type AnalyticsPage = 'home' | 'about' | 'projects' | 'blog' | 'article' | 'contact' | 'friends'
 export type AnalyticsDevice = 'mobile' | 'tablet' | 'desktop'
