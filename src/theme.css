@@ -76,7 +76,7 @@ body {
   .admin-metrics article,
   .admin-overview-card,
   .admin-welcome,
-  .admin-home-status,
+
   .music-manager-heading,
   .music-upload-queue
 ) {
@@ -421,12 +421,10 @@ body.site-background-dark .admin-nav-item {
   --admin-line: var(--theme-line);
 }
 .admin-kicker,
-.admin-overview-card-heading > a,
-.admin-home-status-head > a,
-.admin-preview-edit {
+.admin-overview-card-heading > a {
   color: var(--theme-primary-strong);
 }
-.admin-progress-track > i,
+
 .admin-month-bar > i {
   background: var(--theme-primary);
 }
@@ -889,22 +887,6 @@ body.site-background-dark .admin-nav-item {
 .admin-topbar { justify-content: flex-start; }
 .admin-logout { margin-left: auto; }
 
-/* Admin overview shortcuts use explicit ink roles for reliable contrast. */
-.admin-shortcuts h2,
-.admin-shortcuts strong {
-  color: var(--theme-card-ink);
-}
-.admin-shortcuts small {
-  color: var(--theme-card-ink);
-  opacity: .78;
-}
-.admin-shortcuts b {
-  color: var(--theme-primary-strong);
-}
-.shortcut-icon {
-  color: var(--theme-primary-strong);
-  background: var(--theme-control-background);
-}
 
 /* Admin is a solid workspace; no route should expose the site background below short content. */
 .admin-shell-route,
@@ -1026,4 +1008,183 @@ body.site-background-dark .admin-nav-item {
   border-color: color-mix(in srgb, var(--theme-danger) 32%, var(--theme-line));
   color: var(--theme-danger);
   background: var(--theme-surface-error);
+}
+
+/* Admin overview uses the same solid form surface as /admin/home. */
+.admin-overview-page .admin-welcome,
+.admin-overview-page .admin-metrics article,
+.admin-overview-page .admin-overview-card {
+  border-color: var(--theme-line);
+  color: var(--theme-card-ink);
+  background: var(--theme-surface-white);
+  box-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+.admin-overview-page .admin-overview-card-heading h2 {
+  color: var(--theme-card-ink);
+}
+.admin-overview-page .admin-overview-card-heading > span,
+.admin-overview-page .admin-overview-description,
+.admin-overview-page .admin-activity-list strong,
+.admin-overview-page .admin-activity-list small,
+.admin-overview-page .admin-activity-list time {
+  color: var(--theme-muted);
+}
+
+/* Admin form routes use one readable, solid workspace surface. */
+.admin-app .admin-content > .admin-form-card,
+.admin-app .admin-content > .admin-site-settings-form {
+  border-color: var(--theme-line);
+  color: var(--theme-card-ink);
+  background: var(--theme-surface-white);
+  box-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+.admin-app .admin-content > .admin-form-card .admin-form-intro,
+.admin-app .admin-content > .admin-site-settings-form .admin-form-intro {
+  border-color: var(--theme-line);
+}
+.admin-app .admin-content > .admin-form-card .admin-form-intro h2,
+.admin-app .admin-content > .admin-form-card .admin-form-intro p,
+.admin-app .admin-content > .admin-site-settings-form .admin-form-intro h2,
+.admin-app .admin-content > .admin-site-settings-form .admin-form-intro p,
+.admin-app .admin-content > .admin-form-card .admin-form-section,
+.admin-app .admin-content > .admin-site-settings-form .admin-form-section,
+.admin-app .admin-content > .admin-form-card .admin-field,
+.admin-app .admin-content > .admin-site-settings-form .admin-field,
+.admin-app .admin-content > .admin-form-card .admin-field small,
+.admin-app .admin-content > .admin-site-settings-form .admin-field small {
+  color: var(--theme-card-ink);
+}
+.admin-app .admin-content > .admin-form-card .admin-form-intro p,
+.admin-app .admin-content > .admin-site-settings-form .admin-form-intro p,
+.admin-app .admin-content > .admin-form-card .admin-field small,
+.admin-app .admin-content > .admin-site-settings-form .admin-field small {
+  color: var(--theme-muted);
+}
+.admin-app .admin-content > .admin-form-card .admin-field input:not([type=file]),
+.admin-app .admin-content > .admin-form-card .admin-field textarea,
+.admin-app .admin-content > .admin-site-settings-form .admin-field input:not([type=file]),
+.admin-app .admin-content > .admin-site-settings-form .admin-field textarea {
+  border-color: var(--theme-line);
+  color: var(--theme-card-ink);
+  background: var(--theme-surface-white);
+}
+.admin-app .admin-content > .admin-form-card .admin-field input::placeholder,
+.admin-app .admin-content > .admin-form-card .admin-field textarea::placeholder,
+.admin-app .admin-content > .admin-site-settings-form .admin-field input::placeholder,
+.admin-app .admin-content > .admin-site-settings-form .admin-field textarea::placeholder {
+  color: var(--theme-muted);
+  opacity: .8;
+}
+.admin-app .admin-content > .admin-form-card .admin-form-section,
+.admin-app .admin-content > .admin-site-settings-form .admin-form-section {
+  border-color: var(--theme-line);
+}
+.admin-app .admin-content > .admin-form-card .file-dropzone,
+.admin-app .admin-content > .admin-site-settings-form .file-dropzone {
+  border-color: var(--theme-line);
+  color: var(--theme-muted);
+  background: var(--theme-surface-raised);
+}
+.admin-app .admin-content > .admin-form-card .file-dropzone-copy strong,
+.admin-app .admin-content > .admin-form-card .file-dropzone-copy small,
+.admin-app .admin-content > .admin-site-settings-form .file-dropzone-copy strong,
+.admin-app .admin-content > .admin-site-settings-form .file-dropzone-copy small {
+  color: var(--theme-muted);
+}
+
+/* Embedded Projects keeps the same solid, high-contrast Admin workspace. */
+.admin-app .admin-content .projects-page-embedded {
+  color: var(--theme-card-ink);
+  background: var(--theme-surface-white);
+}
+.admin-app .admin-content .projects-page-embedded .projects-heading h1,
+.admin-app .admin-content .projects-page-embedded .projects-lede,
+.admin-app .admin-content .projects-page-embedded .projects-toolbar,
+.admin-app .admin-content .projects-page-embedded .projects-footer,
+.admin-app .admin-content .projects-page-embedded .projects-empty,
+.admin-app .admin-content .projects-page-embedded .projects-feedback {
+  color: var(--theme-card-ink);
+}
+.admin-app .admin-content .projects-page-embedded .projects-eyebrow,
+.admin-app .admin-content .projects-page-embedded .projects-toolbar-actions > a,
+.admin-app .admin-content .projects-page-embedded .project-action {
+  color: var(--theme-primary-strong);
+}
+.admin-app .admin-content .projects-page-embedded .projects-toolbar,
+.admin-app .admin-content .projects-page-embedded .projects-footer,
+.admin-app .admin-content .projects-page-embedded .projects-empty,
+.admin-app .admin-content .projects-page-embedded .projects-feedback,
+.admin-app .admin-content .projects-page-embedded .project-card,
+.admin-app .admin-content .projects-page-embedded .project-card-featured {
+  border-color: var(--theme-line);
+  background: var(--theme-surface-white);
+  box-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+.admin-app .admin-content .projects-page-embedded .project-card:hover,
+.admin-app .admin-content .projects-page-embedded .project-card-featured:hover {
+  border-color: var(--theme-primary-soft);
+  background: var(--theme-surface-raised);
+}
+.admin-app .admin-content .projects-page-embedded .project-card-top,
+.admin-app .admin-content .projects-page-embedded .project-card-copy > strong,
+.admin-app .admin-content .projects-page-embedded .project-card-featured .project-card-copy > strong,
+.admin-app .admin-content .projects-page-embedded .project-detail-modal h2,
+.admin-app .admin-content .projects-page-embedded .project-editor-modal h2 {
+  color: var(--theme-card-ink);
+}
+.admin-app .admin-content .projects-page-embedded .project-card-top > span:last-child,
+.admin-app .admin-content .projects-page-embedded .project-description,
+.admin-app .admin-content .projects-page-embedded .project-card-featured .project-description,
+.admin-app .admin-content .projects-page-embedded .project-detail-summary,
+.admin-app .admin-content .projects-page-embedded .project-form-field small,
+.admin-app .admin-content .projects-page-embedded .project-editor-section-heading > span {
+  color: var(--theme-muted);
+}
+.admin-app .admin-content .projects-page-embedded .project-tags > span,
+.admin-app .admin-content .projects-page-embedded .project-card-featured .project-tags > span,
+.admin-app .admin-content .projects-page-embedded .project-card-art:not(.has-cover),
+.admin-app .admin-content .projects-page-embedded .project-art-placeholder {
+  border-color: var(--theme-line);
+  color: var(--theme-primary-strong);
+  background: var(--theme-control-background);
+}
+.admin-app .admin-content .projects-page-embedded .project-detail-modal,
+.admin-app .admin-content .projects-page-embedded .project-editor-modal {
+  border-color: var(--theme-line);
+  color: var(--theme-card-ink);
+  background: var(--theme-surface-white);
+  box-shadow: var(--theme-shadow);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+.admin-app .admin-content .projects-page-embedded .project-editor-header,
+.admin-app .admin-content .projects-page-embedded .project-editor-section,
+.admin-app .admin-content .projects-page-embedded .project-detail-content,
+.admin-app .admin-content .projects-page-embedded .project-detail-actions,
+.admin-app .admin-content .projects-page-embedded .project-editor-actions {
+  border-color: var(--theme-line);
+}
+.admin-app .admin-content .projects-page-embedded .project-editor-header p,
+.admin-app .admin-content .projects-page-embedded .project-editor-section-heading h3,
+.admin-app .admin-content .projects-page-embedded .project-form-field {
+  color: var(--theme-primary-strong);
+}
+.admin-app .admin-content .projects-page-embedded .project-form-field input:not([type=file]),
+.admin-app .admin-content .projects-page-embedded .project-form-field textarea,
+.admin-app .admin-content .projects-page-embedded .project-pdf-drop,
+.admin-app .admin-content .projects-page-embedded .file-dropzone {
+  border-color: var(--theme-line);
+  color: var(--theme-card-ink);
+  background: var(--theme-surface-raised);
+}
+.admin-app .admin-content .projects-page-embedded .project-form-field input::placeholder,
+.admin-app .admin-content .projects-page-embedded .project-form-field textarea::placeholder {
+  color: var(--theme-muted);
+  opacity: .8;
 }

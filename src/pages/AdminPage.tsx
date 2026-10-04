@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+
 import FileDropzone from '../components/FileDropzone'
 import ConfirmDialog from '../components/ConfirmDialog'
 import MusicManager from '../components/MusicManager'
@@ -307,14 +308,7 @@ function AdminPage({ loginOnly = false }: AdminPageProps) {
     { id: 'site', label: '網站設定', mobileLabel: '設定', icon: '⚙' },
   ]
   const title = section === 'home' ? '首頁內容' : section === 'site' ? '網站設定' : section === 'traffic' ? '流量分析' : section === 'friends' ? 'Friends 管理' : section === 'projects' ? 'Projects 管理' : section === 'music' ? '音樂管理' : '總覽'
-  const homeChecks = [
-    { label: '個人介紹', ready: Boolean(profile.introduction.trim()) },
-    { label: '頭像圖片', ready: Boolean(profile.avatarUrl) },
-    { label: '社群連結', ready: profile.socials.length > 0 },
-    { label: '首頁動態', ready: Boolean(profile.updateText.trim()) },
-    { label: '首頁背景', ready: Boolean(settings.backgroundUrl) },
-  ]
-  const completedHomeChecks = homeChecks.filter((item) => item.ready).length
+
   const maxDailyViews = Math.max(1, ...analytics.daily.map((item) => item.views))
   const deviceTotal = analytics.devices.mobile + analytics.devices.tablet + analytics.devices.desktop
   const mobileShare = deviceTotal ? Math.round((analytics.devices.mobile / deviceTotal) * 100) : 0
@@ -340,17 +334,16 @@ function AdminPage({ loginOnly = false }: AdminPageProps) {
       <nav className="admin-mobile-nav">{nav.map((item) => <a key={item.id} className={section === item.id ? 'active' : ''} href={getAdminPath(item.id)}><i>{item.icon}</i><span className="admin-nav-label-desktop">{item.label}</span><span className="admin-nav-label-mobile">{item.mobileLabel}</span></a>)}</nav>
       <div className="admin-content">
         {message && <p className="admin-feedback">{message}</p>}
-        {section === 'overview' && <>
+        {section === 'overview' && <div className="admin-overview-page">
           <section className="admin-welcome admin-mobile-home-link"><div><p className="admin-kicker">CONTENT DESK</p><h2>網站營運一覽</h2><p>管理首頁資訊與網站外觀；文章集中在 Blog 維護。</p></div><a className="ui-button ui-button-primary" href={getPublicPath('home')}>回到主頁 <span>↗</span></a></section>
           <div className="admin-metrics"><article><span>已發布文章</span><strong>{stats.articleCount}</strong><a href={getPublicPath('blog')}>在 Blog 管理 ↗</a></article><article><span>分類</span><strong>{stats.categoryCount}</strong><small>文章整理狀況</small></article><article><span>標籤</span><strong>{stats.tagCount}</strong><small>文章主題索引</small></article><article><span>文章總字數</span><strong>{stats.totalWords.toLocaleString()}</strong><small>已發布內容累積</small></article><article><span>網站運作</span><strong>{stats.runtimeDays.toLocaleString()}<em> 天</em></strong><small>持續更新中</small></article><article><span>最後更新</span><strong className="metric-date">{stats.lastActivity ? new Date(stats.lastActivity).toLocaleDateString() : '尚無紀錄'}</strong><small>最近發布文章</small></article></div>
-          <section className="admin-home-status"><div className="admin-home-status-head"><div><p className="admin-kicker">HOMEPAGE CHECK</p><h2>首頁內容狀態</h2><p>快速確認訪客會看到的主要資訊是否已備妥。</p></div><a href={getAdminPath('home')}>編輯首頁 →</a></div><div className="admin-home-status-body"><div className="admin-home-progress"><strong>{completedHomeChecks}<small> / {homeChecks.length}</small></strong><span>項目已完成</span><div className="admin-progress-track"><i style={{ width: `${(completedHomeChecks / homeChecks.length) * 100}%` }} /></div></div><div className="admin-home-checks">{homeChecks.map((item) => <div key={item.label} className={item.ready ? 'is-ready' : ''}><i>{item.ready ? '✓' : '—'}</i><span>{item.label}</span><small>{item.ready ? '已設定' : '尚未設定'}</small></div>)}</div></div></section>
+
           <div className="admin-overview-grid">
             <section className="admin-overview-card admin-content-trends"><div className="admin-overview-card-heading"><div><p className="admin-kicker">CONTENT RHYTHM</p><h2>內容更新趨勢</h2></div><a href={getPublicPath('blog')}>文章管理 ↗</a></div><p className="admin-overview-description">最近六個月的文章發布與更新紀錄。</p><div className="admin-month-chart">{contentMonths.map((month) => { const total = month.published + month.updated; return <div className="admin-month-column" key={month.label} title={`${month.label}：發布 ${month.published} 篇，更新 ${month.updated} 篇`}><strong>{total || ''}</strong><div className="admin-month-bar"><i style={{ height: `${(month.published / maxContentMonth) * 100}%` }} /><b style={{ height: `${(month.updated / maxContentMonth) * 100}%` }} /></div><small>{month.label}</small></div> })}</div><div className="admin-chart-legend"><span><i />發布</span><span><i />更新</span></div><div className="admin-category-list"><h3>文章分類</h3>{topCategories.length ? topCategories.map(([name, count]) => <div key={name}><span>{name}</span><i><b style={{ width: `${Math.max(5, count / Math.max(1, stats.articleCount) * 100)}%` }} /></i><strong>{count}</strong></div>) : <p>目前還沒有文章分類。</p>}</div></section>
-            <section className="admin-overview-card admin-home-preview"><div className="admin-overview-card-heading"><div><p className="admin-kicker">LIVE CONTENT</p><h2>首頁預覽</h2></div><a href={getPublicPath('home')} target="_blank" rel="noreferrer">開啟網站 ↗</a></div><div className="admin-home-preview-card">{profile.avatarUrl ? <img src={profile.avatarUrl} alt="" /> : <span className="admin-home-preview-avatar">{profile.name.slice(0, 1).toUpperCase()}</span>}<div><small>個人首頁</small><h3>{profile.name || '尚未設定名稱'}</h3><p>{profile.quote || '尚未設定首頁短句'}</p></div></div><p className="admin-home-preview-intro">{profile.introduction || '尚未填寫個人介紹。'}</p><div className="admin-home-preview-update"><small>最近動態</small><strong>{profile.updateTitle || '尚未設定動態標題'}</strong><p>{profile.updateText || '尚未填寫動態內容。'}</p></div><div className="admin-home-preview-tags">{profile.tags.slice(0, 4).map((tag) => <span key={tag}>#{tag}</span>)}{profile.tags.length > 4 && <span>+{profile.tags.length - 4}</span>}</div><a className="admin-preview-edit" href={getAdminPath('home')}>編輯首頁內容 →</a></section>
+
           </div>
           <section className="admin-overview-card admin-activity-card"><div className="admin-overview-card-heading"><div><p className="admin-kicker">RECENT CHANGES</p><h2>近期活動</h2></div><span>最近 50 筆</span></div>{activity.length ? <div className="admin-activity-list">{activity.slice(0, 6).map((item, index) => <div key={`${item.at}-${index}`}><i className={`activity-mark ${item.type}`} /><span><strong>{item.title}</strong><small>{item.type === 'article' ? item.action === 'published' ? '發布文章' : item.action === 'updated' ? '更新文章' : '刪除文章' : item.type === 'homepage' ? '儲存首頁內容' : '儲存網站設定'}</small></span><time>{new Date(item.at).toLocaleString('zh-TW', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</time></div>)}</div> : <p className="admin-activity-empty">儲存首頁或網站設定、發布文章後，活動紀錄會顯示在這裡。</p>}</section>
-          <section className="admin-shortcuts"><h2>快速管理</h2><a href={getAdminPath('home')}><span className="shortcut-icon">◉</span><span><strong>首頁內容</strong><small>個人介紹、社群連結與近期動態</small></span><b>→</b></a><a href={getAdminPath('site')}><span className="shortcut-icon">⚙</span><span><strong>網站設定</strong><small>網站名稱、背景與簡介</small></span><b>→</b></a><a href={getPublicPath('blog')}><span className="shortcut-icon">▤</span><span><strong>Blog 文章</strong><small>新增、編輯、刪除及預覽文章</small></span><b>→</b></a></section>
-        </>}
+        </div>}
         {section === 'traffic' && <section className="admin-traffic-page">
           <div className="admin-traffic-heading"><div><p className="admin-kicker">SITE ANALYTICS</p><h2>流量分析</h2><p>瀏覽量以匿名方式統計，不保存訪客 IP 或完整瀏覽器資訊。</p></div><button className="admin-refresh-button" onClick={() => setAnalyticsRefresh((value) => value + 1)} disabled={analyticsLoading}>{analyticsLoading ? '更新中…' : '↻ 更新資料'}</button></div>
           <div className="admin-traffic-toolbar"><span>統計期間</span><div className="admin-period-switch" aria-label="選擇統計期間">{([7, 30] as const).map((days) => <button key={days} className={analyticsDays === days ? 'active' : ''} onClick={() => setAnalyticsDays(days)}>{days} 天</button>)}</div><small>每日 UTC 統計</small></div>

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import ConfirmDialog from './ConfirmDialog'
 import { deleteMusicTrack, fetchMusicTracks, updateMusicTrackOrder, uploadMusicTracks } from '../features/blog/api'
 import type { MusicTrack } from '../features/blog/article'
+import { resolveSameOriginMediaUrl } from '../features/blog/media'
 
 type MusicManagerProps = { onMessage: (message: string) => void }
 
@@ -114,7 +115,9 @@ function MusicManager({ onMessage }: MusicManagerProps) {
       return
     }
     if (previewTrackId !== track.id) {
-      audio.src = track.fileUrl
+      const source = resolveSameOriginMediaUrl(track.fileUrl)
+      if (!source) return
+      audio.src = source
       audio.load()
       setPreviewTrackId(track.id)
       setPreviewProgress(0)
