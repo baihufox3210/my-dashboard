@@ -2462,9 +2462,9 @@ body.menu-open {
 }
 
 /* Compact admin header and clearer form section transitions. */
-.admin-brand { align-items: baseline; gap: 8px; }
+.admin-brand { align-items: baseline; }
 .admin-brand .admin-brand-main { color: var(--theme-card-ink); font-size: 18px; font-weight: 800; letter-spacing: .02em; }
-.admin-brand .admin-brand-sub { color: var(--theme-muted); font-size: 9px; font-weight: 750; letter-spacing: .14em; }
+
 .admin-topbar { min-height: 64px; padding: 10px clamp(20px, 4vw, 60px); }
 .admin-topbar-title { gap: 8px; }
 .admin-topbar-title > strong { color: var(--theme-card-ink); font-size: 16px; font-weight: 750; letter-spacing: -.02em; }

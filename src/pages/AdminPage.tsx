@@ -306,7 +306,7 @@ function AdminPage({ loginOnly = false }: AdminPageProps) {
   if (loginOnly && authenticated) return <main className="admin-loading">前往管理後台…</main>
   if (!authenticated && !loginOnly) return <main className="admin-loading">前往登入頁…</main>
   if (!authenticated) return <main className="admin-login-screen"><form className="admin-login-card" onSubmit={handleLogin}>
-    <a className="admin-brand" href={getPublicPath('home')}><span className="admin-brand-main">BAIHU</span><span className="admin-brand-sub">STUDIO</span></a>
+    <a className="admin-brand" href={getPublicPath('home')}><span className="admin-brand-main">BAIHU</span></a>
     {challengeFlag ? <div className="admin-login-flag" role="status"><code>{challengeFlag}</code></div> : <>
       <p>登入以管理網站內容</p>
       <label>帳號<input autoComplete="username" value={username} onChange={(event) => setUsername(event.target.value)} required /></label>
@@ -348,7 +348,7 @@ function AdminPage({ loginOnly = false }: AdminPageProps) {
   const sourceTotal = Object.values(analytics.sources).reduce((total, views) => total + views, 0)
   const sourceLabels = [{ key: 'search', label: '搜尋引擎' }, { key: 'social', label: '社群平台' }, { key: 'referral', label: '外部連結' }, { key: 'direct', label: '直接進站' }] as const
   return <main className="admin-app">
-    <aside className="admin-rail"><a className="admin-brand" href={getAdminPath()}><span className="admin-brand-main">BAIHU</span><span className="admin-brand-sub">STUDIO</span></a><nav>{nav.map((item) => <a key={item.id} className={section === item.id ? 'active' : ''} href={getAdminPath(item.id)}><i>{item.icon}</i>{item.label}</a>)}</nav><a className="admin-rail-site" href={getPublicPath('home')}>↗ 查看網站</a></aside>
+    <aside className="admin-rail"><a className="admin-brand" href={getAdminPath()}><span className="admin-brand-main">BAIHU</span></a><nav>{nav.map((item) => <a key={item.id} className={section === item.id ? 'active' : ''} href={getAdminPath(item.id)}><i>{item.icon}</i>{item.label}</a>)}</nav><a className="admin-rail-site" href={getPublicPath('home')}>↗ 查看網站</a></aside>
     <div className="admin-main"><header className="admin-topbar"><div className="admin-topbar-title"><strong>網站管理</strong><span aria-hidden="true">/</span><h1>{title}</h1></div><button className="admin-logout" onClick={() => logoutAdmin().then(() => { setAuthenticated(false); window.location.assign(getPublicPath('home')) }).catch((error: unknown) => setMessage(error instanceof Error ? error.message : '登出失敗。'))}>登出</button></header>
       <nav className="admin-mobile-nav">{nav.map((item) => <a key={item.id} className={section === item.id ? 'active' : ''} href={getAdminPath(item.id)}><i>{item.icon}</i><span className="admin-nav-label-desktop">{item.label}</span><span className="admin-nav-label-mobile">{item.mobileLabel}</span></a>)}</nav>
       <div className="admin-content">
