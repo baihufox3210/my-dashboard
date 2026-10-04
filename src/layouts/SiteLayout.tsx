@@ -1,7 +1,8 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import SiteHeader from '../components/SiteHeader'
 import SiteFooter from '../components/SiteFooter'
-import { isAdminRoute, isLoginRoute } from '../routes/routes'
+import FloatingMusicPlayer from '../components/FloatingMusicPlayer'
+import { getPublicPage, isAdminRoute, isLoginRoute } from '../routes/routes'
 
 type SiteLayoutProps = {
   children: ReactNode
@@ -13,8 +14,12 @@ function isAdminLocation() {
 
 function SiteLayout({ children }: SiteLayoutProps) {
   const [isAdmin, setIsAdmin] = useState(isAdminLocation)
+  const [isHome, setIsHome] = useState(() => getPublicPage() === 'home')
   useEffect(() => {
-    const sync = () => setIsAdmin(isAdminLocation())
+    const sync = () => {
+      setIsAdmin(isAdminLocation())
+      setIsHome(getPublicPage() === 'home')
+    }
     window.addEventListener('popstate', sync)
     window.addEventListener('hashchange', sync)
     return () => {
@@ -26,6 +31,7 @@ function SiteLayout({ children }: SiteLayoutProps) {
     <div className={`app-shell${isAdmin ? ' admin-shell-route' : ''}`}>
       {!isAdmin && <SiteHeader />}
       {children}
+      {!isAdmin && <FloatingMusicPlayer isHome={isHome} />}
       {!isAdmin && <SiteFooter />}
     </div>
   )
