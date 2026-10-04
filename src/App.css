@@ -1534,6 +1534,67 @@ textarea.editor-content-input:focus-visible {
   margin-top: 0;
 }
 
+.markdown-spoiler {
+  display: inline;
+  padding: 0 .1em;
+  border-radius: .16em;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  text-shadow: none;
+  background-color: rgba(70, 70, 78, .12);
+  background-image:
+    radial-gradient(circle, rgba(255, 255, 255, .84) .8px, transparent 1.5px),
+    radial-gradient(circle, rgba(145, 145, 153, .76) 1px, transparent 1.8px),
+    radial-gradient(circle, rgba(225, 225, 232, .62) .65px, transparent 1.4px);
+  background-position: 0 0, 6px 3px, 3px 9px;
+  background-size: 12px 12px, 16px 16px, 19px 19px;
+  animation: spoiler-speckles 4.8s ease-in-out infinite alternate;
+  transition: background-color 180ms ease, box-shadow 180ms ease;
+  cursor: pointer;
+  user-select: none;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+
+@keyframes spoiler-speckles {
+  0% {
+    background-position: 0 0, 6px 3px, 3px 9px;
+    background-size: 12px 12px, 16px 16px, 19px 19px;
+  }
+  50% {
+    background-position: 5px -4px, -3px 8px, 10px 2px;
+    background-size: 15px 15px, 12px 12px, 16px 16px;
+  }
+  100% {
+    background-position: -4px 6px, 9px -5px, 1px 12px;
+    background-size: 9px 9px, 18px 18px, 13px 13px;
+  }
+}
+
+.markdown-spoiler:hover:not(.is-revealed) {
+  background-color: rgba(70, 70, 78, .2);
+  box-shadow: 0 0 .35em rgba(80, 80, 90, .16);
+  animation-duration: 2.8s;
+}
+
+.markdown-spoiler:focus-visible {
+  outline: 2px solid var(--theme-primary-strong);
+  outline-offset: 2px;
+}
+
+.markdown-spoiler.is-revealed {
+  color: inherit;
+  -webkit-text-fill-color: currentColor;
+  background: none;
+  animation: none;
+  cursor: pointer;
+  user-select: text;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .markdown-spoiler { animation: none; }
+}
+
 .markdown-preview img {
   max-width: 100%;
   height: auto;
