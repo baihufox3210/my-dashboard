@@ -3,6 +3,7 @@ import crypto from 'node:crypto'
 import express from 'express'
 import fs from 'node:fs/promises'
 import multer from 'multer'
+import path from 'node:path'
 import {
   activityFile,
   adminPassword,
@@ -23,6 +24,7 @@ import {
   type AnalyticsSource,
   type Friend,
   type HomeProfile,
+  type MusicTrack,
   type Project,
   type SiteSettings,
 } from './types.js'
@@ -33,6 +35,7 @@ import {
   readArticles,
   readFriends,
   readHomeProfile,
+  readMusicTracks,
   readProjects,
   readSiteSettings,
   recordActivity,
@@ -40,16 +43,47 @@ import {
   waitForAnalyticsWrites,
   writeFriends,
   writeHomeProfile,
+  writeMusicTracks,
   writeProjects,
   writeSiteSettings,
 } from './storage.js'
-import { projectUpload, removeProjectAssets, removeProjectUploads, upload, validateProjectFiles, validateUploadedImages } from './uploads.js'
+import { musicUpload, projectUpload, removeMusicAsset, removeProjectAssets, removeProjectUploads, upload, validateMusicFiles, validateProjectFiles, validateUploadedImages } from './uploads.js'
 import { boundedText, getAnalyticsDevice, isSafeSocialUrl } from './validation.js'
 import { getClientIp, hashSessionId, isAuthenticated, loginFailures, requireAuthentication, requireSameOrigin, sessions } from './security.js'
 import articleRoutes from './routes/articles.js'
 import publicRoutes from './routes/public.js'
 
 const analyticsRateLimits = new Map<string, { count: number; windowStarted: number }>()
+
+function normalizeUploadedFileName(fileName: string) {
+  const safeName = [...fileName.replace(/^.*[\\/]/, '')].filter((character) => {
+    const code = character.charCodeAt(0)
+    return code >= 32 && code !== 127
+  }).join('').trim()
+  if (!/[ÃÂæåçèé]/.test(safeName)) return safeName
+  try {
+    const repaired = Buffer.from(safeName, 'latin1').toString('utf8')
+    return repaired.includes('�') ? safeName : repaired
+  } catch { return safeName }
+}
+
+function pathWithoutExtension(fileName: string) {
+  return fileName.replace(/\.[^./\\]+$/, '').trim()
+}
+
+async function fingerprintFile(filePath: string) {
+  const hash = crypto.createHash('sha256')
+  hash.update(await fs.readFile(filePath))
+  return hash.digest('hex')
+}
+
+async function fingerprintTrack(track: MusicTrack) {
+  if (track.fingerprint) return track.fingerprint
+  const filename = path.basename(track.fileUrl)
+  if (!filename || filename !== track.fileUrl.slice('/uploads/'.length)) return null
+  try { return await fingerprintFile(path.join(uploadsDirectory, filename)) }
+  catch { return null }
+}
 
 function parseProjectCoverSettings(value: unknown): Pick<Project, 'coverImagePosition' | 'coverImageScale'> | null {
   if (!value || typeof value !== 'object') return null
@@ -88,7 +122,7 @@ app.use((_request, response, next) => {
     'X-Frame-Options': 'DENY',
     'Referrer-Policy': 'strict-origin-when-cross-origin',
     'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
-    'Content-Security-Policy': "default-src 'none'; frame-ancestors 'none';",
+    'Content-Security-Policy': "default-src 'none'; media-src 'self'; frame-ancestors 'none';",
   })
   next()
 })
@@ -201,6 +235,81 @@ app.delete('/api/admin/friends/:id', requireSameOrigin, requireAuthentication, a
   const remaining = friends.filter((friend) => friend.id !== request.params.id)
   if (remaining.length === friends.length) { response.status(404).json({ message: '找不到這位朋友。' }); return }
   await writeFriends(remaining)
+  response.status(204).end()
+})
+
+app.post('/api/admin/music', requireSameOrigin, requireAuthentication, musicUpload.array('tracks', 20), validateMusicFiles, async (request, response) => {
+  const files = Array.isArray(request.files) ? request.files : []
+  if (!files.length) {
+    response.status(400).json({ message: '請選擇至少一個 MP3 檔案。' })
+    return
+  }
+  const existing = await readMusicTracks()
+  let requestedNames: string[] = []
+  try {
+    const parsedNames = JSON.parse(typeof request.body?.fileNames === 'string' ? request.body.fileNames : '[]') as unknown
+    if (Array.isArray(parsedNames)) requestedNames = parsedNames.filter((name): name is string => typeof name === 'string')
+  } catch { requestedNames = [] }
+  const knownFingerprints = new Set((await Promise.all(existing.map((track) => fingerprintTrack(track)))).filter((fingerprint): fingerprint is string => Boolean(fingerprint)))
+  const accepted: { file: Express.Multer.File; fingerprint: string; displayName: string }[] = []
+  for (const [index, file] of files.entries()) {
+    const displayName = normalizeUploadedFileName(requestedNames[index] ?? file.originalname)
+    const fingerprint = await fingerprintFile(file.path)
+    if (knownFingerprints.has(fingerprint) || accepted.some((item) => item.fingerprint === fingerprint)) {
+      await fs.unlink(file.path).catch(() => undefined)
+      continue
+    }
+    accepted.push({ file, fingerprint, displayName })
+    knownFingerprints.add(fingerprint)
+  }
+  if (!accepted.length) {
+    response.status(409).json({ message: '這些音樂已經存在於播放清單中。' })
+    return
+  }
+  const now = new Date().toISOString()
+  const newTracks: MusicTrack[] = accepted.map(({ file, fingerprint, displayName }, index) => {
+    return {
+    id: crypto.randomUUID(),
+    title: pathWithoutExtension(displayName).slice(0, 160) || '未命名音樂',
+    fileUrl: `/uploads/${file.filename}`,
+    fileName: displayName.slice(0, 240),
+    order: existing.length + index,
+    createdAt: now,
+    fingerprint,
+    }
+  })
+  try {
+    await writeMusicTracks([...existing, ...newTracks])
+  } catch (error) {
+    await Promise.all(accepted.map(({ file }) => fs.unlink(file.path).catch(() => undefined)))
+    throw error
+  }
+  response.status(201).json(newTracks)
+})
+
+app.put('/api/admin/music/order', requireSameOrigin, requireAuthentication, async (request, response) => {
+  const ids = request.body?.ids
+  if (!Array.isArray(ids) || ids.length === 0 || ids.some((id) => typeof id !== 'string') || new Set(ids).size !== ids.length) {
+    response.status(400).json({ message: '音樂排序資料不正確。' })
+    return
+  }
+  const tracks = await readMusicTracks()
+  const byId = new Map(tracks.map((track) => [track.id, track]))
+  if (ids.length !== tracks.length || ids.some((id) => !byId.has(id))) {
+    response.status(400).json({ message: '音樂清單已變更，請重新整理後再排序。' })
+    return
+  }
+  const updated = ids.map((id, order) => ({ ...byId.get(id) as MusicTrack, order }))
+  await writeMusicTracks(updated)
+  response.json(updated)
+})
+
+app.delete('/api/admin/music/:id', requireSameOrigin, requireAuthentication, async (request, response) => {
+  const tracks = await readMusicTracks()
+  const track = tracks.find((item) => item.id === request.params.id)
+  if (!track) { response.status(404).json({ message: '找不到這首音樂。' }); return }
+  await writeMusicTracks(tracks.filter((item) => item.id !== track.id).map((item, order) => ({ ...item, order })))
+  await removeMusicAsset(track.fileUrl)
   response.status(204).end()
 })
 
@@ -464,8 +573,8 @@ app.put('/api/admin/home-profile', requireSameOrigin, requireAuthentication, upl
 
 app.use((error: unknown, _request: express.Request, response: express.Response, _next: express.NextFunction) => {
   void _next
-  if (error instanceof multer.MulterError || (error instanceof Error && ['Unsupported image type.', 'Unsupported project file type.'].includes(error.message))) {
-    response.status(error instanceof multer.MulterError && error.code === 'LIMIT_FILE_SIZE' ? 413 : 400).json({ message: '上傳失敗：圖片需為有效圖片且小於 8 MB，PDF 須小於 25 MB。' })
+  if (error instanceof multer.MulterError || (error instanceof Error && ['Unsupported image type.', 'Unsupported project file type.', 'Only MP3 files are accepted.'].includes(error.message))) {
+    response.status(error instanceof multer.MulterError && error.code === 'LIMIT_FILE_SIZE' ? 413 : 400).json({ message: error instanceof Error && error.message === 'Only MP3 files are accepted.' ? '上傳失敗：只接受有效的 MP3，單檔上限 20 MB。' : '上傳失敗：圖片需為有效圖片且小於 8 MB，PDF 須小於 25 MB。' })
     return
   }
   console.error('Unhandled API error:', error)

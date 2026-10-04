@@ -1,33 +1,48 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import './App.css'
+import './theme.css'
 import { fetchSiteSettings, recordPageView } from './features/blog/api'
 import type { AnalyticsPage } from './features/blog/api'
 import { applySiteBackground } from './features/blog/background'
 import SiteLayout from './layouts/SiteLayout'
 import PageRouter from './routes/PageRouter'
+import { getRouteSegments, isAdminRoute, isLoginRoute } from './routes/routes'
 
 function App() {
   const lastTrackedPage = useRef('')
+  const [backgroundReady, setBackgroundReady] = useState(false)
   useEffect(() => {
     let settings: Awaited<ReturnType<typeof fetchSiteSettings>> | null = null
+    let active = true
+    document.body.classList.add('site-background-loading')
     const syncBackground = () => {
-      if (settings) applySiteBackground(settings)
+      if (settings) void applySiteBackground(settings, false)
+    }
+    const reveal = () => {
+      if (!active) return
+      document.body.classList.remove('site-background-loading')
+      setBackgroundReady(true)
     }
     fetchSiteSettings()
-      .then((loaded) => {
+      .then(async (loaded) => {
         settings = loaded
-        applySiteBackground(loaded)
+        await applySiteBackground(loaded)
+        reveal()
       })
-      .catch(() => undefined)
+      .catch(() => reveal())
     window.addEventListener('resize', syncBackground)
-    return () => window.removeEventListener('resize', syncBackground)
+    return () => {
+      active = false
+      document.body.classList.remove('site-background-loading')
+      window.removeEventListener('resize', syncBackground)
+    }
   }, [])
 
   useEffect(() => {
     const trackPage = () => {
-      const parts = window.location.hash.slice(1).toLowerCase().split('/')
-      const route = parts[0] || 'home'
-      if (route === 'admin' || (route === 'blog' && ['new', 'edit'].includes(parts[1] ?? ''))) return
+      const parts = getRouteSegments()
+      const route = parts[0] ?? 'home'
+      if (isAdminRoute() || isLoginRoute() || (route === 'blog' && ['new', 'edit'].includes(parts[1] ?? ''))) return
       const trackedPages: AnalyticsPage[] = ['home', 'about', 'projects', 'blog', 'friends']
       const page: AnalyticsPage = trackedPages.includes(route as AnalyticsPage) ? route as AnalyticsPage : 'home'
       if (lastTrackedPage.current === page) return
@@ -52,9 +67,15 @@ function App() {
       void recordPageView(page, source ? { source } : {})
     }
     trackPage()
+    window.addEventListener('popstate', trackPage)
     window.addEventListener('hashchange', trackPage)
-    return () => window.removeEventListener('hashchange', trackPage)
+    return () => {
+      window.removeEventListener('popstate', trackPage)
+      window.removeEventListener('hashchange', trackPage)
+    }
   }, [])
+
+  if (!backgroundReady) return null
 
   return (
     <SiteLayout>

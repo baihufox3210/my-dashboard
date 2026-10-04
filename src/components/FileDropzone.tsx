@@ -1,4 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
+import useEscapeKey from './useEscapeKey'
 
 type FileDropzoneProps = {
   title: string
@@ -79,6 +81,8 @@ function FileDropzone({
   const scaleCommitTimerRef = useRef<number | null>(null)
   const imageSrc = localPreview || previewUrl
   const canAdjust = Boolean(imageSrc && onImagePositionChange)
+
+  useEscapeKey(adjustOpen, finishAdjustment, 80)
 
   useEffect(() => {
     positionRef.current = imagePosition
@@ -258,30 +262,33 @@ function FileDropzone({
       <input id={inputId} type="file" accept="image/*" onChange={(event) => { acceptFiles(event.target.files); event.currentTarget.value = '' }} />
       {imageSrc ? <span className="file-dropzone-preview" style={{ aspectRatio: canAdjust ? (Number.isFinite(aspectRatio) && aspectRatio > 0 ? aspectRatio : 16 / 9) : undefined, height: canAdjust ? 'auto' : undefined }}><img src={imageSrc} alt="" draggable={false} style={{ objectPosition: imagePosition, transform: `scale(${imageScale})`, transformOrigin: 'center' }} onClick={(event) => { event.preventDefault(); event.stopPropagation() }} /></span> : null}
       <span className="file-dropzone-copy"><strong>{file?.name || title}</strong><small>{canAdjust ? '開啟調整視窗後拖曳；手機請長按 · ' : ''}{hint}</small></span>
-      {canAdjust && <button type="button" className="file-position-toggle" onClick={(event) => { event.preventDefault(); event.stopPropagation(); setAdjustOpen(true) }}>調整圖片位置</button>}
+      {canAdjust && <button type="button" className="ui-button ui-button-secondary ui-button-small file-position-toggle" onClick={(event) => { event.preventDefault(); event.stopPropagation(); setAdjustOpen(true) }}>調整圖片位置</button>}
     </label>
-    {adjustOpen && imageSrc && <div className="image-adjust-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) finishAdjustment() }}>
-      <section className="image-adjust-modal" role="dialog" aria-modal="true" aria-label="調整封面圖片">
-        <header><div><strong>調整封面圖片</strong><small>比例同卡片封面 · 滑鼠拖曳／手機長按 · 滾輪或雙指縮放</small></div><button type="button" aria-label="關閉調整視窗" onClick={finishAdjustment}>×</button></header>
-        <div
-          className="image-adjust-viewport"
-          ref={editorFrameRef}
-          style={{ aspectRatio: Number.isFinite(aspectRatio) && aspectRatio > 0 ? aspectRatio : 16 / 9 }}
-          onWheel={(event) => {
-            event.preventDefault()
-            updateEditorScale(Math.max(1, Math.min(3, Number((scaleRef.current - event.deltaY * 0.002).toFixed(2)))))
-            scheduleScaleCommit()
-          }}
-          onPointerDown={(event) => { startPositionDrag(event); handlePinchStart(event); event.currentTarget.setPointerCapture(event.pointerId) }}
-          onPointerMove={(event) => { getNextPosition(event); handlePinchMove(event) }}
-          onPointerUp={handlePointerEnd}
-          onPointerCancel={handlePointerEnd}
-        >
-          <img ref={editorImageRef} src={imageSrc} alt="封面預覽" draggable={false} style={{ objectPosition: imagePosition, transform: `scale(${imageScale})`, transformOrigin: 'center', pointerEvents: 'none' }} />
-        </div>
-        <footer><span ref={scaleLabelRef}>縮放 {Math.round(imageScale * 100)}%</span><button type="button" onClick={() => { updateEditorScale(1); commitScale() }}>重設縮放</button><button type="button" className="save-button" onClick={finishAdjustment}>完成</button></footer>
-      </section>
-    </div>}
+    {adjustOpen && imageSrc && createPortal(
+      <div className="image-adjust-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) finishAdjustment() }}>
+        <section className="image-adjust-modal" role="dialog" aria-modal="true" aria-label="調整封面圖片">
+          <header><div><strong>調整封面圖片</strong><small>比例同卡片封面 · 滑鼠拖曳／手機長按 · 滾輪或雙指縮放</small></div><button type="button" aria-label="關閉調整視窗" onClick={finishAdjustment}>×</button></header>
+          <div
+            className="image-adjust-viewport"
+            ref={editorFrameRef}
+            style={{ aspectRatio: Number.isFinite(aspectRatio) && aspectRatio > 0 ? aspectRatio : 16 / 9 }}
+            onWheel={(event) => {
+              event.preventDefault()
+              updateEditorScale(Math.max(1, Math.min(3, Number((scaleRef.current - event.deltaY * 0.002).toFixed(2)))))
+              scheduleScaleCommit()
+            }}
+            onPointerDown={(event) => { startPositionDrag(event); handlePinchStart(event); event.currentTarget.setPointerCapture(event.pointerId) }}
+            onPointerMove={(event) => { getNextPosition(event); handlePinchMove(event) }}
+            onPointerUp={handlePointerEnd}
+            onPointerCancel={handlePointerEnd}
+          >
+            <img ref={editorImageRef} src={imageSrc} alt="封面預覽" draggable={false} style={{ objectPosition: imagePosition, transform: `scale(${imageScale})`, transformOrigin: 'center', pointerEvents: 'none' }} />
+          </div>
+          <footer><span ref={scaleLabelRef}>縮放 {Math.round(imageScale * 100)}%</span><button type="button" className="ui-button ui-button-secondary ui-button-small" onClick={() => { updateEditorScale(1); commitScale() }}>重設縮放</button><button type="button" className="ui-button ui-button-primary ui-button-small" onClick={finishAdjustment}>完成</button></footer>
+        </section>
+      </div>,
+      document.body,
+    )}
   </>
 }
 

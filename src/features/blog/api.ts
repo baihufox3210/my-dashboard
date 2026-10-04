@@ -1,4 +1,4 @@
-import type { AnalyticsStats, Article, ArticleStats, Friend, HomeProfile, Project, SiteSettings } from './article'
+import type { AnalyticsStats, Article, ArticleStats, Friend, HomeProfile, MusicTrack, Project, ServerStatus, SiteSettings } from './article'
 
 async function request<T>(input: RequestInfo, init?: RequestInit): Promise<T> {
   const response = await fetch(input, { credentials: 'include', ...init })
@@ -126,4 +126,28 @@ export function updateProject(id: string, formData: FormData) {
 
 export function deleteProject(id: string) {
   return request<void>(`/api/admin/projects/${encodeURIComponent(id)}`, { method: 'DELETE' })
+}
+
+export function fetchServerStatus() {
+  return request<ServerStatus>('/api/server-status', { cache: 'no-store' })
+}
+
+export function fetchMusicTracks() {
+  return request<MusicTrack[]>('/api/music', { cache: 'no-store' })
+}
+
+export function uploadMusicTracks(formData: FormData) {
+  return request<MusicTrack[]>('/api/admin/music', { method: 'POST', body: formData })
+}
+
+export function updateMusicTrackOrder(ids: string[]) {
+  return request<MusicTrack[]>('/api/admin/music/order', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ids }),
+  })
+}
+
+export function deleteMusicTrack(id: string) {
+  return request<void>(`/api/admin/music/${encodeURIComponent(id)}`, { method: 'DELETE' })
 }

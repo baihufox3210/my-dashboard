@@ -6,8 +6,8 @@
   line-height: 1.6;
   font-weight: 400;
   letter-spacing: .012em;
-  color: #111827;
-  background: #d8c8be;
+  color: var(--theme-ink, #29231e);
+  background: var(--theme-page-base, #d8c8be);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   font-kerning: normal;
@@ -34,7 +34,7 @@ body,
 
 body {
   min-height: 100vh;
-  background-color: #d8c8be;
+  background-color: var(--theme-page-base, #d8c8be);
   background-image: var(--site-background-image, none);
   background-position: var(--site-background-position-desktop, var(--site-background-position, center));
   background-size: cover;
@@ -75,3 +75,7 @@ body:has(.projects-page) {
     overflow: visible;
   }
 }
+
+/* Keep the initial empty document hidden until settings and the background image are ready. */
+html { background-color: var(--theme-page-base, #d8c8be); }
+body.site-background-loading { visibility: hidden; }

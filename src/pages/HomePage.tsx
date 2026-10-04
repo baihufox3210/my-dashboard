@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import MarkdownPreview from '../components/MarkdownPreview'
 import SocialLinks from '../components/SocialLinks'
-import { fetchArticles, fetchHomeProfile, recordPageView } from '../features/blog/api'
-import type { Article, HomeProfile } from '../features/blog/article'
+import useEscapeKey from '../components/useEscapeKey'
+import { fetchArticles, fetchHomeProfile, fetchMusicTracks, fetchServerStatus, recordPageView } from '../features/blog/api'
+import type { Article, HomeProfile, MusicTrack, ServerStatus } from '../features/blog/article'
 
 const fallback: HomeProfile = {
   name: 'baihu',
@@ -25,13 +26,73 @@ function HomePage() {
   const [selectedArticle, setSelectedArticle] = useState<Article | null>(null)
   const [avatarMessage, setAvatarMessage] = useState('')
   const [articleListHeight, setArticleListHeight] = useState<number | null>(null)
+  const [musicTracks, setMusicTracks] = useState<MusicTrack[]>([])
+  const [currentTrackIndex, setCurrentTrackIndex] = useState(0)
+  const [isPlaying, setIsPlaying] = useState(false)
+  const [musicProgress, setMusicProgress] = useState(0)
+  const [musicDuration, setMusicDuration] = useState(0)
+  const [serverStatus, setServerStatus] = useState<ServerStatus | null>(null)
+  const audioRef = useRef<HTMLAudioElement>(null)
   const articleListRef = useRef<HTMLDivElement>(null)
   const homeTagsRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     fetchHomeProfile().then(setProfile).catch(() => undefined)
     fetchArticles().then(setArticles).catch(() => undefined)
+    fetchMusicTracks().then(setMusicTracks).catch(() => undefined)
+    fetchServerStatus().then(setServerStatus).catch(() => undefined)
   }, [])
+
+  useEffect(() => {
+    const audio = audioRef.current
+    const track = musicTracks[currentTrackIndex]
+    if (!audio || !track) return
+    audio.src = track.fileUrl
+    audio.load()
+    setMusicProgress(0)
+    setMusicDuration(0)
+    setIsPlaying(false)
+  }, [currentTrackIndex, musicTracks])
+
+  useEffect(() => {
+    const audio = audioRef.current
+    if (!audio) return
+    const updateProgress = () => { setMusicProgress(audio.currentTime); setMusicDuration(audio.duration || 0) }
+    audio.addEventListener('timeupdate', updateProgress)
+    audio.addEventListener('loadedmetadata', updateProgress)
+    return () => { audio.removeEventListener('timeupdate', updateProgress); audio.removeEventListener('loadedmetadata', updateProgress) }
+  }, [musicTracks.length])
+
+  function toggleMusic() {
+    const audio = audioRef.current
+    if (!audio || !musicTracks.length) return
+    if (audio.paused) { void audio.play().then(() => setIsPlaying(true)).catch(() => setIsPlaying(false)) }
+    else { audio.pause(); setIsPlaying(false) }
+  }
+
+  function changeTrack(direction: -1 | 1) {
+    if (!musicTracks.length) return
+    setCurrentTrackIndex((index) => (index + direction + musicTracks.length) % musicTracks.length)
+  }
+
+  function seekMusic(event: React.ChangeEvent<HTMLInputElement>) {
+    const next = Number(event.target.value)
+    if (audioRef.current) audioRef.current.currentTime = next
+    setMusicProgress(next)
+  }
+
+  function formatMusicTime(seconds: number) {
+    if (!Number.isFinite(seconds)) return '0:00'
+    return `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`
+  }
+
+  function formatUptime(seconds: number) {
+    const totalMinutes = Math.max(0, Math.floor(seconds / 60))
+    const days = Math.floor(totalMinutes / 1440)
+    const hours = Math.floor((totalMinutes % 1440) / 60)
+    const minutes = totalMinutes % 60
+    return `${String(days).padStart(2, '0')}:${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`
+  }
 
   useEffect(() => {
     if (!avatarMessage) return
@@ -115,14 +176,7 @@ function HomePage() {
     if (selectedArticle) void recordPageView('article', { articleId: selectedArticle.id })
   }, [selectedArticle])
 
-  useEffect(() => {
-    if (!selectedArticle) return
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setSelectedArticle(null)
-    }
-    window.addEventListener('keydown', closeOnEscape)
-    return () => window.removeEventListener('keydown', closeOnEscape)
-  }, [selectedArticle])
+  useEscapeKey(Boolean(selectedArticle), () => setSelectedArticle(null), 10)
 
   return (
     <main className="main-page home-page">
@@ -146,21 +200,23 @@ function HomePage() {
         <div className="home-section-heading"><div><p className="home-eyebrow">FROM THE BLOG</p><h2>最新文章</h2></div><span className="home-post-count">{articles.length} 篇文章</span></div>
         {articles.length ? <div className={`home-article-list${articles.length > 2 ? ' is-scrollable' : ''}`} ref={articleListRef} style={articleListHeight ? { height: `${articleListHeight}px`, maxHeight: `${articleListHeight}px`, flex: '0 0 auto' } : undefined}>{articles.map((article) => <button className="home-article" type="button" onClick={() => setSelectedArticle(article)} key={article.id}>
           {article.coverImage && <img className="home-article-cover" src={article.coverImage} alt="" style={{ objectPosition: article.coverImagePosition ?? '50% 50%', transform: `scale(${article.coverImageScale ?? 1})`, transformOrigin: 'center' }} />}
-          <span className="home-article-copy"><small>{article.category}</small><strong>{article.title}</strong><span>{article.content.replace(/[#*`>_[\]!~]/g, '').slice(0, 140)}{article.content.length > 140 ? '…' : ''}</span><time className="home-article-date">{new Date(article.publishedAt).toLocaleDateString()}</time></span><span className="home-article-arrow" aria-hidden="true">↗</span></button>)}</div> : <div className="home-blog-empty"><span>✳</span><strong>新文章正在路上</strong><p>最近的想法與作品會出現在這裡。</p></div>}
+          <span className="home-article-copy"><small>{article.category}</small><strong>{article.title}</strong><span>{article.content.replace(/[#*`>_[\]!~]/g, '').slice(0, 140)}{article.content.length > 140 ? '…' : ''}</span><time className="home-article-date">{new Date(article.publishedAt).toLocaleDateString()}</time></span></button>)}</div> : <div className="home-blog-empty"><span>✳</span><strong>新文章正在路上</strong><p>最近的想法與作品會出現在這裡。</p></div>}
       </section>
 
-      <aside className="home-updates home-panel">
-        <p className="home-eyebrow">NOW</p><h2>{profile.updateTitle}</h2><p>{profile.updateText}</p>
-        <div className="home-update-rule" />
-        <span className="home-update-note"><i /> 持續探索中</span>
-      </aside>
-      {selectedArticle && <div className="article-reader-backdrop" role="presentation" onClick={() => setSelectedArticle(null)}>
-        <article className="article-reader" role="dialog" aria-modal="true" aria-labelledby="home-article-title" onClick={(event) => event.stopPropagation()}>
-          <button type="button" className="secondary-button" onClick={() => setSelectedArticle(null)}>關閉</button>
-          <p className="placeholder-label">{selectedArticle.category} · {new Date(selectedArticle.publishedAt).toLocaleDateString()}</p>
+      <div className="home-right-column">
+        <aside className="home-updates home-panel"><p className="home-eyebrow">NOW</p><h2>{profile.updateTitle}</h2><p>{profile.updateText}</p><div className="home-update-rule" /></aside>
+        <aside className="home-server-card home-panel" aria-label="伺服器資訊"><p className="home-eyebrow">SERVER STATUS</p><div className="home-server-stats"><div><span>運作時間</span><strong>{serverStatus ? formatUptime(serverStatus.uptimeSeconds) : '--:--:--'}</strong><small>DD : HH : MM</small></div><div><span>最後活動</span><strong>{serverStatus?.lastActivity ? new Date(serverStatus.lastActivity).toLocaleDateString('zh-TW', { month: 'numeric', day: 'numeric' }) : '—'}</strong><small>{serverStatus?.lastActivity ? new Date(serverStatus.lastActivity).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' }) : '尚無紀錄'}</small></div></div></aside>
+        <aside className="home-music-card home-panel" aria-label="音樂播放器"><p className="home-eyebrow">LISTENING NOW</p>{musicTracks.length ? <><strong className="home-music-title">{musicTracks[currentTrackIndex]?.title}</strong><input className="home-music-progress" type="range" min="0" max={musicDuration || 0} step="0.1" value={Math.min(musicProgress, musicDuration || 0)} onChange={seekMusic} aria-label="音樂播放進度" /><div className="home-music-times"><span>{formatMusicTime(musicProgress)}</span><span>{formatMusicTime(musicDuration)}</span></div><div className="home-music-controls"><button type="button" onClick={() => changeTrack(-1)} aria-label="上一首">◀</button><button type="button" className="home-music-play" onClick={toggleMusic} aria-label={isPlaying ? '暫停' : '播放'}>{isPlaying ? 'Ⅱ' : '▶'}</button><button type="button" onClick={() => changeTrack(1)} aria-label="下一首">▶</button></div></> : <p className="home-music-empty">尚未加入音樂。</p>}<audio ref={audioRef} preload="metadata" loop /></aside>
+      </div>
+      {selectedArticle && <div className="project-modal-backdrop article-reader-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setSelectedArticle(null) }}>
+        <article className="project-detail-modal article-reader" role="dialog" aria-modal="true" aria-labelledby="home-article-title">
+          <header className="project-detail-header">
+            <p>{selectedArticle.category || 'BLOG POST'} <span>///</span> {new Date(selectedArticle.publishedAt).toLocaleDateString()}</p>
+            <button type="button" className="modal-close-button" aria-label="關閉文章" onClick={() => setSelectedArticle(null)}>×</button>
+          </header>
+          {selectedArticle.coverImage && <img className="project-detail-cover" src={selectedArticle.coverImage} alt="" style={{ objectPosition: selectedArticle.coverImagePosition ?? '50% 50%', transform: `scale(${selectedArticle.coverImageScale ?? 1})`, transformOrigin: 'center' }} />}
           <h2 id="home-article-title">{selectedArticle.title}</h2>
-          {selectedArticle.coverImage && <img src={selectedArticle.coverImage} alt="" style={{ objectPosition: selectedArticle.coverImagePosition ?? '50% 50%', transform: `scale(${selectedArticle.coverImageScale ?? 1})`, transformOrigin: 'center' }} />}
-          <MarkdownPreview content={selectedArticle.content} />
+          <div className="project-detail-content article-reader-content"><MarkdownPreview content={selectedArticle.content} /></div>
         </article>
       </div>}
     </main>

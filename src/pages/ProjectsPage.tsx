@@ -2,8 +2,11 @@ import { useCallback, useEffect, useState } from 'react'
 import MarkdownPreview from '../components/MarkdownPreview'
 import FileDropzone from '../components/FileDropzone'
 import ConfirmDialog from '../components/ConfirmDialog'
+import UiIcon from '../components/UiIcon'
+import useEscapeKey from '../components/useEscapeKey'
 import { createProject, deleteProject, fetchAdminSession, fetchProjects, updateProject } from '../features/blog/api'
 import type { Project } from '../features/blog/article'
+import { getPublicPath } from '../routes/routes'
 
 type ProjectDraft = { title: string; summary: string; description: string; category: string; tags: string; projectUrl: string }
 const blankDraft: ProjectDraft = { title: '', summary: '', description: '', category: '', tags: '', projectUrl: '' }
@@ -18,7 +21,7 @@ function measureProjectCoverAspectRatio(projectId?: string) {
   const rem = Number.parseFloat(getComputedStyle(document.documentElement).fontSize) || 16
   const pageWidth = page?.clientWidth || window.innerWidth
   const frameWidth = pageWidth * 0.9 - rem * 2
-  const frameHeight = rem * (window.innerWidth <= 768 ? 9 : 10)
+  const frameHeight = rem * 12
   return Math.max(1, frameWidth / frameHeight)
 }
 
@@ -71,14 +74,10 @@ function ProjectsPage({ embedded = false }: { embedded?: boolean }) {
     return () => { active = false; window.clearTimeout(timer) }
   }, [embedded, loadProjects])
 
-  useEffect(() => {
-    if (!editor && !selected) return
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') { setEditor(null); setSelected(null) }
-    }
-    window.addEventListener('keydown', closeOnEscape)
-    return () => window.removeEventListener('keydown', closeOnEscape)
-  }, [editor, selected])
+  useEscapeKey(Boolean(editor || selected), () => {
+    if (editor) closeEditor()
+    else setSelected(null)
+  }, 10)
 
   function openEditor(project: Project | 'new') {
     setCoverAspectRatio(measureProjectCoverAspectRatio(project === 'new' ? undefined : project.id))
@@ -150,9 +149,9 @@ function ProjectsPage({ embedded = false }: { embedded?: boolean }) {
       <div className="projects-heading-aside"><span className="projects-orbit" aria-hidden="true"><i>✳</i></span><small>BUILD / BREAK / REPEAT</small></div>
     </header>
     {message && <p className="projects-feedback" role="status">{message}</p>}
-    {loadError && <p className="projects-feedback project-load-error" role="alert">專案載入失敗：{loadError} <button type="button" onClick={() => void loadProjects()}>重新載入</button></p>}
-    <div className="projects-toolbar"><span><i /> ARCHIVE INDEX <b>—</b> {String(projects.length).padStart(2, '0')}</span><span className="projects-toolbar-actions">{embedded && <a href="#projects">VIEW PUBLIC PAGE ↗</a>}{isAdmin && <button type="button" className="project-add-button" onClick={() => openEditor('new')}>＋ ADD PROJECT</button>}</span></div>
-    {loading ? <div className="projects-empty"><span className="projects-loading-mark">✳</span><p>SYNCING ARCHIVE…</p></div> : loadError ? <div className="projects-empty"><span className="projects-loading-mark">!</span><p>ARCHIVE CONNECTION FAILED</p><span>確認伺服器連線後再試一次。</span><button type="button" className="project-add-button" onClick={() => void loadProjects()}>↻ RETRY</button></div> : orderedProjects.length ? <section className="projects-grid" aria-label="Project archive">
+    {loadError && <p className="projects-feedback project-load-error" role="alert">專案載入失敗：{loadError} <button type="button" className="ui-button ui-button-secondary ui-button-small" onClick={() => void loadProjects()}><UiIcon name="refresh" />重新載入</button></p>}
+    <div className="projects-toolbar"><span><i /> ARCHIVE INDEX <b>—</b> {String(projects.length).padStart(2, '0')}</span><span className="projects-toolbar-actions">{embedded && <a href={getPublicPath('projects')}>VIEW PUBLIC PAGE ↗</a>}{isAdmin && <button type="button" className="ui-button ui-button-primary ui-button-small" onClick={() => openEditor('new')}><UiIcon name="plus" />ADD PROJECT</button>}</span></div>
+    {loading ? <div className="projects-empty"><span className="projects-loading-mark">✳</span><p>SYNCING ARCHIVE…</p></div> : loadError ? <div className="projects-empty"><span className="projects-loading-mark">!</span><p>ARCHIVE CONNECTION FAILED</p><span>確認伺服器連線後再試一次。</span><button type="button" className="ui-button ui-button-secondary" onClick={() => void loadProjects()}><UiIcon name="refresh" />RETRY</button></div> : orderedProjects.length ? <section className="projects-grid" aria-label="Project archive">
       {orderedProjects.map((project, index) => <article className={`project-card${index === 0 ? ' project-card-featured' : ''}`} data-project-id={project.id} key={project.id}>
         <button type="button" className="project-card-main" onClick={() => setSelected(project)} aria-label={`查看專案：${project.title}`}>
           <span className="project-card-top"><span>{project.category || 'UNCLASSIFIED'}</span><span>PRJ-{String(index + 1).padStart(3, '0')}</span></span>
@@ -160,32 +159,64 @@ function ProjectsPage({ embedded = false }: { embedded?: boolean }) {
           <span className="project-card-copy"><strong>{project.title}</strong><span className="project-description">{project.summary}</span><span className="project-tags">{project.tags.slice(0, 4).map((tag) => <span key={tag}>{tag}</span>)}</span><span className="project-action">OPEN PROJECT FILE <span aria-hidden="true">↗</span></span></span>
         </button>
       </article>)}
-    </section> : <section className="projects-empty"><span className="projects-loading-mark">⌁</span><p>NO PROJECT FILES FOUND</p><span>The archive is ready for your first project.</span>{isAdmin && <button type="button" className="project-add-button" onClick={() => openEditor('new')}>＋ ADD YOUR FIRST PROJECT</button>}</section>}
+    </section> : <section className="projects-empty"><span className="projects-loading-mark">⌁</span><p>NO PROJECT FILES FOUND</p><span>The archive is ready for your first project.</span>{isAdmin && <button type="button" className="ui-button ui-button-primary" onClick={() => openEditor('new')}><UiIcon name="plus" />ADD YOUR FIRST PROJECT</button>}</section>}
     <footer className="projects-footer"><span>PERSONAL ARCHIVE</span><span>✳</span><span>END OF TRANSMISSION</span></footer>
 
     {selected && <div className="project-modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setSelected(null) }}>
       <article className="project-detail-modal" role="dialog" aria-modal="true" aria-labelledby="project-detail-title">
-        <header className="project-detail-header"><p>{selected.category || 'PROJECT FILE'} <span>///</span> {new Date(selected.publishedAt).toLocaleDateString()}</p><button type="button" aria-label="關閉" onClick={() => setSelected(null)}>×</button></header>
+        <header className="project-detail-header"><p>{selected.category || 'PROJECT FILE'} <span>///</span> {new Date(selected.publishedAt).toLocaleDateString()}</p><button type="button" className="modal-close-button" aria-label="關閉" onClick={() => setSelected(null)}>×</button></header>
         {selected.coverImage && <img className="project-detail-cover" src={selected.coverImage} alt="" style={{ objectPosition: selected.coverImagePosition ?? '50% 50%', transform: `scale(${selected.coverImageScale ?? 1})`, transformOrigin: 'center' }} />}
         <h2 id="project-detail-title">{selected.title}</h2><p className="project-detail-summary">{selected.summary}</p>
         {selected.tags.length > 0 && <div className="project-tags">{selected.tags.map((tag) => <span key={tag}>{tag}</span>)}</div>}
         {selected.description && <div className="project-detail-content"><MarkdownPreview content={selected.description} /></div>}
-        <footer className="project-detail-actions">{selected.projectUrl && <a href={selected.projectUrl} target="_blank" rel="noreferrer">OPEN LIVE PROJECT <span>↗</span></a>}{selected.documentUrl && <a href={selected.documentUrl} target="_blank" rel="noreferrer">VIEW PROJECT PDF <span>↗</span></a>}{isAdmin && <div className="project-detail-admin-actions"><button type="button" disabled={busy} onClick={() => openEditor(selected)}>EDIT</button><button type="button" className="project-delete-button" disabled={busy} onClick={() => setProjectToDelete(selected)}>DELETE</button></div>}</footer>
+        <footer className="project-detail-actions">{selected.projectUrl && <a className="ui-button ui-button-secondary ui-button-small" href={selected.projectUrl} target="_blank" rel="noreferrer">OPEN LIVE PROJECT<UiIcon name="external" /></a>}{selected.documentUrl && <a className="ui-button ui-button-secondary ui-button-small" href={selected.documentUrl} target="_blank" rel="noreferrer">VIEW PROJECT PDF<UiIcon name="external" /></a>}{isAdmin && <div className="project-detail-admin-actions"><button type="button" className="ui-button ui-button-secondary" disabled={busy} onClick={() => openEditor(selected)}><UiIcon name="edit" />編輯</button><button type="button" className="ui-button ui-button-danger" disabled={busy} onClick={() => setProjectToDelete(selected)}><UiIcon name="trash" />刪除</button></div>}</footer>
       </article>
     </div>}
 
     {editor && <div className="project-modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) closeEditor() }}>
       <section className="project-editor-modal" role="dialog" aria-modal="true" aria-labelledby="project-editor-title">
-        <header className="project-detail-header"><div><p>PROJECT ARCHIVE <span>///</span> EDITOR</p><h2 id="project-editor-title">{editor === 'new' ? 'ADD NEW PROJECT' : 'UPDATE PROJECT'}</h2></div><button type="button" aria-label="關閉" disabled={busy} onClick={closeEditor}>×</button></header>
-        <form onSubmit={saveProject}>
-          <label className="project-form-field">PROJECT TITLE<input required maxLength={160} value={draft.title} onChange={(event) => setDraft({ ...draft, title: event.target.value })} placeholder="專案名稱" /></label>
-          <div className="project-form-two"><label className="project-form-field">CATEGORY<input maxLength={80} value={draft.category} onChange={(event) => setDraft({ ...draft, category: event.target.value })} placeholder="Web / Design / Research" /></label><label className="project-form-field">PROJECT LINK<input type="url" value={draft.projectUrl} onChange={(event) => setDraft({ ...draft, projectUrl: event.target.value })} placeholder="https://…" /></label></div>
-          <label className="project-form-field">SHORT SUMMARY <small>最多 500 字</small><textarea required rows={2} maxLength={500} value={draft.summary} onChange={(event) => setDraft({ ...draft, summary: event.target.value })} placeholder="用一句話介紹這個專案" /></label>
-          <label className="project-form-field">TAGS <small>用逗號分隔</small><input value={draft.tags} onChange={(event) => setDraft({ ...draft, tags: event.target.value })} placeholder="React, Design, Open Source" /></label>
-          <label className="project-form-field">PROJECT NOTES <small>支援 Markdown</small><textarea rows={6} maxLength={100000} value={draft.description} onChange={(event) => setDraft({ ...draft, description: event.target.value })} placeholder="記錄專案背景、特色、製作過程…" /></label>
-          <div className="project-form-two project-file-fields"><div className="project-form-field"><span>COVER IMAGE <small>JPG / PNG / WebP / GIF，最多 8 MB</small></span><FileDropzone title="上傳專案封面" hint="點擊選取圖片" file={cover} previewUrl={editor === 'new' ? undefined : editor.coverImage} imagePosition={coverPosition} imageScale={coverScale} aspectRatio={coverAspectRatio} onImagePositionChange={setCoverPosition} onImageScaleChange={setCoverScale} onFile={setCover} /></div><div className="project-form-field"><span>PROJECT DOCUMENT <small>PDF，最多 25 MB</small></span><div className={`project-pdf-drop${document || (editor !== 'new' && editor.documentUrl && !removeDocument) ? ' has-document' : ''}`} onClick={(event) => { if (!(event.target as HTMLElement).closest('button')) event.currentTarget.querySelector<HTMLInputElement>('input')?.click() }} onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); const dropped = event.dataTransfer.files[0]; if (dropped?.type === 'application/pdf' || dropped?.name.toLowerCase().endsWith('.pdf')) { setDocument(dropped); setRemoveDocument(false) } }}><input type="file" accept="application/pdf,.pdf" onChange={(event) => { setDocument(event.target.files?.[0] ?? null); setRemoveDocument(false); event.currentTarget.value = '' }} /><span className="project-pdf-name">{removeDocument ? 'PDF 將在儲存時移除' : document?.name ?? (editor !== 'new' && editor.documentUrl ? editor.documentName ?? decodeURIComponent(editor.documentUrl.split('/').pop() ?? '已附加 PDF 文件') : '拖曳 PDF 到這裡，或點擊選擇檔案')}</span>{(document || (editor !== 'new' && editor.documentUrl && !removeDocument)) && <button type="button" className="project-pdf-remove" aria-label="移除 PDF" onClick={(event) => { event.preventDefault(); event.stopPropagation(); setConfirmPdfRemoval(true) }}>×</button>}</div></div></div>
-          {message && <p className="projects-feedback" role="alert">{message}</p>}
-          <footer className="project-editor-actions"><button type="button" disabled={busy} onClick={closeEditor}>CANCEL</button><button type="submit" disabled={busy}>{busy ? 'SAVING…' : 'SAVE PROJECT'}</button></footer>
+        <header className="project-editor-header">
+          <div>
+            <p>PROJECT ARCHIVE <span>///</span> EDITOR</p>
+            <h2 id="project-editor-title">{editor === 'new' ? '新增專案' : '編輯專案'}</h2>
+            <small>整理專案資訊、封面與相關文件。</small>
+          </div>
+          <button type="button" className="modal-close-button" aria-label="關閉" disabled={busy} onClick={closeEditor}>×</button>
+        </header>
+        <form className="project-editor-form" onSubmit={saveProject}>
+          <section className="project-editor-section" aria-labelledby="project-info-heading">
+            <div className="project-editor-section-heading"><h3 id="project-info-heading">基本資料</h3><span>名稱、分類與連結</span></div>
+            <label className="project-form-field project-title-field">專案名稱<input required maxLength={160} value={draft.title} onChange={(event) => setDraft({ ...draft, title: event.target.value })} placeholder="例如：個人作品集網站" /></label>
+            <div className="project-form-two">
+              <label className="project-form-field">分類<input maxLength={80} value={draft.category} onChange={(event) => setDraft({ ...draft, category: event.target.value })} placeholder="Web / Design / Research" /></label>
+              <label className="project-form-field">專案連結<input type="url" value={draft.projectUrl} onChange={(event) => setDraft({ ...draft, projectUrl: event.target.value })} placeholder="https://…" /></label>
+            </div>
+          </section>
+          <section className="project-editor-section" aria-labelledby="project-description-heading">
+            <div className="project-editor-section-heading"><h3 id="project-description-heading">專案介紹</h3><span>簡介會顯示在專案卡片上</span></div>
+            <div className="project-editor-summary-grid">
+              <label className="project-form-field">簡短介紹 <small>最多 500 字</small><textarea required rows={3} maxLength={500} value={draft.summary} onChange={(event) => setDraft({ ...draft, summary: event.target.value })} placeholder="用幾句話說明這個專案的目的與特色" /></label>
+              <label className="project-form-field">標籤 <small>以逗號分隔</small><input value={draft.tags} onChange={(event) => setDraft({ ...draft, tags: event.target.value })} placeholder="React, Design, Open Source" /></label>
+            </div>
+            <label className="project-form-field project-notes-field">詳細內容 <small>支援 Markdown</small><textarea rows={6} maxLength={100000} value={draft.description} onChange={(event) => setDraft({ ...draft, description: event.target.value })} placeholder="記錄專案背景、特色與製作過程…" /></label>
+          </section>
+          <section className="project-editor-section project-editor-assets" aria-labelledby="project-assets-heading">
+            <div className="project-editor-section-heading"><h3 id="project-assets-heading">媒體與文件</h3><span>封面裁切比例與專案卡片一致</span></div>
+            <div className="project-form-field">
+              <span>封面圖片 <small>JPG / PNG / WebP / GIF，最多 8 MB</small></span>
+              <FileDropzone title="上傳專案封面" hint="點擊選取圖片" file={cover} previewUrl={editor === 'new' ? undefined : editor.coverImage} imagePosition={coverPosition} imageScale={coverScale} aspectRatio={coverAspectRatio} onImagePositionChange={setCoverPosition} onImageScaleChange={setCoverScale} onFile={setCover} />
+            </div>
+            <div className="project-form-field">
+              <span>專案 PDF <small>最多 25 MB</small></span>
+              <div className={`project-pdf-drop${document || (editor !== 'new' && editor.documentUrl && !removeDocument) ? ' has-document' : ''}`} onClick={(event) => { if (!(event.target as HTMLElement).closest('button')) event.currentTarget.querySelector<HTMLInputElement>('input')?.click() }} onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); const dropped = event.dataTransfer.files[0]; if (dropped?.type === 'application/pdf' || dropped?.name.toLowerCase().endsWith('.pdf')) { setDocument(dropped); setRemoveDocument(false) } }}>
+                <input type="file" accept="application/pdf,.pdf" onChange={(event) => { setDocument(event.target.files?.[0] ?? null); setRemoveDocument(false); event.currentTarget.value = '' }} />
+                <span className="project-pdf-name">{removeDocument ? 'PDF 將在儲存時移除' : document?.name ?? (editor !== 'new' && editor.documentUrl ? editor.documentName ?? decodeURIComponent(editor.documentUrl.split('/').pop() ?? '已附加 PDF 文件') : '拖曳 PDF 到這裡，或點擊選擇檔案')}</span>
+                {(document || (editor !== 'new' && editor.documentUrl && !removeDocument)) && <button type="button" className="project-pdf-remove" aria-label="移除 PDF" onClick={(event) => { event.preventDefault(); event.stopPropagation(); setConfirmPdfRemoval(true) }}>×</button>}
+              </div>
+            </div>
+          </section>
+          {message && <p className="projects-feedback project-editor-error" role="alert">{message}</p>}
+          <footer className="project-editor-actions"><button type="button" className="ui-button ui-button-secondary" disabled={busy} onClick={closeEditor}>取消</button><button type="submit" className="ui-button ui-button-primary" disabled={busy}>{busy ? '儲存中…' : '儲存專案'}</button></footer>
         </form>
       </section>
     </div>}

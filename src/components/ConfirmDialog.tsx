@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import useEscapeKey from './useEscapeKey'
 
 type ConfirmDialogProps = {
   open: boolean
@@ -12,14 +12,7 @@ type ConfirmDialogProps = {
 }
 
 function ConfirmDialog({ open, title, message, confirmLabel = '確認刪除', cancelLabel = '取消', busy = false, onConfirm, onCancel }: ConfirmDialogProps) {
-  useEffect(() => {
-    if (!open) return
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && !busy) onCancel()
-    }
-    window.addEventListener('keydown', closeOnEscape)
-    return () => window.removeEventListener('keydown', closeOnEscape)
-  }, [busy, onCancel, open])
+  useEscapeKey(open, () => { if (!busy) onCancel() }, 100)
 
   if (!open) return null
 
@@ -33,8 +26,8 @@ function ConfirmDialog({ open, title, message, confirmLabel = '確認刪除', ca
           <p id="confirm-dialog-message">{message}</p>
         </div>
         <div className="confirm-dialog-actions">
-          <button type="button" className="confirm-dialog-cancel" disabled={busy} onClick={onCancel}>{cancelLabel}</button>
-          <button type="button" className="confirm-dialog-confirm" disabled={busy} onClick={() => void onConfirm()}>{busy ? '處理中…' : confirmLabel}</button>
+          <button type="button" className="ui-button ui-button-secondary" disabled={busy} onClick={onCancel}>{cancelLabel}</button>
+          <button type="button" className="ui-button ui-button-danger" disabled={busy} onClick={() => void onConfirm()}>{busy ? '處理中…' : confirmLabel}</button>
         </div>
       </section>
     </div>

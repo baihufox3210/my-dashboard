@@ -2,8 +2,11 @@ import { useEffect, useRef, useState } from 'react'
 import MarkdownPreview from '../components/MarkdownPreview'
 import FileDropzone from '../components/FileDropzone'
 import ConfirmDialog from '../components/ConfirmDialog'
+import UiIcon from '../components/UiIcon'
+import useEscapeKey from '../components/useEscapeKey'
 import { deleteArticle, fetchAdminSession, fetchArticleStats, fetchArticles, publishArticle, recordPageView, updateArticle } from '../features/blog/api'
 import type { Article, ArticleStats } from '../features/blog/article'
+import { getPublicPath, getRouteSegments } from '../routes/routes'
 
 function measureArticleCoverAspectRatio(articleId?: string) {
   const cards = [...document.querySelectorAll<HTMLButtonElement>('.public-article-card')]
@@ -43,6 +46,7 @@ function BlogPage() {
   const [stats, setStats] = useState<ArticleStats>(emptyStats)
   const [selectedArticle, setSelectedArticle] = useState<Article | null>(null)
   const [articleToDelete, setArticleToDelete] = useState<Article | null>(null)
+  useEscapeKey(Boolean(selectedArticle), () => setSelectedArticle(null), 10)
   const [currentTime] = useState(() => Date.now())
   const [isAdmin, setIsAdmin] = useState(false)
   const [adminMessage, setAdminMessage] = useState('')
@@ -96,7 +100,7 @@ function BlogPage() {
 
   useEffect(() => {
     const sync = () => {
-      const [, action, rawId] = window.location.hash.slice(1).split('/')
+      const [, action, rawId] = getRouteSegments()
       if (action !== 'new' && action !== 'edit') { setEditor(null); return }
       if (!isAdmin) return
       const id = rawId ? decodeURIComponent(rawId) : undefined
@@ -114,8 +118,12 @@ function BlogPage() {
       setAdminMessage('')
     }
     sync()
+    window.addEventListener('popstate', sync)
     window.addEventListener('hashchange', sync)
-    return () => window.removeEventListener('hashchange', sync)
+    return () => {
+      window.removeEventListener('popstate', sync)
+      window.removeEventListener('hashchange', sync)
+    }
   }, [isAdmin, articles])
 
   async function confirmArticleDelete() {
@@ -143,7 +151,8 @@ function BlogPage() {
       }
       setArticles((current) => editor?.mode === 'edit' ? current.map((item) => item.id === saved.id ? saved : item) : [saved, ...current])
       fetchArticleStats().then(setStats).catch(() => undefined)
-      window.location.hash = '#blog'
+      window.history.replaceState(null, '', getPublicPath('blog'))
+      setEditor(null)
     } catch (error) { setAdminMessage(error instanceof Error ? error.message : '儲存文章失敗。') }
     finally { setDraftBusy(false) }
   }
@@ -224,12 +233,12 @@ function BlogPage() {
   }, [articles, recentArticles.length, stats, popularTags.length, sidebarFit.shift, sidebarFit.scale, sidebarFit.height])
 
   if (editor && isAdmin) return <main className="main-page blog-screen blog-editor-screen">
-    <form className="blog-editor-form" onSubmit={saveDraft}><header><div><small>BLOG CONTENT</small><h1>{editor.mode === 'new' ? '撰寫文章' : '編輯文章'}</h1><p>文章集中在 Blog 管理，儲存後會更新文章列表。</p></div><a href="#blog">返回 Blog</a></header>
+    <form className="blog-editor-form" onSubmit={saveDraft}><header><div><small>BLOG CONTENT</small><h1>{editor.mode === 'new' ? '撰寫文章' : '編輯文章'}</h1><p>文章集中在 Blog 管理，儲存後會更新文章列表。</p></div><a className="ui-button ui-button-secondary ui-button-small" href={getPublicPath('blog')}><UiIcon name="back" />返回 Blog</a></header>
       <div className="blog-editor-workspace">
         <aside className="blog-editor-meta"><label><input aria-label="文章標題" value={draftTitle} onChange={(event) => setDraftTitle(event.target.value)} placeholder="文章標題" required /></label><label><input aria-label="分類" value={draftCategory} onChange={(event) => setDraftCategory(event.target.value)} placeholder="分類" /></label><label><input aria-label="標籤" value={draftTags} onChange={(event) => setDraftTags(event.target.value)} placeholder="標籤（以逗號分隔）" /></label><div className="blog-upload-field"><span>封面圖片</span><FileDropzone title="上傳文章封面" file={draftCover} previewUrl={articles.find((article) => article.id === editor.id)?.coverImage} imagePosition={draftCoverPosition} imageScale={draftCoverScale} aspectRatio={draftCoverAspectRatio} onImagePositionChange={setDraftCoverPosition} onImageScaleChange={setDraftCoverScale} onFile={setDraftCover} /></div></aside>
         <section className="blog-editor-writing"><div className="blog-editor-toolbar"><strong>文章內容 <span>支援 Markdown</span></strong><div><button type="button" className={!draftPreview ? 'active' : ''} onClick={() => setDraftPreview(false)}>編輯</button><button type="button" className={draftPreview ? 'active' : ''} onClick={() => setDraftPreview(true)}>預覽</button></div></div>{draftPreview ? <div className="blog-editor-preview">{draftContent ? <MarkdownPreview content={draftContent} /> : <p>輸入內容後會在這裡預覽。</p>}</div> : <textarea value={draftContent} onChange={(event) => setDraftContent(event.target.value)} placeholder="開始撰寫…" required />}</section>
       </div>
-      {adminMessage && <p className="error-message">{adminMessage}</p>}<footer><a href="#blog">取消</a><button className="save-button" disabled={draftBusy}>{draftBusy ? '儲存中…' : '儲存文章'}</button></footer>
+      {adminMessage && <p className="error-message">{adminMessage}</p>}<footer><a className="ui-button ui-button-secondary" href={getPublicPath('blog')}>取消</a><button className="ui-button ui-button-primary" disabled={draftBusy}>{draftBusy ? '儲存中…' : '儲存文章'}</button></footer>
     </form>
   </main>
 
@@ -304,7 +313,7 @@ function BlogPage() {
             <div className="stat-row"><span>分類</span><strong>{stats.categoryCount}</strong></div>
             <div className="stat-row"><span>標籤</span><strong>{stats.tagCount}</strong></div>
             <div className="stat-row"><span>總字數</span><strong>{stats.totalWords.toLocaleString()}</strong></div>
-            <div className="stat-row"><span>運行時長</span><strong>{stats.runtimeDays} 天</strong></div>
+
             <div className="stat-row"><span>最後活動</span><strong>{stats.lastActivity ? new Date(stats.lastActivity).toLocaleDateString() : '—'}</strong></div>
           </section>
           <section className="popular-tags-card">
@@ -326,7 +335,7 @@ function BlogPage() {
           <article className="project-detail-modal article-reader" role="dialog" aria-modal="true" aria-labelledby="article-reader-title">
             <header className="project-detail-header">
               <p>{selectedArticle.category || 'BLOG POST'} <span>///</span> {new Date(selectedArticle.publishedAt).toLocaleDateString()}</p>
-              <button type="button" aria-label="關閉文章" onClick={() => setSelectedArticle(null)}>×</button>
+              <button type="button" className="modal-close-button" aria-label="關閉文章" onClick={() => setSelectedArticle(null)}>×</button>
             </header>
             {selectedArticle.coverImage && <img className="project-detail-cover" src={selectedArticle.coverImage} alt="" style={{ objectPosition: selectedArticle.coverImagePosition ?? '50% 50%', transform: `scale(${selectedArticle.coverImageScale ?? 1})` }} />}
             <h2 id="article-reader-title">{selectedArticle.title}</h2>
@@ -336,8 +345,8 @@ function BlogPage() {
             {isAdmin && (
               <footer className="project-detail-actions">
                 <div className="project-detail-admin-actions">
-                  <a href={`#blog/edit/${encodeURIComponent(selectedArticle.id)}`}>EDIT ARTICLE</a>
-                  <button type="button" className="project-delete-button" onClick={() => setArticleToDelete(selectedArticle)}>DELETE ARTICLE</button>
+                  <a className="ui-button ui-button-secondary" href={`${getPublicPath('blog')}/edit/${encodeURIComponent(selectedArticle.id)}`}><UiIcon name="edit" />編輯</a>
+                  <button type="button" className="ui-button ui-button-danger" onClick={() => setArticleToDelete(selectedArticle)}><UiIcon name="trash" />刪除</button>
                 </div>
               </footer>
             )}
@@ -345,7 +354,7 @@ function BlogPage() {
           </article>
         </div>
       )}
-      {isAdmin && <a className="new-article-button" href="#blog/new">＋ 撰寫文章</a>}
+      {isAdmin && <a className="ui-button ui-button-primary ui-button-floating" href={`${getPublicPath('blog')}/new`}><UiIcon name="plus" />撰寫文章</a>}
       <ConfirmDialog
         open={Boolean(articleToDelete)}
         title="刪除這篇文章？"

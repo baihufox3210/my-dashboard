@@ -5,25 +5,34 @@ import BlogPage from '../pages/BlogPage'
 import FriendsPage from '../pages/FriendsPage'
 import HomePage from '../pages/HomePage'
 import ProjectsPage from '../pages/ProjectsPage'
+import { getPublicPage, isAdminRoute, isLoginRoute } from './routes'
 
 function getCurrentPage() {
-  return window.location.hash.slice(1).toLowerCase().split('/')[0] || 'home'
+  if (isLoginRoute()) return 'login'
+  if (isAdminRoute()) return 'admin'
+  return getPublicPage()
 }
 
 function PageRouter() {
   const [currentPage, setCurrentPage] = useState(getCurrentPage)
 
   useEffect(() => {
-    const handleHashChange = () => setCurrentPage(getCurrentPage())
+    const handleRouteChange = () => setCurrentPage(getCurrentPage())
 
-    window.addEventListener('hashchange', handleHashChange)
+    window.addEventListener('popstate', handleRouteChange)
+    window.addEventListener('hashchange', handleRouteChange)
 
-    return () => window.removeEventListener('hashchange', handleHashChange)
+    return () => {
+      window.removeEventListener('popstate', handleRouteChange)
+      window.removeEventListener('hashchange', handleRouteChange)
+    }
   }, [])
 
   switch (currentPage) {
     case 'admin':
       return <AdminPage />
+    case 'login':
+      return <AdminPage loginOnly />
     case 'about':
       return <AboutPage />
     case 'projects':

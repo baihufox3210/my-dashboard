@@ -1,17 +1,26 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import SiteHeader from '../components/SiteHeader'
 import SiteFooter from '../components/SiteFooter'
+import { isAdminRoute, isLoginRoute } from '../routes/routes'
 
 type SiteLayoutProps = {
   children: ReactNode
 }
 
+function isAdminLocation() {
+  return isAdminRoute() || isLoginRoute()
+}
+
 function SiteLayout({ children }: SiteLayoutProps) {
-  const [isAdmin, setIsAdmin] = useState(() => window.location.hash.slice(1).split('/')[0] === 'admin')
+  const [isAdmin, setIsAdmin] = useState(isAdminLocation)
   useEffect(() => {
-    const sync = () => setIsAdmin(window.location.hash.slice(1).split('/')[0] === 'admin')
+    const sync = () => setIsAdmin(isAdminLocation())
+    window.addEventListener('popstate', sync)
     window.addEventListener('hashchange', sync)
-    return () => window.removeEventListener('hashchange', sync)
+    return () => {
+      window.removeEventListener('popstate', sync)
+      window.removeEventListener('hashchange', sync)
+    }
   }, [])
   return (
     <div className={`app-shell${isAdmin ? ' admin-shell-route' : ''}`}>

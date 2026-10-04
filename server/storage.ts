@@ -8,6 +8,7 @@ import {
   friendsFile,
   homeProfileFile,
   projectsFile,
+  musicFile,
   sessionsFile,
   siteSettingsFile,
   uploadsDirectory,
@@ -24,6 +25,7 @@ import {
   type Friend,
   type HomeProfile,
   type Project,
+  type MusicTrack,
   type SiteSettings,
 } from './types.js'
 
@@ -63,6 +65,7 @@ export async function ensureStorage(sessions: Map<string, number>) {
   const defaults: [string, string][] = [
     [articlesFile, '[]\n'],
     [projectsFile, '[]\n'],
+    [musicFile, '[]\n'],
     [siteSettingsFile, `${JSON.stringify(defaultSiteSettings, null, 2)}\n`],
     [homeProfileFile, `${JSON.stringify(defaultHomeProfile, null, 2)}\n`],
     [analyticsFile, '[]\n'],
@@ -120,6 +123,38 @@ export async function readProjects(): Promise<Project[]> {
 
 export async function writeProjects(projects: Project[]) {
   await writeJsonAtomically(projectsFile, projects, { pretty: true })
+}
+
+function repairMojibake(value: string) {
+  if (!/[ÃÂæåçèé]/.test(value)) return value
+  try {
+    const repaired = Buffer.from(value, 'latin1').toString('utf8')
+    return repaired.includes('�') ? value : repaired
+  } catch {
+    return value
+  }
+}
+
+function normalizeMusicTrack(track: MusicTrack): MusicTrack {
+  return {
+    ...track,
+    ...(typeof track.title === 'string' ? { title: repairMojibake(track.title) } : {}),
+    ...(typeof track.fileName === 'string' ? { fileName: repairMojibake(track.fileName) } : {}),
+  }
+}
+
+export async function readMusicTracks(): Promise<MusicTrack[]> {
+  try {
+    const tracks = JSON.parse(await fs.readFile(musicFile, 'utf8')) as MusicTrack[]
+    return tracks.filter((track) => track && typeof track.id === 'string' && typeof track.fileUrl === 'string').map(normalizeMusicTrack).sort((first, second) => first.order - second.order)
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return []
+    throw error
+  }
+}
+
+export async function writeMusicTracks(tracks: MusicTrack[]) {
+  await writeJsonAtomically(musicFile, tracks, { pretty: true })
 }
 
 export async function readSiteSettings(): Promise<SiteSettings> {

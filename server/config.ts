@@ -14,6 +14,7 @@ export const analyticsFile = path.join(dataDirectory, 'analytics.json')
 export const activityFile = path.join(dataDirectory, 'admin-activity.json')
 export const friendsFile = path.join(dataDirectory, 'friends.json')
 export const projectsFile = path.join(dataDirectory, 'projects.json')
+export const musicFile = path.join(dataDirectory, 'music.json')
 export const uploadsDirectory = path.join(projectDirectory, 'public', 'uploads')
 
 export const sessionLifetimeMs = 24 * 60 * 60 * 1000

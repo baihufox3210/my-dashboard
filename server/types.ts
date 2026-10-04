@@ -39,6 +39,7 @@ export type HomeProfile = {
 
 export type Friend = { id: string; name: string; introduction: string; url: string; avatarUrl?: string }
 export type Project = { id: string; title: string; summary: string; description: string; category: string; tags: string[]; projectUrl: string; coverImage?: string; coverImagePosition?: string; coverImageScale?: number; documentUrl?: string; documentName?: string; publishedAt: string; updatedAt?: string }
+export type MusicTrack = { id: string; title: string; fileUrl: string; fileName: string; order: number; createdAt: string; fingerprint?: string }
 
 export type AnalyticsPage = 'home' | 'about' | 'projects' | 'blog' | 'article' | 'contact' | 'friends'
 export type AnalyticsDevice = 'mobile' | 'tablet' | 'desktop'

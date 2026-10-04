@@ -65,6 +65,22 @@ export type Friend = {
   avatarUrl?: string
 }
 
+export type ServerStatus = {
+  status: 'online'
+  uptimeSeconds: number
+  lastActivity: string | null
+}
+
+export type MusicTrack = {
+  id: string
+  title: string
+  fileUrl: string
+  fileName: string
+  order: number
+  createdAt: string
+  fingerprint?: string
+}
+
 export type Project = {
   id: string
   title: string

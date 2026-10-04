@@ -4,11 +4,12 @@ import express from 'express'
 import multer from 'multer'
 import path from 'node:path'
 import { uploadsDirectory } from './config.js'
-import { readProjects } from './storage.js'
+import { readMusicTracks, readProjects } from './storage.js'
 
 const imageMimeTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'] as const
 const projectMimeTypes = [...imageMimeTypes, 'application/pdf'] as const
 const pngSignature = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])
+const mp3MimeTypes = ['audio/mpeg', 'audio/mp3'] as const
 
 function isValidImageHeader(header: Buffer) {
   return (header[0] === 0xff && header[1] === 0xd8 && header[2] === 0xff) ||
@@ -27,6 +28,21 @@ export const upload = multer({
   fileFilter: (_request, file, callback) => {
     if (!imageMimeTypes.includes(file.mimetype as typeof imageMimeTypes[number])) {
       callback(new Error('Unsupported image type.'))
+      return
+    }
+    callback(null, true)
+  },
+})
+
+export const musicUpload = multer({
+  storage: multer.diskStorage({
+    destination: uploadsDirectory,
+    filename: (_request, _file, callback) => callback(null, `${crypto.randomUUID()}.mp3`),
+  }),
+  limits: { fileSize: 20 * 1024 * 1024, files: 20, fields: 10 },
+  fileFilter: (_request, file, callback) => {
+    if (!mp3MimeTypes.includes(file.mimetype as typeof mp3MimeTypes[number]) && !file.originalname.toLowerCase().endsWith('.mp3')) {
+      callback(new Error('Only MP3 files are accepted.'))
       return
     }
     callback(null, true)
@@ -53,6 +69,36 @@ export const projectUpload = multer({
     callback(null, true)
   },
 })
+
+export async function validateMusicFiles(
+  request: express.Request,
+  response: express.Response,
+  next: express.NextFunction,
+) {
+  const files = Array.isArray(request.files) ? request.files : []
+  for (const file of files) {
+    const header = await readHeader(file, 3)
+    const hasId3Header = header.toString('ascii', 0, 3) === 'ID3'
+    const hasMpegFrame = header.length >= 2 && header[0] === 0xff && (header[1] & 0xe0) === 0xe0
+    if (!hasId3Header && !hasMpegFrame) {
+      await Promise.all(files.map((uploaded) => fs.unlink(uploaded.path).catch(() => undefined)))
+      response.status(400).json({ message: '音樂檔案必須是有效的 MP3。' })
+      return
+    }
+  }
+  next()
+}
+
+export async function removeMusicAsset(url: string | undefined) {
+  if (!url?.startsWith('/uploads/')) return
+  const tracks = await readMusicTracks()
+  if (tracks.some((track) => track.fileUrl === url)) return
+  const filename = path.basename(url)
+  if (!filename || filename !== url.slice('/uploads/'.length)) return
+  await fs.unlink(path.join(uploadsDirectory, filename)).catch((error: unknown) => {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
+  })
+}
 
 export async function validateProjectFiles(request: express.Request, response: express.Response, next: express.NextFunction) {
   const files = request.files as { coverImage?: Express.Multer.File[]; document?: Express.Multer.File[] } | undefined

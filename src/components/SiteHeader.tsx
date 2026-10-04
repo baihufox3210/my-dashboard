@@ -1,7 +1,14 @@
 import { useEffect, useState } from 'react'
 import { fetchAdminSession, fetchSiteSettings } from '../features/blog/api'
+import { getAdminPath, getPublicPath, type PublicPage } from '../routes/routes'
 
-const navItems = ['Home', 'About', 'Projects', 'Blog', 'Friends']
+const navItems: { label: string; page: PublicPage }[] = [
+  { label: 'Home', page: 'home' },
+  { label: 'About', page: 'about' },
+  { label: 'Projects', page: 'projects' },
+  { label: 'Blog', page: 'blog' },
+  { label: 'Friends', page: 'friends' },
+]
 
 function SiteHeader() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
@@ -43,15 +50,15 @@ function SiteHeader() {
       <nav className={`nav ${isMenuOpen ? 'nav-open' : ''}`} aria-label="Main navigation">
         {navItems.map((item) => (
           <a
-            key={item}
-            href={`#${item.toLowerCase()}`}
+            key={item.page}
+            href={getPublicPath(item.page)}
             className="nav-item"
             onClick={() => setIsMenuOpen(false)}
           >
-            {item}
+            {item.label}
           </a>
         ))}
-        {isAuthenticated && <a href="#admin" className="admin-nav-item" onClick={() => setIsMenuOpen(false)}>Admin</a>}
+        {isAuthenticated && <a href={getAdminPath()} className="admin-nav-item" onClick={() => setIsMenuOpen(false)}>Admin</a>}
       </nav>
     </header>
   )
