@@ -51,8 +51,9 @@ import { musicUpload, projectUpload, removeMusicAsset, removeProjectAssets, remo
 import { boundedText, getAnalyticsDevice, isSafeSocialUrl } from './validation.js'
 import { getAnalyticsRegion, getClientIp, hashSessionId, isAuthenticated, loginFailures, requireAuthentication, requireSameOrigin, sessions } from './security.js'
 import articleRoutes from './routes/articles.js'
-import challengeRoutes from './routes/challenges.js'
 import publicRoutes from './routes/public.js'
+import { readSqlLoginChallengeConfig } from './challenges/config.js'
+import { allowSqlLoginChallengeAttempt, solveSqlLoginChallenge } from './challenges/sqlLogin.js'
 
 const analyticsRateLimits = new Map<string, { count: number; windowStarted: number }>()
 const analyticsRateLimitWindowMs = 60_000
@@ -144,7 +145,6 @@ app.use('/api', (_request, response, next) => {
 })
 app.use('/uploads', express.static(uploadsDirectory))
 app.use('/api/articles', articleRoutes)
-app.use('/api/challenges', challengeRoutes)
 app.use('/api', publicRoutes)
 
 app.get('/api/auth/me', (request, response) => {
@@ -336,9 +336,27 @@ app.post('/api/auth/login', requireSameOrigin, async (request, response) => {
     response.status(429).json({ message: 'Too many login attempts. Try again later.' })
     return
   }
-  const { username, password } = request.body as { username?: string; password?: string }
+  const body = request.body && typeof request.body === 'object' ? request.body as { username?: unknown; password?: unknown } : {}
+  const username = body.username
+  const password = body.password
 
   if (username !== adminUsername || password !== adminPassword) {
+    const challengeConfig = await readSqlLoginChallengeConfig()
+    if (challengeConfig.enabled && typeof username === 'string' && typeof password === 'string' && username.length <= 256 && password.length <= 256) {
+      if (!allowSqlLoginChallengeAttempt(ip, Date.now())) {
+        response.status(429).json({ message: 'Too many login attempts. Try again later.' })
+        return
+      }
+      const challengeSolved = (() => {
+        try { return solveSqlLoginChallenge(username, password) }
+        catch { return false }
+      })()
+      if (challengeSolved) {
+        response.json({ authenticated: false, challenge: { flag: challengeConfig.flag } })
+        return
+      }
+    }
+
     const nextCount = (failure?.count ?? 0) + 1
     const now = Date.now()
     for (const [key, value] of loginFailures) {

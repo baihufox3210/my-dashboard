@@ -17,8 +17,6 @@ import {
   fetchSiteSettings,
   loginAdmin,
   logoutAdmin,
-  attemptSqlLoginChallenge,
-  fetchSqlLoginChallengeStatus,
   updateHomeProfile,
   createFriend,
   updateFriend,
@@ -52,8 +50,6 @@ function AdminPage({ loginOnly = false }: AdminPageProps) {
   const [message, setMessage] = useState('')
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
-  const [challengeAvailable, setChallengeAvailable] = useState(false)
-  const [challengeMode, setChallengeMode] = useState(false)
   const [challengeFlag, setChallengeFlag] = useState('')
   const [stats, setStats] = useState(blankStats)
   const [articles, setArticles] = useState<Article[]>([])
@@ -112,14 +108,6 @@ function AdminPage({ loginOnly = false }: AdminPageProps) {
     }
   }, [])
 
-  useEffect(() => {
-    if (!loginOnly) return
-    let active = true
-    fetchSqlLoginChallengeStatus()
-      .then(({ enabled }) => { if (active) setChallengeAvailable(enabled) })
-      .catch(() => { if (active) setChallengeAvailable(false) })
-    return () => { active = false }
-  }, [loginOnly])
 
   useEffect(() => {
     fetchAdminSession()
@@ -168,27 +156,20 @@ function AdminPage({ loginOnly = false }: AdminPageProps) {
   async function handleLogin(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault(); setBusy(true); setMessage('')
     try {
-      if (challengeMode) {
-        const result = await attemptSqlLoginChallenge(username, password)
-        setChallengeFlag(result.flag)
+      const result = await loginAdmin(username, password)
+      if (result.authenticated) {
+        setAuthenticated(true)
+        window.location.assign(getAdminPath())
+      } else if (result.challenge?.flag) {
+        setChallengeFlag(result.challenge.flag)
         setUsername('')
         setPassword('')
       } else {
-        await loginAdmin(username, password)
-        setAuthenticated(true)
-        window.location.assign(getAdminPath())
+        setMessage('帳號或密碼不正確。')
       }
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : challengeMode ? '挑戰驗證失敗。' : '登入失敗。')
+      setMessage(error instanceof Error ? error.message : '登入失敗。')
     } finally { setBusy(false) }
-  }
-
-  function switchLoginMode(nextMode: boolean) {
-    setChallengeMode(nextMode)
-    setChallengeFlag('')
-    setUsername('')
-    setPassword('')
-    setMessage('')
   }
 
   async function saveProfile(event: React.FormEvent<HTMLFormElement>) {
@@ -326,14 +307,12 @@ function AdminPage({ loginOnly = false }: AdminPageProps) {
   if (!authenticated && !loginOnly) return <main className="admin-loading">前往登入頁…</main>
   if (!authenticated) return <main className="admin-login-screen"><form className="admin-login-card" onSubmit={handleLogin}>
     <a className="admin-brand" href={getPublicPath('home')}><span className="admin-brand-main">BAIHU</span><span className="admin-brand-sub">STUDIO</span></a>
-    <p>{challengeMode ? 'SQL 登入安全挑戰' : '登入以管理網站內容'}</p>
-    {challengeAvailable && <button className="admin-login-mode-toggle" type="button" onClick={() => switchLoginMode(!challengeMode)}>{challengeMode ? '返回管理員登入' : '進入 SQL 安全挑戰'}</button>}
-    {challengeFlag ? <div className="admin-login-flag" role="status"><span>FLAG CAPTURED</span><code>{challengeFlag}</code></div> : <>
-      {challengeMode && <p className="admin-login-challenge-hint">使用挑戰帳號欄位完成驗證。挑戰不會登入管理後台。</p>}
-      <label>帳號<input autoComplete={challengeMode ? 'off' : 'username'} maxLength={challengeMode ? 256 : undefined} value={username} onChange={(event) => setUsername(event.target.value)} required /></label>
-      <label>密碼<input type="password" autoComplete={challengeMode ? 'new-password' : 'current-password'} maxLength={challengeMode ? 256 : undefined} value={password} onChange={(event) => setPassword(event.target.value)} required /></label>
+    {challengeFlag ? <div className="admin-login-flag" role="status"><code>{challengeFlag}</code></div> : <>
+      <p>登入以管理網站內容</p>
+      <label>帳號<input autoComplete="username" value={username} onChange={(event) => setUsername(event.target.value)} required /></label>
+      <label>密碼<input type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} required /></label>
       {message && <p className="admin-feedback error" role="alert">{message}</p>}
-      <button className="ui-button ui-button-primary" disabled={busy}>{busy ? challengeMode ? '驗證中…' : '登入中…' : challengeMode ? '提交挑戰' : '登入後台'}</button>
+      <button className="ui-button ui-button-primary" disabled={busy}>{busy ? '登入中…' : '登入後台'}</button>
     </>}
   </form></main>
 
