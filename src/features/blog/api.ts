@@ -29,6 +29,18 @@ export function fetchArticleStats() {
   return request<ArticleStats>('/api/stats')
 }
 
+export function fetchSqlLoginChallengeStatus() {
+  return request<{ enabled: boolean }>('/api/challenges/sql-login', { cache: 'no-store' })
+}
+
+export function attemptSqlLoginChallenge(username: string, password: string) {
+  return request<{ success: true; flag: string }>('/api/challenges/sql-login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, password }),
+  })
+}
+
 export async function fetchAnalyticsStats(days: 7 | 30): Promise<AnalyticsStats> {
   const stats = await request<Partial<AnalyticsStats>>(`/api/admin/analytics?days=${days}`)
   return {

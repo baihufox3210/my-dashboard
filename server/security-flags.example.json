@@ -1,0 +1,8 @@
+{
+  "challenges": {
+    "sqlLogin": {
+      "enabled": false,
+      "flag": "FLAG{replace_with_your_own_flag}"
+    }
+  }
+}

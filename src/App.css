@@ -4093,3 +4093,48 @@ button, input, textarea, select { font-kerning: normal; }
     padding-right: clamp(12px, 2vw, 24px);
   }
 }
+
+.admin-login-mode-toggle {
+  justify-self: start;
+  padding: 0;
+  border: 0;
+  color: var(--theme-primary-strong);
+  background: transparent;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.admin-login-mode-toggle:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.admin-login-challenge-hint {
+  margin: -8px 0 0 !important;
+  line-height: 1.55;
+}
+
+.admin-login-flag {
+  display: grid;
+  gap: 10px;
+  padding: 15px;
+  border: 1px solid var(--theme-line);
+  border-radius: 10px;
+  background: var(--theme-control-background);
+}
+
+.admin-login-flag > span {
+  color: var(--theme-success);
+  font-size: 10px;
+  font-weight: 750;
+  letter-spacing: .12em;
+}
+
+.admin-login-flag code {
+  overflow-wrap: anywhere;
+  color: var(--theme-primary-strong);
+  font-size: 13px;
+  font-weight: 700;
+}

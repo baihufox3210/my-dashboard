@@ -9,6 +9,7 @@
   "scripts": {
     "dev": "API_HOST=127.0.0.1 concurrently -k \"vite\" \"tsx watch server/index.ts\"",
     "server": "tsx server/index.ts",
+
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview"

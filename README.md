@@ -20,4 +20,10 @@ npm install
 npm run dev
 ```
 
-管理後台位於 `#admin`。正式版可用 `npm run build` 建置。
+管理後台位於 `/admin`。正式版可用 `npm run build` 建置。
+
+## 隔離式 SQL 挑戰
+
+SQL 登入挑戰整合在 `/login` 的「SQL 安全挑戰」模式，只使用每次請求建立的 SQLite 記憶體資料庫與假帳號；成功只回傳 flag，不會呼叫正式登入、不建立管理員 session，也不會讀取或修改正式資料。請勿把這個 SQL 注入查詢移入正式登入或其他資料查詢。
+
+旗標設定存放在不納入 Git 的 `data/security-flags.json`。可從 `server/security-flags.example.json` 複製範本後自行設定：將 `enabled` 設為 `true` 開啟挑戰，並將 `flag` 換成自己的值。設定檔缺失或格式錯誤時，挑戰會安全地維持關閉。請勿把真實 flag 放入範例檔、程式碼或前端；設定檔只由伺服器讀取，不會被靜態網站提供。

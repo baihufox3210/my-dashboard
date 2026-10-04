@@ -16,6 +16,7 @@ data/friends.json
 data/projects.json
 data/admin-sessions.json
 data/analytics.json
+data/security-flags.json
 data/analytics.sqlite*
 data/admin-activity.json
 public/uploads/*

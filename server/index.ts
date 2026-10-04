@@ -51,9 +51,19 @@ import { musicUpload, projectUpload, removeMusicAsset, removeProjectAssets, remo
 import { boundedText, getAnalyticsDevice, isSafeSocialUrl } from './validation.js'
 import { getAnalyticsRegion, getClientIp, hashSessionId, isAuthenticated, loginFailures, requireAuthentication, requireSameOrigin, sessions } from './security.js'
 import articleRoutes from './routes/articles.js'
+import challengeRoutes from './routes/challenges.js'
 import publicRoutes from './routes/public.js'
 
 const analyticsRateLimits = new Map<string, { count: number; windowStarted: number }>()
+const analyticsRateLimitWindowMs = 60_000
+const analyticsRateLimitMaxEntries = 10_000
+
+setInterval(() => {
+  const now = Date.now()
+  for (const [key, value] of analyticsRateLimits) {
+    if (now - value.windowStarted >= analyticsRateLimitWindowMs) analyticsRateLimits.delete(key)
+  }
+}, analyticsRateLimitWindowMs).unref()
 
 function normalizeUploadedFileName(fileName: string) {
   const safeName = [...fileName.replace(/^.*[\\/]/, '')].filter((character) => {
@@ -134,6 +144,7 @@ app.use('/api', (_request, response, next) => {
 })
 app.use('/uploads', express.static(uploadsDirectory))
 app.use('/api/articles', articleRoutes)
+app.use('/api/challenges', challengeRoutes)
 app.use('/api', publicRoutes)
 
 app.get('/api/auth/me', (request, response) => {
@@ -378,14 +389,18 @@ app.post('/api/analytics/view', requireSameOrigin, async (request, response) => 
   const clientKey = getClientIp(request)
   const now = Date.now()
   const limit = analyticsRateLimits.get(clientKey)
-  if (limit && now - limit.windowStarted < 60_000 && limit.count >= 60) {
-    response.status(429).json({ message: 'Too many page view events.' })
-    return
-  }
-  if (!limit || now - limit.windowStarted >= 60_000) analyticsRateLimits.set(clientKey, { count: 1, windowStarted: now })
-  else limit.count += 1
-  if (analyticsRateLimits.size > 10_000) {
-    for (const [key, value] of analyticsRateLimits) if (now - value.windowStarted >= 60_000) analyticsRateLimits.delete(key)
+  if (limit && now - limit.windowStarted < analyticsRateLimitWindowMs) {
+    if (limit.count >= 60) {
+      response.status(429).json({ message: 'Too many page view events.' })
+      return
+    }
+    limit.count += 1
+  } else {
+    if (!limit && analyticsRateLimits.size >= analyticsRateLimitMaxEntries) {
+      response.status(429).json({ message: 'Analytics rate limit capacity reached.' })
+      return
+    }
+    analyticsRateLimits.set(clientKey, { count: 1, windowStarted: now })
   }
 
   const page = request.body?.page as AnalyticsPage

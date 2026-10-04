@@ -1,4 +1,5 @@
 import crypto from 'node:crypto'
+import { isIP } from 'node:net'
 import type { Request, RequestHandler } from 'express'
 import { trustedProxyIp } from './config.js'
 import type { AnalyticsRegion } from './types.js'
@@ -33,7 +34,10 @@ function isTrustedProxyRequest(request: Request) {
 
 export function getClientIp(request: Request) {
   const remoteAddress = request.socket.remoteAddress ?? 'unknown'
-  return isTrustedProxyRequest(request) ? request.get('x-real-ip') || remoteAddress : remoteAddress
+  if (!isTrustedProxyRequest(request)) return remoteAddress
+
+  const forwardedAddress = request.get('x-real-ip')?.trim()
+  return forwardedAddress && isIP(forwardedAddress) ? forwardedAddress : remoteAddress
 }
 
 export function getAnalyticsRegion(request: Request): AnalyticsRegion | null {
