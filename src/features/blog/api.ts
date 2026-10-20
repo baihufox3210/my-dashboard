@@ -91,6 +91,8 @@ export async function fetchAnalyticsStats(days: 1 | 7 | 30): Promise<AnalyticsSt
     referrers: stats.referrers ?? [],
     topPaths: stats.topPaths ?? [],
     topIps: stats.topIps ?? [],
+    regionLocations: stats.regionLocations ?? [],
+    cityLocations: stats.cityLocations ?? [],
     eventsSince: stats.eventsSince ?? null,
     eventRetentionDays: stats.eventRetentionDays ?? 90,
   }

@@ -47,11 +47,15 @@ export type AnalyticsStats = {
   referrers: AnalyticsCount[]
   topPaths: AnalyticsCount[]
   topIps: AnalyticsIp[]
+  regionLocations: AnalyticsLocation[]
+  cityLocations: AnalyticsLocation[]
   eventsSince: string | null
   eventRetentionDays: number
 }
 
 export type AnalyticsCount = { key: string; views: number }
+
+export type AnalyticsLocation = { country: string; region: string; city?: string; views: number; visitors: number }
 
 export type AnalyticsIp = {
   ip: string
@@ -62,6 +66,7 @@ export type AnalyticsIp = {
   lastSeen: string
   country: string
   region: string
+  city: string
   device: string
   browser: string
   os: string
@@ -83,6 +88,7 @@ export type AnalyticsVisit = {
   os: string
   country: string
   region: string
+  city: string
   userAgent: string
 }
 

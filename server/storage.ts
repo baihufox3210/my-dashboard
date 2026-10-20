@@ -139,6 +139,7 @@ async function initializeAnalyticsDatabase() {
       os TEXT NOT NULL DEFAULT '',
       country TEXT NOT NULL DEFAULT '',
       region TEXT NOT NULL DEFAULT '',
+      city TEXT NOT NULL DEFAULT '',
       user_agent TEXT NOT NULL DEFAULT ''
     ) STRICT;
     CREATE INDEX IF NOT EXISTS analytics_events_day_idx ON analytics_events(day);
@@ -148,6 +149,9 @@ async function initializeAnalyticsDatabase() {
       value TEXT NOT NULL
     ) STRICT;
   `)
+
+  const eventColumns = database.prepare('PRAGMA table_info(analytics_events)').all() as Array<{ name: string }>
+  if (!eventColumns.some((column) => column.name === 'city')) database.exec("ALTER TABLE analytics_events ADD COLUMN city TEXT NOT NULL DEFAULT ''")
 
   const oldVisitorTable = database.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?").get('analytics_visitors')
   if (oldVisitorTable) database.exec('DROP TABLE analytics_visitors;')
@@ -369,17 +373,17 @@ export async function queuePageView(view: PageViewInput) {
         DO UPDATE SET views = analytics_region_views.views + 1
       `),
       event: database.prepare(`
-        INSERT INTO analytics_events (at, day, ip, session_id, page, path, article_id, source, referrer, device, browser, os, country, region, user_agent)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO analytics_events (at, day, ip, session_id, page, path, article_id, source, referrer, device, browser, os, country, region, city, user_agent)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `),
     }
     database.exec('BEGIN')
     try {
       pageViewStatements.page.run(day, page, device, articleId ?? '', source ?? '')
-      if (region) pageViewStatements.region.run(day, region.country, region.region)
+      if (region) pageViewStatements.region.run(day, region.country, region.region || '未細分')
       pageViewStatements.event.run(
         at, day, view.ip, view.sessionId ?? '', page, view.path ?? '', articleId ?? '', source ?? '', view.referrer ?? '',
-        device, view.browser, view.os, region?.country ?? '', region?.region ?? '', view.userAgent,
+        device, view.browser, view.os, region?.country ?? '', region?.region ?? '', region?.city ?? '', view.userAgent,
       )
       if (lastAnalyticsPruneDay !== day) {
         const cutoff = new Date(Date.now() - 120 * 86_400_000).toISOString().slice(0, 10)
@@ -456,7 +460,7 @@ export async function readAnalyticsTotals(startDay: string, endDay: string, prev
 
 export type AnalyticsVisit = {
   id: number; at: string; ip: string; sessionId: string; page: AnalyticsPage; path: string; articleId: string
-  source: string; referrer: string; device: AnalyticsDevice; browser: string; os: string; country: string; region: string; userAgent: string
+  source: string; referrer: string; device: AnalyticsDevice; browser: string; os: string; country: string; region: string; city: string; userAgent: string
 }
 
 // Visitor-level breakdowns for [startDay, endDay], computed from the per-view event log.
@@ -490,13 +494,22 @@ export async function readAnalyticsDetails(startDay: string, endDay: string) {
   const topIps = database.prepare(`
     SELECT ip, COUNT(*) AS views, COUNT(DISTINCT CASE WHEN session_id != '' THEN session_id END) AS sessions,
       COUNT(DISTINCT day) AS days, MIN(at) AS firstSeen, MAX(at) AS lastSeen,
-      country, region, device, browser, os
+      country, region, city, device, browser, os
     FROM analytics_events WHERE day >= ? AND day <= ?
     GROUP BY ip
     ORDER BY views DESC, lastSeen DESC
     LIMIT 50
-  `).all(...range) as Array<{ ip: string; views: number; sessions: number; days: number; firstSeen: string; lastSeen: string; country: string; region: string; device: string; browser: string; os: string }>
+  `).all(...range) as Array<{ ip: string; views: number; sessions: number; days: number; firstSeen: string; lastSeen: string; country: string; region: string; city: string; device: string; browser: string; os: string }>
   const since = database.prepare('SELECT MIN(at) AS at FROM analytics_events').get() as { at: string | null }
+  // Two levels of location detail: county/state, then township/city within it.
+  const locations = (columns: string) => database.prepare(`
+    SELECT ${columns}, COUNT(*) AS views, COUNT(DISTINCT ip) AS visitors
+    FROM analytics_events
+    WHERE day >= ? AND day <= ? AND country != ''
+    GROUP BY ${columns}
+    ORDER BY views DESC
+    LIMIT 20
+  `).all(...range) as Array<{ country: string; region: string; city?: string; views: number; visitors: number }>
 
   const hourlyUtc = Array.from({ length: 24 }, () => 0)
   for (const { hour, views } of hourly) hourlyUtc[hour] = views
@@ -511,6 +524,8 @@ export async function readAnalyticsDetails(startDay: string, endDay: string) {
     referrers: grouped('referrer'),
     topPaths: grouped('path'),
     topIps,
+    regionLocations: locations('country, region'),
+    cityLocations: locations('country, region, city'),
     eventsSince: since.at,
   }
 }
@@ -524,7 +539,7 @@ export async function readAnalyticsVisits({ ip, before, limit }: { ip?: string; 
   if (before) { conditions.push('id < ?'); parameters.push(before) }
   return database.prepare(`
     SELECT id, at, ip, session_id AS sessionId, page, path, article_id AS articleId, source, referrer,
-      device, browser, os, country, region, user_agent AS userAgent
+      device, browser, os, country, region, city, user_agent AS userAgent
     FROM analytics_events
     WHERE ${conditions.join(' AND ')}
     ORDER BY id DESC

@@ -18,6 +18,7 @@ const { createApp } = await import('../app.js')
 const { sessions } = await import('../security.js')
 const { ensureStorage } = await import('../storage.js')
 const { createRateLimiter } = await import('../rateLimit.js')
+const { isCountyLevelName, locateVisitor } = await import('../geo.js')
 
 const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64')
 let base = ''
@@ -158,6 +159,34 @@ describe('analytics', () => {
     assert.equal(hasMore, false)
     assert.equal(visits[0]?.path, '/')
     assert.equal((await api('/api/admin/analytics/visits?ip=not-an-ip')).status, 400)
+  })
+
+  test('ignores location headers from callers that are not the trusted proxy', async () => {
+    await api('/api/analytics/view', { method: 'POST', headers: { 'Content-Type': 'application/json', 'CF-IPCountry': 'JP', 'CF-IPCity': 'Tokyo' }, body: JSON.stringify({ page: 'about' }) })
+    const { visits } = await (await api('/api/admin/analytics/visits')).json() as { visits: Array<{ page: string; country: string; city: string }> }
+    const visit = visits.find((item) => item.page === 'about')
+    assert.equal(visit?.country, '')
+    assert.equal(visit?.city, '')
+  })
+})
+
+describe('visitor location', () => {
+  test('resolves Taiwanese coordinates to county and township', async () => {
+    assert.deepEqual(await locateVisitor('127.0.0.1', { country: 'TW', city: 'Banqiao', latitude: '25.0117', longitude: '121.4659' }), { country: '台灣', region: '新北市', city: '板橋區' })
+    assert.deepEqual(await locateVisitor('127.0.0.1', { country: 'TW', city: 'Neihu District', latitude: '25.0689', longitude: '121.591' }), { country: '台灣', region: '台北市', city: '內湖區' })
+  })
+
+  test('reports only the county for city-wide default points', async () => {
+    assert.equal(isCountyLevelName('Kaohsiung City'), true)
+    assert.equal(isCountyLevelName('New-Taipei'), true)
+    assert.equal(isCountyLevelName('Toufen Township'), false)
+    assert.deepEqual(await locateVisitor('127.0.0.1', { country: 'TW', city: 'Taipei', latitude: '25.033', longitude: '121.565' }), { country: '台灣', region: '台北市', city: '' })
+  })
+
+  test('keeps state and city names outside Taiwan and skips private addresses', async () => {
+    assert.deepEqual(await locateVisitor('127.0.0.1', { country: 'JP', region: 'Tokyo', city: 'Chiyoda City' }), { country: '日本', region: 'Tokyo', city: 'Chiyoda City' })
+    assert.equal(await locateVisitor('127.0.0.1'), null)
+    assert.equal((await locateVisitor('8.8.8.8'))?.country, '美國')
   })
 })
 

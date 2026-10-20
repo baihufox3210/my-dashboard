@@ -3,7 +3,8 @@ import { isIP } from 'node:net'
 import { Router } from 'express'
 import { activityFile, analyticsEventRetentionDays } from '../config.js'
 import { createRateLimiter } from '../rateLimit.js'
-import { getAnalyticsRegion, getClientIp, requireAuthentication, requireSameOrigin } from '../security.js'
+import { locateVisitor } from '../geo.js'
+import { getClientIp, getProxyLocationHeaders, requireAuthentication, requireSameOrigin } from '../security.js'
 import { queuePageView, readAnalyticsDetails, readAnalyticsRegionStats, readAnalyticsTotals, readAnalyticsVisits, readArticleSummaries, waitForActivityWrites, waitForAnalyticsWrites } from '../storage.js'
 import type { ActivityEntry, AnalyticsDevice, AnalyticsPage, AnalyticsSource } from '../types.js'
 import { getAnalyticsDevice, parseUserAgent } from '../validation.js'
@@ -45,12 +46,13 @@ router.post('/analytics/view', requireSameOrigin, async (request, response) => {
   }
   const text = (value: unknown, pattern: RegExp, maxLength: number) => typeof value === 'string' && value.length <= maxLength && pattern.test(value) ? value : undefined
   const userAgent = (request.get('user-agent') ?? '').slice(0, 400)
+  const ip = getClientIp(request).replace(/^::ffff:(?=\d+\.\d+\.\d+\.\d+$)/, '')
   try {
     await queuePageView({
       page, articleId, source,
       device: getAnalyticsDevice(userAgent),
-      region: getAnalyticsRegion(request),
-      ip: getClientIp(request).replace(/^::ffff:(?=\d+\.\d+\.\d+\.\d+$)/, ''),
+      region: await locateVisitor(ip, getProxyLocationHeaders(request)),
+      ip,
       sessionId: text(request.body?.sessionId, /^[A-Za-z0-9-]+$/, 64),
       path: text(request.body?.path, /^\/[^\s]*$/, 200),
       referrer: text(request.body?.referrer, /^[a-z0-9.-]+$/i, 200)?.toLowerCase(),

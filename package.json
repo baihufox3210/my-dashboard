@@ -15,16 +15,20 @@
     "test": "node --import tsx --test server/tests/*.test.ts"
   },
   "dependencies": {
+    "@ip-location-db/dbip-city-mmdb": "^2.3.2026060513",
     "cookie-parser": "^1.4.7",
     "dotenv": "^18.0.3",
     "express": "^5.2.1",
+    "maxmind": "^5.0.7",
     "multer": "^2.4.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "react-markdown": "^10.1.0",
     "rehype-sanitize": "^6.0.0",
     "remark-breaks": "^4.0.0",
-    "remark-gfm": "^4.0.1"
+    "remark-gfm": "^4.0.1",
+    "taiwan-atlas": "^2021.9.20",
+    "topojson-client": "^3.1.0"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
@@ -34,6 +38,7 @@
     "@types/node": "^24.13.3",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.7",
+    "@types/topojson-client": "^3.1.5",
     "@vitejs/plugin-react": "^6.1.1",
     "concurrently": "^10.0.5",
     "eslint": "^10.10.0",

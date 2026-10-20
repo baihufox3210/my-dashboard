@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { fetchAnalyticsStats, fetchAnalyticsVisits } from '../../features/blog/api'
-import type { AnalyticsCount, AnalyticsStats, AnalyticsVisit } from '../../features/blog/article'
+import type { AnalyticsCount, AnalyticsLocation, AnalyticsStats, AnalyticsVisit } from '../../features/blog/article'
 
 type SectionProps = { onMessage: (message: string) => void }
 type Period = 1 | 7 | 30
@@ -9,7 +9,7 @@ const blankAnalytics: AnalyticsStats = {
   days: 7, totalViews: 0, previousViews: 0, regionCount: 0, topRegions: [], daily: [], topPages: [], topArticles: [],
   sources: { direct: 0, search: 0, social: 0, referral: 0 }, devices: { mobile: 0, tablet: 0, desktop: 0 },
   trackedViews: 0, uniqueVisitors: 0, sessions: 0, returningVisitors: 0, hourlyUtc: Array.from({ length: 24 }, () => 0),
-  browsers: [], operatingSystems: [], referrers: [], topPaths: [], topIps: [], eventsSince: null, eventRetentionDays: 90,
+  browsers: [], operatingSystems: [], referrers: [], topPaths: [], topIps: [], regionLocations: [], cityLocations: [], eventsSince: null, eventRetentionDays: 90,
 }
 const periods: { days: Period; label: string }[] = [{ days: 1, label: '今天' }, { days: 7, label: '7 天' }, { days: 30, label: '30 天' }]
 const sourceLabels = [{ key: 'search', label: '搜尋引擎' }, { key: 'social', label: '社群平台' }, { key: 'referral', label: '外部連結' }, { key: 'direct', label: '直接進站' }] as const
@@ -20,8 +20,24 @@ function formatDateTime(value: string) {
   return new Date(value).toLocaleString('zh-TW', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' })
 }
 
-function formatLocation(country: string, region: string) {
-  return country ? `${country}${region && region !== '未細分' ? ` ${region}` : ''}` : '—'
+function formatLocation(country: string, region: string, city = '') {
+  return country ? [country, region && region !== '未細分' ? region : '', city].filter(Boolean).join(' ') : '—'
+}
+
+function LocationCard({ title, description, items, detail }: { title: string; description: string; items: AnalyticsLocation[]; detail: 'region' | 'city' }) {
+  const max = items[0]?.views || 1
+  return <section className="admin-traffic-card admin-region-card">
+    <div className="admin-traffic-card-heading"><div><h3>{title}</h3><p>{description}</p></div></div>
+    {items.length ? <div className="admin-region-list">{items.map((item) => {
+      const name = detail === 'city' ? item.city || '僅定位到縣市' : item.region || '未細分'
+      const parent = detail === 'city' ? [item.country, item.region].filter(Boolean).join(' · ') : item.country
+      return <div className="admin-region-row" key={`${item.country}-${item.region}-${item.city ?? ''}`}>
+        <span><strong>{name}</strong><small>{parent}</small></span>
+        <i><b style={{ width: `${Math.round(item.views / max * 100)}%` }} /></i>
+        <strong className="admin-region-count">{item.views.toLocaleString()} <small>次 · {item.visitors.toLocaleString()} IP</small></strong>
+      </div>
+    })}</div> : <p className="admin-traffic-no-pages">逐筆紀錄累積後顯示。</p>}
+  </section>
 }
 
 // Rotates UTC hour buckets into the viewer's local time zone.
@@ -81,7 +97,7 @@ function VisitLog({ ipFilter, onIpFilter, refresh, onMessage }: { ipFilter: stri
         <td className="admin-table-nowrap">{formatDateTime(visit.at)}</td>
         <td><button type="button" className="admin-ip-link" onClick={() => onIpFilter(visit.ip)}>{visit.ip}</button></td>
         <td><strong>{visit.articleTitle || pageLabels[visit.page] || visit.page}</strong><small>{visit.path || '—'}</small></td>
-        <td>{formatLocation(visit.country, visit.region)}</td>
+        <td>{formatLocation(visit.country, visit.region, visit.city)}</td>
         <td title={visit.userAgent}>{deviceLabels[visit.device] ?? visit.device}<small>{visit.browser} · {visit.os}</small></td>
         <td>{visit.referrer || (visit.source ? sourceLabels.find((item) => item.key === visit.source)?.label : '—')}</td>
         <td><code>{visit.sessionId ? visit.sessionId.slice(0, 8) : '—'}</code></td>
@@ -197,7 +213,7 @@ function TrafficSection({ onMessage }: SectionProps) {
           <td><strong>{item.views.toLocaleString()}</strong></td>
           <td>{item.sessions.toLocaleString()}</td>
           <td>{item.days.toLocaleString()}</td>
-          <td>{formatLocation(item.country, item.region)}</td>
+          <td>{formatLocation(item.country, item.region, item.city)}</td>
           <td>{deviceLabels[item.device] ?? item.device}<small>{item.browser} · {item.os}</small></td>
           <td className="admin-table-nowrap">{formatDateTime(item.firstSeen)}</td>
           <td className="admin-table-nowrap">{formatDateTime(item.lastSeen)}</td>
@@ -223,13 +239,10 @@ function TrafficSection({ onMessage }: SectionProps) {
       <RankingCard title="作業系統" description="依 User-Agent 判斷" items={analytics.operatingSystems} empty="逐筆紀錄累積後顯示。" />
     </div>
 
-    <section className="admin-traffic-card admin-region-card">
-      <div className="admin-traffic-card-heading"><div><h3>訪問地區</h3><p>依國家與區域彙總瀏覽次數。</p></div></div>
-      {analytics.topRegions.length ? <div className="admin-region-list">{analytics.topRegions.map((item) => {
-        const percent = Math.round(item.views / analytics.topRegions[0].views * 100)
-        return <div className="admin-region-row" key={`${item.country}-${item.region}`}><span><strong>{item.country}</strong><small>{item.region}</small></span><i><b style={{ width: `${percent}%` }} /></i><strong className="admin-region-count">{item.views.toLocaleString()} <small>次</small></strong></div>
-      })}</div> : <p className="admin-traffic-no-pages">尚無地區資料。請確認可信任的反向代理有提供國家與區域 GeoIP 標頭。</p>}
-    </section>
+    <div className="admin-traffic-split">
+      <LocationCard title="縣市／州省" description="依縣市（國外為州或省）統計瀏覽次數與 IP 數" items={analytics.regionLocations} detail="region" />
+      <LocationCard title="鄉鎮市區／城市" description="台灣細分到鄉鎮市區，國外為城市" items={analytics.cityLocations} detail="city" />
+    </div>
 
     <section className="admin-traffic-card admin-top-pages">
       <div className="admin-traffic-card-heading"><div><h3>文章成效</h3><p>訪客開啟文章後記錄，依瀏覽次數排序。</p></div></div>
@@ -241,7 +254,7 @@ function TrafficSection({ onMessage }: SectionProps) {
       {analytics.topPages.length ? <div className="admin-top-pages-list">{analytics.topPages.map((item, index) => <div key={item.page}><span className="traffic-rank">{String(index + 1).padStart(2, '0')}</span><strong>{item.label}</strong><div className="admin-page-views-track"><i style={{ width: `${Math.max(4, item.views / (topPage?.views || 1) * 100)}%` }} /></div><span>{item.views.toLocaleString()} <small>次</small></span></div>)}</div> : <p className="admin-traffic-no-pages">流量資料累積後，這裡會列出訪客最常瀏覽的頁面。</p>}
     </section>
 
-    <p className="admin-analytics-note">總瀏覽量、趨勢、頁面、裝置、來源與地區來自每日彙總，保存 120 天。訪客 IP、時段、瀏覽器與瀏覽紀錄來自逐筆紀錄，保存 {analytics.eventRetentionDays} 天（可用 ANALYTICS_EVENT_RETENTION_DAYS 調整）{analytics.eventsSince ? `，自 ${new Date(analytics.eventsSince).toLocaleDateString('zh-TW')} 開始記錄` : ''}。IP 屬於個人資料，請在網站上告知訪客並妥善保管。地區資料需由已設定的 TRUSTED_PROXY_IP 反向代理提供 CF-IPCountry／CF-Region 或 X-Geo-Country／X-Geo-Region 標頭。</p>
+    <p className="admin-analytics-note">總瀏覽量、趨勢、頁面、裝置、來源與地區來自每日彙總，保存 120 天。訪客 IP、時段、瀏覽器與瀏覽紀錄來自逐筆紀錄，保存 {analytics.eventRetentionDays} 天（可用 ANALYTICS_EVENT_RETENTION_DAYS 調整）{analytics.eventsSince ? `，自 ${new Date(analytics.eventsSince).toLocaleDateString('zh-TW')} 開始記錄` : ''}。IP 屬於個人資料，請在網站上告知訪客並妥善保管。地區由伺服器本機的 IP 定位資料庫判斷（IP Geolocation by DB-IP，CC BY 4.0），台灣再依內政部鄉鎮市區界線換算；IP 定位只是估計，行動網路與部分固網常只能定位到縣市甚至只有台北。若反向代理（TRUSTED_PROXY_IP）提供 CF-IPCountry／CF-IPCity／CF-IPLatitude 等標頭，會優先採用。</p>
   </section>
 }
 
