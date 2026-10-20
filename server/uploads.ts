@@ -137,7 +137,7 @@ export async function validateProjectFiles(request: express.Request, response: e
   const cover = files?.coverImage?.[0]
   const document = files?.document?.[0]
   const removeInvalid = async (message: string) => {
-    await removeProjectUploads([cover, document].filter((file): file is Express.Multer.File => Boolean(file)))
+    await discardUploadedFiles([cover, document].filter((file): file is Express.Multer.File => Boolean(file)))
     response.status(400).json({ message })
   }
   if (cover) {
@@ -152,7 +152,7 @@ export async function validateProjectFiles(request: express.Request, response: e
   next()
 }
 
-export async function removeProjectUploads(files: Express.Multer.File[] = []) {
+export async function discardUploadedFiles(files: Express.Multer.File[] = []) {
   await Promise.all(files.map((file) => fs.unlink(file.path).catch(() => undefined)))
 }
 
@@ -174,4 +174,11 @@ export async function validateUploadedImages(
     }
   }
   next()
+}
+
+export function uploadedFiles(request: express.Request) {
+  return [
+    ...(request.file ? [request.file] : []),
+    ...(Array.isArray(request.files) ? request.files : Object.values(request.files ?? {}).flat()),
+  ]
 }

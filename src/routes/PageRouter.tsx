@@ -1,49 +1,34 @@
-import { lazy, Suspense, useEffect, useState } from 'react'
-import AboutPage from '../pages/AboutPage'
-import BlogPage from '../pages/BlogPage'
-import FriendsPage from '../pages/FriendsPage'
+import { lazy, Suspense } from 'react'
 import HomePage from '../pages/HomePage'
-import ProjectsPage from '../pages/ProjectsPage'
-import { getPublicPage, isAdminRoute, isLoginRoute } from './routes'
+import { getPublicPage, isAdminRoute, isLoginRoute, useLocationKey } from './routes'
 
-const AdminPage = lazy(() => import('../pages/AdminPage'))
+// Only the landing page ships in the main bundle; other pages load on first visit.
+const AboutPage = lazy(() => import('../pages/AboutPage'))
+const AdminPage = lazy(() => import('../pages/admin/AdminPage'))
+const BlogPage = lazy(() => import('../pages/BlogPage'))
+const FriendsPage = lazy(() => import('../pages/FriendsPage'))
+const ProjectsPage = lazy(() => import('../pages/ProjectsPage'))
 
-function getCurrentPage() {
+function currentPage() {
   if (isLoginRoute()) return 'login'
   if (isAdminRoute()) return 'admin'
   return getPublicPage()
 }
 
 function PageRouter() {
-  const [currentPage, setCurrentPage] = useState(getCurrentPage)
+  useLocationKey()
+  const page = currentPage()
 
-  useEffect(() => {
-    const handleRouteChange = () => setCurrentPage(getCurrentPage())
-
-    window.addEventListener('popstate', handleRouteChange)
-    window.addEventListener('hashchange', handleRouteChange)
-
-    return () => {
-      window.removeEventListener('popstate', handleRouteChange)
-      window.removeEventListener('hashchange', handleRouteChange)
-    }
-  }, [])
-
-  switch (currentPage) {
-    case 'admin':
-    case 'login':
-      return <Suspense fallback={null}><AdminPage loginOnly={currentPage === 'login'} /></Suspense>
-    case 'about':
-      return <AboutPage />
-    case 'projects':
-      return <ProjectsPage />
-    case 'blog':
-      return <BlogPage />
-    case 'friends':
-      return <FriendsPage />
-    default:
-      return <HomePage />
-  }
+  return (
+    <Suspense fallback={null}>
+      {page === 'admin' || page === 'login' ? <AdminPage loginOnly={page === 'login'} />
+        : page === 'about' ? <AboutPage />
+          : page === 'projects' ? <ProjectsPage />
+            : page === 'blog' ? <BlogPage />
+              : page === 'friends' ? <FriendsPage />
+                : <HomePage />}
+    </Suspense>
+  )
 }
 
 export default PageRouter

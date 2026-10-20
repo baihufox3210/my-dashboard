@@ -6,7 +6,8 @@ import ConfirmDialog from '../components/ConfirmDialog'
 import UiIcon from '../components/UiIcon'
 import { deleteArticle, fetchAdminSession, fetchArticle, fetchArticleStats, fetchArticles, publishArticle, recordPageView, updateArticle } from '../features/blog/api'
 import type { ArticleStats, ArticleSummary } from '../features/blog/article'
-import { getPublicPath, getRouteSegments } from '../routes/routes'
+import { getPublicPath, getRouteSegments, navigate, useLocationKey } from '../routes/routes'
+import { coverImageStyle } from '../features/blog/media'
 
 function measureArticleCoverAspectRatio(articleId?: string) {
   const cards = [...document.querySelectorAll<HTMLButtonElement>('.public-article-card')]
@@ -64,6 +65,7 @@ function BlogPage() {
   const sidebarOuterRef = useRef<HTMLElement>(null)
   const sidebarContentRef = useRef<HTMLDivElement>(null)
   const [sidebarFit, setSidebarFit] = useState({ shift: 0, scale: 1, height: 0 })
+  const locationKey = useLocationKey()
 
   useEffect(() => {
     if (selectedArticle && !isAdmin) void recordPageView('article', { articleId: selectedArticle.id })
@@ -122,14 +124,8 @@ function BlogPage() {
       }
     }
     sync()
-    window.addEventListener('popstate', sync)
-    window.addEventListener('hashchange', sync)
-    return () => {
-      syncRequest += 1
-      window.removeEventListener('popstate', sync)
-      window.removeEventListener('hashchange', sync)
-    }
-  }, [isAdmin, articles])
+    return () => { syncRequest += 1 }
+  }, [isAdmin, articles, locationKey])
 
   async function confirmArticleDelete() {
     if (!articleToDelete) return
@@ -156,7 +152,7 @@ function BlogPage() {
       }
       setArticles((current) => editor?.mode === 'edit' ? current.map((item) => item.id === saved.id ? saved : item) : [saved, ...current])
       fetchArticleStats().then(setStats).catch(() => undefined)
-      window.history.replaceState(null, '', getPublicPath('blog'))
+      navigate(getPublicPath('blog'), { replace: true })
       setEditor(null)
     } catch (error) { setAdminMessage(error instanceof Error ? error.message : '儲存文章失敗。') }
     finally { setDraftBusy(false) }
@@ -266,7 +262,7 @@ function BlogPage() {
             articles.map((article) => (
               <div key={article.id} className="article-card-wrap">
               <button className="public-article-card" data-article-id={article.id} type="button" onClick={() => setSelectedArticle(article)}>
-                {article.coverImage && <span className="public-article-cover-frame"><img className="public-article-cover" src={article.coverImage} alt="" style={{ objectPosition: article.coverImagePosition ?? '50% 50%', transform: `scale(${article.coverImageScale ?? 1})` }} /></span>}
+                {article.coverImage && <span className="public-article-cover-frame"><img className="public-article-cover" src={article.coverImage} alt="" style={coverImageStyle(article)} /></span>}
                 <span>
                   <small>{article.category} · {new Date(article.publishedAt).toLocaleDateString()}</small>
                   <strong>{article.title}</strong>

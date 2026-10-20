@@ -5,7 +5,8 @@ import 'dotenv/config'
 const currentFile = fileURLToPath(import.meta.url)
 const currentDirectory = path.dirname(currentFile)
 export const projectDirectory = path.resolve(currentDirectory, '..')
-export const dataDirectory = path.join(projectDirectory, 'data')
+// DATA_DIR and UPLOADS_DIR let tests and deployments keep runtime data elsewhere.
+export const dataDirectory = path.resolve(process.env.DATA_DIR ?? path.join(projectDirectory, 'data'))
 export const securityFlagsFile = path.join(dataDirectory, 'security-flags.json')
 export const articlesFile = path.join(dataDirectory, 'articles.json')
 export const siteSettingsFile = path.join(dataDirectory, 'site-settings.json')
@@ -17,7 +18,7 @@ export const activityFile = path.join(dataDirectory, 'admin-activity.json')
 export const friendsFile = path.join(dataDirectory, 'friends.json')
 export const projectsFile = path.join(dataDirectory, 'projects.json')
 export const musicFile = path.join(dataDirectory, 'music.json')
-export const uploadsDirectory = path.join(projectDirectory, 'public', 'uploads')
+export const uploadsDirectory = path.resolve(process.env.UPLOADS_DIR ?? path.join(projectDirectory, 'public', 'uploads'))
 
 export const sessionLifetimeMs = 24 * 60 * 60 * 1000
 export const port = Number(process.env.PORT ?? 3001)

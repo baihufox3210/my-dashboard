@@ -10,6 +10,15 @@ export const loginFailures = new Map<string, { count: number; windowStarted: num
 
 const regionNames = new Intl.DisplayNames(['zh-TW'], { type: 'region' })
 
+setInterval(() => {
+  const now = Date.now()
+  let removed = false
+  for (const [sessionId, expiresAt] of sessions) {
+    if (expiresAt <= now) { sessions.delete(sessionId); removed = true }
+  }
+  if (removed) void persistSessions(sessions).catch((error: unknown) => console.error('Could not persist admin sessions:', error))
+}, 60 * 60 * 1000).unref()
+
 export function hashSessionId(sessionId: string) {
   return crypto.createHash('sha256').update(sessionId).digest('hex')
 }

@@ -3,6 +3,7 @@ import MarkdownPreview from './MarkdownPreview'
 import useEscapeKey from './useEscapeKey'
 import { fetchArticle } from '../features/blog/api'
 import type { ArticleSummary } from '../features/blog/article'
+import { coverImageStyle } from '../features/blog/media'
 
 type ArticleReaderProps = {
   article: ArticleSummary
@@ -30,7 +31,7 @@ function ArticleReader({ article, onClose, children }: ArticleReaderProps) {
           <p>{article.category || 'BLOG POST'} <span>///</span> {new Date(article.publishedAt).toLocaleDateString()}</p>
           <button type="button" className="modal-close-button" aria-label="關閉文章" onClick={onClose}>×</button>
         </header>
-        {article.coverImage && <img className="project-detail-cover" src={article.coverImage} alt="" style={{ objectPosition: article.coverImagePosition ?? '50% 50%', transform: `scale(${article.coverImageScale ?? 1})`, transformOrigin: 'center' }} />}
+        {article.coverImage && <img className="project-detail-cover" src={article.coverImage} alt="" style={coverImageStyle(article)} />}
         <h2 id="article-reader-title">{article.title}</h2>
         <div className="project-detail-content article-reader-content" aria-busy={content === undefined}>
           {content === null ? <p className="error-message">文章載入失敗，請稍後再試。</p> : content !== undefined && <MarkdownPreview content={content} />}

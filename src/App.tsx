@@ -7,10 +7,11 @@ import { applySiteBackground } from './features/blog/background'
 import MusicPlayerProvider from './components/MusicPlayerContext'
 import SiteLayout from './layouts/SiteLayout'
 import PageRouter from './routes/PageRouter'
-import { getRouteSegments, isAdminRoute, isLoginRoute } from './routes/routes'
+import { getRouteSegments, isAdminRoute, isLoginRoute, navigate, useLocationKey } from './routes/routes'
 
 function App() {
   const lastTrackedPage = useRef('')
+  const locationKey = useLocationKey()
   const [backgroundReady, setBackgroundReady] = useState(false)
   useEffect(() => {
     let settings: Awaited<ReturnType<typeof fetchSiteSettings>> | null = null
@@ -51,8 +52,7 @@ function App() {
       if (url.origin !== window.location.origin || !['http:', 'https:'].includes(url.protocol)) return
       if (url.pathname === window.location.pathname && url.search === window.location.search && url.hash === window.location.hash) return
       event.preventDefault()
-      window.history.pushState({}, '', `${url.pathname}${url.search}${url.hash}`)
-      window.dispatchEvent(new PopStateEvent('popstate'))
+      navigate(`${url.pathname}${url.search}${url.hash}`)
     }
     document.addEventListener('click', handleInternalNavigation)
     return () => document.removeEventListener('click', handleInternalNavigation)
@@ -87,13 +87,7 @@ function App() {
       void recordPageView(page, source ? { source } : {})
     }
     trackPage()
-    window.addEventListener('popstate', trackPage)
-    window.addEventListener('hashchange', trackPage)
-    return () => {
-      window.removeEventListener('popstate', trackPage)
-      window.removeEventListener('hashchange', trackPage)
-    }
-  }, [])
+  }, [locationKey])
 
   if (!backgroundReady) return null
 

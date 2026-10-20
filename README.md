@@ -43,8 +43,19 @@ Vite 開發伺服器提供前端，並將 `/api` 與 `/uploads` 請求代理至 
 | `npm run dev` | 啟動前端與本機 API 開發伺服器 |
 | `npm run server` | 單獨啟動 Express API |
 | `npm run lint` | 執行 ESLint |
+| `npm test` | 執行 API 整合測試（使用暫存資料夾，不會動到 `data/`） |
 | `npm run build` | 執行 TypeScript 檢查並建置前端至 `dist/` |
 | `npm run preview` | 預覽已建置的前端；不會啟動 API |
+
+## 專案結構
+
+- `server/app.ts`：建立 Express app（中介層與路由掛載）；`server/index.ts` 只負責啟動。
+- `server/routes/`：依功能拆分的 API 路由（文章、Projects、Friends、音樂、登入、流量、網站設定、公開資料）。
+- `server/storage.ts`：JSON 資料檔（含依修改時間失效的快取）與 SQLite 流量統計。
+- `server/tests/`：以 Node 內建測試執行器撰寫的 API 測試。
+- `src/routes/routes.ts`：前端路由與 `navigate()`／`useLocationKey()`。
+- `src/features/blog/api.ts`：API 呼叫與共用的 GET 快取；寫入成功後會讓相關快取失效。
+- `src/pages/admin/`：後台外框與各管理區塊。
 
 ## 網站路徑
 
@@ -90,4 +101,4 @@ Vite 開發伺服器提供前端，並將 `/api` 與 `/uploads` 請求代理至 
 
 `npm run build` 只建置前端。正式環境需另外執行 Express API（`npm run server`），並透過 HTTPS 反向代理將 `/api` 與 `/uploads` 路徑轉發至 API；前端路由需設定回退至 `index.html`。預設 API 綁定 `127.0.0.1:3001`，可透過 `PORT` 與 `API_HOST` 調整。
 
-如需地區彙總統計，請只信任實際連線到 API 的反向代理：設定 `TRUSTED_PROXY_IP`，並由該代理提供 `CF-IPCountry`／`CF-Region` 或 `X-Geo-Country`／`X-Geo-Region` 標頭。伺服器不會保存來源 IP，也不會呼叫第三方 IP 查詢服務。`SITE_START_DATE` 可設定網站啟用日期；未設定時會以伺服器啟動時間作為預設值。
+如需地區彙總統計，請只信任實際連線到 API 的反向代理：設定 `TRUSTED_PROXY_IP`，並由該代理提供 `CF-IPCountry`／`CF-Region` 或 `X-Geo-Country`／`X-Geo-Region` 標頭。伺服器不會保存來源 IP，也不會呼叫第三方 IP 查詢服務。`SITE_START_DATE` 可設定網站啟用日期；未設定時會以伺服器啟動時間作為預設值。`DATA_DIR` 與 `UPLOADS_DIR` 可改變資料與上傳檔的存放位置（預設為 `data/` 與 `public/uploads/`）。

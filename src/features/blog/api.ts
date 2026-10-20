@@ -21,8 +21,32 @@ async function request<T>(input: RequestInfo, init?: RequestInit): Promise<T> {
   return response.json() as Promise<T>
 }
 
+// Shared GET cache: concurrent callers share one request and repeat reads within
+// `maxAgeMs` reuse it. Mutations below invalidate the keys they affect.
+const cacheMaxAgeMs = 30_000
+const responseCache = new Map<string, { at: number; value: Promise<unknown> }>()
+
+function cached<T>(key: string, load: () => Promise<T>): Promise<T> {
+  const entry = responseCache.get(key)
+  if (entry && Date.now() - entry.at < cacheMaxAgeMs) return entry.value as Promise<T>
+  const value = load()
+  responseCache.set(key, { at: Date.now(), value })
+  value.catch(() => { if (responseCache.get(key)?.value === value) responseCache.delete(key) })
+  return value
+}
+
+function invalidate(...keys: string[]) {
+  for (const key of keys) responseCache.delete(key)
+}
+
+async function mutate<T>(promise: Promise<T>, ...keys: string[]) {
+  const result = await promise
+  invalidate(...keys)
+  return result
+}
+
 export function fetchArticles() {
-  return request<ArticleSummary[]>('/api/articles', { cache: 'no-store' })
+  return cached('articles', () => request<ArticleSummary[]>('/api/articles', { cache: 'no-store' }))
 }
 
 const articleCache = new Map<string, Promise<Article>>()
@@ -40,7 +64,7 @@ export function fetchArticle(summary: Pick<ArticleSummary, 'id' | 'publishedAt' 
 }
 
 export function fetchArticleStats() {
-  return request<ArticleStats>('/api/stats')
+  return cached('stats', () => request<ArticleStats>('/api/stats'))
 }
 
 
@@ -79,82 +103,82 @@ export function fetchAdminActivity() {
 }
 
 export function fetchAdminSession() {
-  return request<{ authenticated: boolean }>('/api/auth/me')
+  return cached('session', () => request<{ authenticated: boolean }>('/api/auth/me'))
 }
 
 export function loginAdmin(username: string, password: string) {
-  return request<{ authenticated: boolean; challenge?: { flag: string } }>('/api/auth/login', {
+  return mutate(request<{ authenticated: boolean; challenge?: { flag: string } }>('/api/auth/login', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ username, password }),
-  })
+  }), 'session')
 }
 
 export function logoutAdmin() {
-  return request<{ authenticated: boolean }>('/api/auth/logout', { method: 'POST' })
+  return mutate(request<{ authenticated: boolean }>('/api/auth/logout', { method: 'POST' }), 'session')
 }
 
 type SavedArticle = Article & ArticleSummary
 
 export function publishArticle(formData: FormData) {
-  return request<SavedArticle>('/api/articles', { method: 'POST', body: formData })
+  return mutate(request<SavedArticle>('/api/articles', { method: 'POST', body: formData }), 'articles', 'stats')
 }
 
 export function updateArticle(id: string, formData: FormData) {
-  return request<SavedArticle>(`/api/articles/${encodeURIComponent(id)}`, { method: 'PUT', body: formData })
+  return mutate(request<SavedArticle>(`/api/articles/${encodeURIComponent(id)}`, { method: 'PUT', body: formData }), 'articles', 'stats')
 }
 
 
 export function deleteArticle(id: string) {
-  return request<void>(`/api/articles/${encodeURIComponent(id)}`, { method: 'DELETE' })
+  return mutate(request<void>(`/api/articles/${encodeURIComponent(id)}`, { method: 'DELETE' }), 'articles', 'stats')
 }
 
 export function fetchSiteSettings() {
-  return request<SiteSettings>('/api/site-settings')
+  return cached('site-settings', () => request<SiteSettings>('/api/site-settings'))
 }
 
 export function updateSiteSettings(formData: FormData) {
-  return request<SiteSettings>('/api/admin/site-settings', { method: 'PUT', body: formData })
+  return mutate(request<SiteSettings>('/api/admin/site-settings', { method: 'PUT', body: formData }), 'site-settings')
 }
 
 export function fetchHomeProfile() {
-  return request<HomeProfile>('/api/home-profile')
+  return cached('home-profile', () => request<HomeProfile>('/api/home-profile'))
 }
 
 export function updateHomeProfile(formData: FormData) {
-  return request<HomeProfile>('/api/admin/home-profile', { method: 'PUT', body: formData })
+  return mutate(request<HomeProfile>('/api/admin/home-profile', { method: 'PUT', body: formData }), 'home-profile')
 }
 
 export function fetchFriends() {
-  return request<Friend[]>('/api/friends')
+  return cached('friends', () => request<Friend[]>('/api/friends'))
 }
 
 export function createFriend(formData: FormData) {
-  return request<Friend>('/api/admin/friends', { method: 'POST', body: formData })
+  return mutate(request<Friend>('/api/admin/friends', { method: 'POST', body: formData }), 'friends')
 }
 
 export function updateFriend(id: string, formData: FormData) {
-  return request<Friend>(`/api/admin/friends/${encodeURIComponent(id)}`, { method: 'PUT', body: formData })
+  return mutate(request<Friend>(`/api/admin/friends/${encodeURIComponent(id)}`, { method: 'PUT', body: formData }), 'friends')
 }
 
 export function deleteFriend(id: string) {
-  return request<void>(`/api/admin/friends/${encodeURIComponent(id)}`, { method: 'DELETE' })
+  return mutate(request<void>(`/api/admin/friends/${encodeURIComponent(id)}`, { method: 'DELETE' }), 'friends')
 }
 
 export function fetchProjects() {
-  return request<Project[]>('/api/projects', { cache: 'no-store' })
+  return cached('projects', () => request<Project[]>('/api/projects', { cache: 'no-store' }))
 }
 
 export function createProject(formData: FormData) {
-  return request<Project>('/api/admin/projects', { method: 'POST', body: formData })
+  return mutate(request<Project>('/api/admin/projects', { method: 'POST', body: formData }), 'projects')
 }
 
 export function updateProject(id: string, formData: FormData) {
-  return request<Project>(`/api/admin/projects/${encodeURIComponent(id)}`, { method: 'PUT', body: formData })
+  return mutate(request<Project>(`/api/admin/projects/${encodeURIComponent(id)}`, { method: 'PUT', body: formData }), 'projects')
 }
 
 export function deleteProject(id: string) {
-  return request<void>(`/api/admin/projects/${encodeURIComponent(id)}`, { method: 'DELETE' })
+  return mutate(request<void>(`/api/admin/projects/${encodeURIComponent(id)}`, { method: 'DELETE' }), 'projects')
 }
 
 export function fetchServerStatus() {
@@ -162,21 +186,21 @@ export function fetchServerStatus() {
 }
 
 export function fetchMusicTracks() {
-  return request<MusicTrack[]>('/api/music', { cache: 'no-store' })
+  return cached('music', () => request<MusicTrack[]>('/api/music', { cache: 'no-store' }))
 }
 
 export function uploadMusicTracks(formData: FormData) {
-  return request<MusicTrack[]>('/api/admin/music', { method: 'POST', body: formData })
+  return mutate(request<MusicTrack[]>('/api/admin/music', { method: 'POST', body: formData }), 'music')
 }
 
 export function updateMusicTrackOrder(ids: string[]) {
-  return request<MusicTrack[]>('/api/admin/music/order', {
+  return mutate(request<MusicTrack[]>('/api/admin/music/order', {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ ids }),
-  })
+  }), 'music')
 }
 
 export function deleteMusicTrack(id: string) {
-  return request<void>(`/api/admin/music/${encodeURIComponent(id)}`, { method: 'DELETE' })
+  return mutate(request<void>(`/api/admin/music/${encodeURIComponent(id)}`, { method: 'DELETE' }), 'music')
 }
