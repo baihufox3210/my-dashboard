@@ -7,10 +7,11 @@ import { applySiteBackground } from './features/blog/background'
 import MusicPlayerProvider from './components/MusicPlayerContext'
 import SiteLayout from './layouts/SiteLayout'
 import PageRouter from './routes/PageRouter'
-import { getRouteSegments, isAdminRoute, isLoginRoute } from './routes/routes'
+import { getRouteSegments, isAdminRoute, isLoginRoute, navigate, useLocationKey } from './routes/routes'
 
 function App() {
-  const lastTrackedPage = useRef('')
+  const lastTrackedLocation = useRef('')
+  const locationKey = useLocationKey()
   const [backgroundReady, setBackgroundReady] = useState(false)
   useEffect(() => {
     let settings: Awaited<ReturnType<typeof fetchSiteSettings>> | null = null
@@ -51,8 +52,7 @@ function App() {
       if (url.origin !== window.location.origin || !['http:', 'https:'].includes(url.protocol)) return
       if (url.pathname === window.location.pathname && url.search === window.location.search && url.hash === window.location.hash) return
       event.preventDefault()
-      window.history.pushState({}, '', `${url.pathname}${url.search}${url.hash}`)
-      window.dispatchEvent(new PopStateEvent('popstate'))
+      navigate(`${url.pathname}${url.search}${url.hash}`)
     }
     document.addEventListener('click', handleInternalNavigation)
     return () => document.removeEventListener('click', handleInternalNavigation)
@@ -65,9 +65,12 @@ function App() {
       if (isAdminRoute() || isLoginRoute() || (route === 'blog' && ['new', 'edit'].includes(parts[1] ?? ''))) return
       const trackedPages: AnalyticsPage[] = ['home', 'about', 'projects', 'blog', 'friends']
       const page: AnalyticsPage = trackedPages.includes(route as AnalyticsPage) ? route as AnalyticsPage : 'home'
-      if (lastTrackedPage.current === page) return
-      lastTrackedPage.current = page
+      // Count every navigation, including revisits of the same page; only skip a
+      // repeated effect run for the same URL (e.g. React StrictMode in development).
+      if (lastTrackedLocation.current === locationKey) return
+      lastTrackedLocation.current = locationKey
       let source: 'direct' | 'search' | 'social' | 'referral' | undefined
+      let referrerHost: string | undefined
       try {
         const now = Date.now()
         const lastEntry = Number(sessionStorage.getItem('analytics-entry-at') ?? 0)
@@ -77,6 +80,7 @@ function App() {
           if (!referrer) source = 'direct'
           else {
             const host = new URL(referrer).hostname.toLowerCase()
+            if (new URL(referrer).origin !== window.location.origin) referrerHost = host
             if (/google\.|bing\.|yahoo\.|duckduckgo\.|baidu\.|ecosia\.|yandex\./.test(host)) source = 'search'
             else if (/facebook\.|instagram\.|threads\.|x\.com$|twitter\.|t\.co$|youtube\.|reddit\.|discord\.|tiktok\.|linkedin\./.test(host)) source = 'social'
             else if (new URL(referrer).origin !== window.location.origin) source = 'referral'
@@ -84,16 +88,10 @@ function App() {
           }
         }
       } catch { source = 'direct' }
-      void recordPageView(page, source ? { source } : {})
+      void recordPageView(page, { ...(source ? { source } : {}), ...(referrerHost ? { referrer: referrerHost } : {}) })
     }
     trackPage()
-    window.addEventListener('popstate', trackPage)
-    window.addEventListener('hashchange', trackPage)
-    return () => {
-      window.removeEventListener('popstate', trackPage)
-      window.removeEventListener('hashchange', trackPage)
-    }
-  }, [])
+  }, [locationKey])
 
   if (!backgroundReady) return null
 

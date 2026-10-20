@@ -1,29 +1,13 @@
 import { spawn } from 'node:child_process'
+import { createRateLimiter } from '../rateLimit.js'
 
-const attemptWindowMs = 60_000
-const maxAttemptEntries = 5_000
 const challengeTimeoutMs = 1_000
 const maxConcurrentChallenges = 4
-const attempts = new Map<string, { count: number; windowStarted: number }>()
+const takeAttempt = createRateLimiter({ windowMs: 60_000, max: 20, maxEntries: 5_000 })
 let runningChallenges = 0
 
-setInterval(() => {
-  const now = Date.now()
-  for (const [ip, state] of attempts) {
-    if (now - state.windowStarted >= attemptWindowMs) attempts.delete(ip)
-  }
-}, attemptWindowMs).unref()
-
 export function allowSqlLoginChallengeAttempt(ip: string, now: number) {
-  const state = attempts.get(ip)
-  if (state && now - state.windowStarted < attemptWindowMs) {
-    if (state.count >= 20) return false
-    state.count += 1
-    return true
-  }
-  if (!state && attempts.size >= maxAttemptEntries) return false
-  attempts.set(ip, { count: 1, windowStarted: now })
-  return true
+  return takeAttempt(ip, now) === 'allowed'
 }
 
 // The query runs in a short-lived child process: node:sqlite is synchronous, so a

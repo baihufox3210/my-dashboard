@@ -9,3 +9,8 @@ export function resolveSameOriginMediaUrl(value: string) {
     return ''
   }
 }
+
+// Inline style that applies an item's saved cover crop (position and zoom).
+export function coverImageStyle(item: { coverImagePosition?: string; coverImageScale?: number }) {
+  return { objectPosition: item.coverImagePosition ?? '50% 50%', transform: `scale(${item.coverImageScale ?? 1})` }
+}

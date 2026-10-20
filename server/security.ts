@@ -2,13 +2,19 @@ import crypto from 'node:crypto'
 import { isIP } from 'node:net'
 import type { Request, RequestHandler } from 'express'
 import { trustedProxyIp } from './config.js'
-import type { AnalyticsRegion } from './types.js'
 import { persistSessions } from './storage.js'
 
 export const sessions = new Map<string, number>()
 export const loginFailures = new Map<string, { count: number; windowStarted: number; blockedUntil: number }>()
 
-const regionNames = new Intl.DisplayNames(['zh-TW'], { type: 'region' })
+setInterval(() => {
+  const now = Date.now()
+  let removed = false
+  for (const [sessionId, expiresAt] of sessions) {
+    if (expiresAt <= now) { sessions.delete(sessionId); removed = true }
+  }
+  if (removed) void persistSessions(sessions).catch((error: unknown) => console.error('Could not persist admin sessions:', error))
+}, 60 * 60 * 1000).unref()
 
 export function hashSessionId(sessionId: string) {
   return crypto.createHash('sha256').update(sessionId).digest('hex')
@@ -42,22 +48,18 @@ export function getClientIp(request: Request) {
   return forwardedAddress && isIP(forwardedAddress) ? forwardedAddress : remoteAddress
 }
 
-export function getAnalyticsRegion(request: Request): AnalyticsRegion | null {
-  if (!isTrustedProxyRequest(request)) return null
-
-  const countryCode = (request.get('cf-ipcountry') ?? request.get('x-geo-country') ?? '').trim().toUpperCase()
-  if (!/^[A-Z]{2}$/.test(countryCode) || countryCode === 'XX' || countryCode === 'T1') return null
-
-  const country = regionNames.of(countryCode)
-  if (!country || country === countryCode) return null
-
-  const rawRegion = request.get('cf-region') ?? request.get('x-geo-region') ?? ''
-  const region = [...rawRegion].filter((character) => {
-    const code = character.charCodeAt(0)
-    return code >= 32 && code !== 127
-  }).join('').trim().slice(0, 80) || '未細分'
-
-  return { country, region }
+// Location headers set by the trusted reverse proxy (Cloudflare or a custom GeoIP
+// module); ignored for any other caller so visitors cannot spoof them.
+export function getProxyLocationHeaders(request: Request) {
+  if (!isTrustedProxyRequest(request)) return {}
+  const header = (...names: string[]) => names.map((name) => request.get(name)?.trim()).find(Boolean)
+  return {
+    country: header('cf-ipcountry', 'x-geo-country'),
+    region: header('cf-region', 'x-geo-region'),
+    city: header('cf-ipcity', 'x-geo-city'),
+    latitude: header('cf-iplatitude', 'x-geo-latitude'),
+    longitude: header('cf-iplongitude', 'x-geo-longitude'),
+  }
 }
 
 export const requireSameOrigin: RequestHandler = (request, response, next) => {

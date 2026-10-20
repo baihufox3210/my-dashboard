@@ -7,6 +7,7 @@ import useEscapeKey from '../components/useEscapeKey'
 import { createProject, deleteProject, fetchAdminSession, fetchProjects, updateProject } from '../features/blog/api'
 import type { Project } from '../features/blog/article'
 import { getPublicPath } from '../routes/routes'
+import { coverImageStyle } from '../features/blog/media'
 
 type ProjectDraft = { title: string; summary: string; description: string; category: string; tags: string; projectUrl: string }
 const blankDraft: ProjectDraft = { title: '', summary: '', description: '', category: '', tags: '', projectUrl: '' }
@@ -165,7 +166,7 @@ function ProjectsPage({ embedded = false }: { embedded?: boolean }) {
     {selected && <div className="project-modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setSelected(null) }}>
       <article className="project-detail-modal" role="dialog" aria-modal="true" aria-labelledby="project-detail-title">
         <header className="project-detail-header"><p>{selected.category || 'PROJECT FILE'} <span>///</span> {new Date(selected.publishedAt).toLocaleDateString()}</p><button type="button" className="modal-close-button" aria-label="關閉" onClick={() => setSelected(null)}>×</button></header>
-        {selected.coverImage && <img className="project-detail-cover" src={selected.coverImage} alt="" style={{ objectPosition: selected.coverImagePosition ?? '50% 50%', transform: `scale(${selected.coverImageScale ?? 1})`, transformOrigin: 'center' }} />}
+        {selected.coverImage && <img className="project-detail-cover" src={selected.coverImage} alt="" style={coverImageStyle(selected)} />}
         <h2 id="project-detail-title">{selected.title}</h2><p className="project-detail-summary">{selected.summary}</p>
         {selected.tags.length > 0 && <div className="project-tags">{selected.tags.map((tag) => <span key={tag}>{tag}</span>)}</div>}
         {selected.description && <div className="project-detail-content"><MarkdownPreview content={selected.description} /></div>}
