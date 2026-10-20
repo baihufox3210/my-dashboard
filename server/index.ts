@@ -47,7 +47,7 @@ import {
   writeProjects,
   writeSiteSettings,
 } from './storage.js'
-import { musicUpload, projectUpload, removeMusicAsset, removeProjectAssets, removeProjectUploads, upload, validateMusicFiles, validateProjectFiles, validateUploadedImages } from './uploads.js'
+import { musicUpload, projectUpload, removeProjectUploads, removeUnusedUploads, upload, validateMusicFiles, validateProjectFiles, validateUploadedImages } from './uploads.js'
 import { boundedText, getAnalyticsDevice, isSafeSocialUrl } from './validation.js'
 import { getAnalyticsRegion, getClientIp, hashSessionId, isAuthenticated, loginFailures, requireAuthentication, requireSameOrigin, sessions } from './security.js'
 import articleRoutes from './routes/articles.js'
@@ -80,6 +80,37 @@ function normalizeUploadedFileName(fileName: string) {
 
 function pathWithoutExtension(fileName: string) {
   return fileName.replace(/\.[^./\\]+$/, '').trim()
+}
+
+function credentialMatches(value: unknown, expected: string) {
+  if (typeof value !== 'string') return false
+  const digest = (input: string) => crypto.createHash('sha256').update(input).digest()
+  return crypto.timingSafeEqual(digest(value), digest(expected))
+}
+
+function uploadedFiles(request: express.Request) {
+  return [
+    ...(request.file ? [request.file] : []),
+    ...(Array.isArray(request.files) ? request.files : Object.values(request.files ?? {}).flat()),
+  ]
+}
+
+type ProjectFields = Pick<Project, 'title' | 'summary' | 'description' | 'category' | 'tags' | 'projectUrl' | 'coverImagePosition' | 'coverImageScale'>
+
+function parseProjectInput(value: unknown): ProjectFields | null {
+  const coverSettings = parseProjectCoverSettings(value)
+  const { title, summary = '', description = '', category = '', tags = '', projectUrl = '' } = (value ?? {}) as Record<string, unknown>
+  if (
+    !coverSettings || typeof title !== 'string' || !title.trim() || !boundedText(title, 160) ||
+    !boundedText(summary, 500) || !boundedText(description, 100_000) || !boundedText(category, 80) ||
+    !boundedText(tags, 2000) || !boundedText(projectUrl, 2048)
+  ) return null
+  const url = (projectUrl as string).trim()
+  if (url && !isSafeSocialUrl(url)) return null
+  return {
+    title: title.trim(), summary: (summary as string).trim(), description: (description as string).trim(), category: (category as string).trim(),
+    tags: (tags as string).split(',').map((tag) => tag.trim()).filter(Boolean), projectUrl: url, ...coverSettings,
+  }
 }
 
 async function fingerprintFile(filePath: string) {
@@ -153,25 +184,20 @@ app.get('/api/auth/me', (request, response) => {
 
 const receiveProjectFiles = projectUpload.fields([{ name: 'coverImage', maxCount: 1 }, { name: 'document', maxCount: 1 }])
 app.post('/api/admin/projects', requireSameOrigin, requireAuthentication, receiveProjectFiles, validateProjectFiles, async (request, response) => {
-  const body = request.body as { title?: string; summary?: string; description?: string; category?: string; tags?: string; projectUrl?: string }
-  const coverSettings = parseProjectCoverSettings(request.body)
-  const { title, summary, description, category, tags, projectUrl } = body
-  if (!coverSettings || !title?.trim() || !boundedText(title, 160) || !boundedText(summary ?? '', 500) || !boundedText(description ?? '', 100_000) || !boundedText(category ?? '', 80) || !boundedText(tags ?? '', 2000) || !boundedText(projectUrl ?? '', 2048) || (projectUrl?.trim() && !isSafeSocialUrl(projectUrl.trim()))) {
-    await removeProjectUploads(Object.values(request.files ?? {}).flat())
+  const input = parseProjectInput(request.body)
+  if (!input) {
+    await removeProjectUploads(uploadedFiles(request))
     response.status(400).json({ message: '專案標題、內容或連結格式不正確，或超過字數限制。' }); return
   }
   const files = request.files as { coverImage?: Express.Multer.File[]; document?: Express.Multer.File[] } | undefined
   const now = new Date().toISOString()
   const project: Project = {
-    id: crypto.randomUUID(), title: title.trim(), summary: summary?.trim() ?? '', description: description?.trim() ?? '', category: category?.trim() ?? '',
-    tags: (tags ?? '').split(',').map((tag) => tag.trim()).filter(Boolean), projectUrl: projectUrl?.trim() ?? '',
+    id: crypto.randomUUID(), ...input,
     ...(files?.coverImage?.[0] ? { coverImage: `/uploads/${files.coverImage[0].filename}` } : {}),
-    ...coverSettings,
     ...(files?.document?.[0] ? { documentUrl: `/uploads/${files.document[0].filename}`, documentName: files.document[0].originalname } : {}), publishedAt: now, updatedAt: now,
   }
-  const uploadedFiles = Object.values(request.files ?? {}).flat()
   try { await writeProjects([project, ...await readProjects()]) }
-  catch (error) { await removeProjectUploads(uploadedFiles); throw error }
+  catch (error) { await removeProjectUploads(uploadedFiles(request)); throw error }
   response.status(201).json(project)
 })
 
@@ -179,33 +205,29 @@ app.put('/api/admin/projects/:id', requireSameOrigin, requireAuthentication, rec
   const files = request.files as { coverImage?: Express.Multer.File[]; document?: Express.Multer.File[] } | undefined
   const projects = await readProjects()
   const index = projects.findIndex((project) => project.id === request.params.id)
-  if (index < 0) {
-    await removeProjectUploads(Object.values(request.files ?? {}).flat())
+  const existing = projects[index]
+  if (!existing) {
+    await removeProjectUploads(uploadedFiles(request))
     response.status(404).json({ message: '找不到這個專案。' }); return
   }
-  const existing = projects[index]
-  if (!existing) { response.status(404).json({ message: '找不到這個專案。' }); return }
-  const body = request.body as { title?: string; summary?: string; description?: string; category?: string; tags?: string; projectUrl?: string; removeDocument?: string }
-  const coverSettings = parseProjectCoverSettings(request.body)
-  const { title, summary, description, category, tags, projectUrl } = body
-  if (!coverSettings || !title?.trim() || !boundedText(title, 160) || !boundedText(summary ?? '', 500) || !boundedText(description ?? '', 100_000) || !boundedText(category ?? '', 80) || !boundedText(tags ?? '', 2000) || !boundedText(projectUrl ?? '', 2048) || (projectUrl?.trim() && !isSafeSocialUrl(projectUrl.trim()))) {
-    await removeProjectUploads(Object.values(request.files ?? {}).flat())
+  const input = parseProjectInput(request.body)
+  const removeDocument = (request.body as { removeDocument?: string } | undefined)?.removeDocument === 'true'
+  if (!input) {
+    await removeProjectUploads(uploadedFiles(request))
     response.status(400).json({ message: '專案標題、內容或連結格式不正確，或超過字數限制。' }); return
   }
   const oldCover = existing.coverImage
   const oldDocument = existing.documentUrl
   projects[index] = {
-    ...existing, title: title.trim(), summary: summary?.trim() ?? '', description: description?.trim() ?? '', category: category?.trim() ?? '',
-    tags: (tags ?? '').split(',').map((tag) => tag.trim()).filter(Boolean), projectUrl: projectUrl?.trim() ?? '', updatedAt: new Date().toISOString(),
+    ...existing, ...input, updatedAt: new Date().toISOString(),
     ...(files?.coverImage?.[0] ? { coverImage: `/uploads/${files.coverImage[0].filename}` } : {}),
-    ...coverSettings,
-    ...(files?.document?.[0] ? { documentUrl: `/uploads/${files.document[0].filename}`, documentName: files.document[0].originalname } : body.removeDocument === 'true' ? { documentUrl: undefined, documentName: undefined } : {}),
+    ...(files?.document?.[0] ? { documentUrl: `/uploads/${files.document[0].filename}`, documentName: files.document[0].originalname } : removeDocument ? { documentUrl: undefined, documentName: undefined } : {}),
   }
   try { await writeProjects(projects) }
-  catch (error) { await removeProjectUploads(Object.values(request.files ?? {}).flat()); throw error }
-  await removeProjectAssets(
+  catch (error) { await removeProjectUploads(uploadedFiles(request)); throw error }
+  await removeUnusedUploads(
     files?.coverImage?.[0] ? oldCover : undefined,
-    files?.document?.[0] || body.removeDocument === 'true' ? oldDocument : undefined,
+    files?.document?.[0] || removeDocument ? oldDocument : undefined,
   )
   response.json(projects[index])
 })
@@ -215,13 +237,14 @@ app.delete('/api/admin/projects/:id', requireSameOrigin, requireAuthentication, 
   const project = projects.find((item) => item.id === request.params.id)
   if (!project) { response.status(404).json({ message: '找不到這個專案。' }); return }
   await writeProjects(projects.filter((item) => item.id !== request.params.id))
-  await removeProjectAssets(project.coverImage, project.documentUrl)
+  await removeUnusedUploads(project.coverImage, project.documentUrl)
   response.status(204).end()
 })
 
 app.post('/api/admin/friends', requireSameOrigin, requireAuthentication, upload.single('avatar'), validateUploadedImages, async (request, response) => {
   const { name, introduction, url } = request.body as { name?: string; introduction?: string; url?: string }
-  if (!name?.trim() || !boundedText(name, 120) || !boundedText(introduction ?? '', 1000) || !url || !isSafeSocialUrl(url)) {
+  if (!name?.trim() || !boundedText(name, 120) || !boundedText(introduction ?? '', 1000) || !url || !isSafeSocialUrl(url.trim())) {
+    await removeProjectUploads(uploadedFiles(request))
     response.status(400).json({ message: '朋友名稱、自介或連結格式不正確。' }); return
   }
   const friend: Friend = { id: crypto.randomUUID(), name: name.trim(), introduction: introduction?.trim() ?? '', url: url.trim(), ...(request.file ? { avatarUrl: `/uploads/${request.file.filename}` } : {}) }
@@ -230,22 +253,28 @@ app.post('/api/admin/friends', requireSameOrigin, requireAuthentication, upload.
 
 app.put('/api/admin/friends/:id', requireSameOrigin, requireAuthentication, upload.single('avatar'), validateUploadedImages, async (request, response) => {
   const { name, introduction, url } = request.body as { name?: string; introduction?: string; url?: string }
-  if (!name?.trim() || !boundedText(name, 120) || !boundedText(introduction ?? '', 1000) || !url || !isSafeSocialUrl(url)) {
+  if (!name?.trim() || !boundedText(name, 120) || !boundedText(introduction ?? '', 1000) || !url || !isSafeSocialUrl(url.trim())) {
+    await removeProjectUploads(uploadedFiles(request))
     response.status(400).json({ message: '朋友名稱、自介或連結格式不正確。' }); return
   }
   const friends = await readFriends(); const index = friends.findIndex((item) => item.id === request.params.id)
-  if (index < 0) { response.status(404).json({ message: '找不到這位朋友。' }); return }
   const existing = friends[index]
-  if (!existing) { response.status(404).json({ message: '找不到這位朋友。' }); return }
+  if (!existing) {
+    await removeProjectUploads(uploadedFiles(request))
+    response.status(404).json({ message: '找不到這位朋友。' }); return
+  }
   const updated: Friend = { ...existing, name: name.trim(), introduction: introduction?.trim() ?? '', url: url.trim(), ...(request.file ? { avatarUrl: `/uploads/${request.file.filename}` } : {}) }
-  friends[index] = updated; await writeFriends(friends); response.json(updated)
+  friends[index] = updated; await writeFriends(friends)
+  if (request.file) await removeUnusedUploads(existing.avatarUrl)
+  response.json(updated)
 })
 
 app.delete('/api/admin/friends/:id', requireSameOrigin, requireAuthentication, async (request, response) => {
   const friends = await readFriends()
-  const remaining = friends.filter((friend) => friend.id !== request.params.id)
-  if (remaining.length === friends.length) { response.status(404).json({ message: '找不到這位朋友。' }); return }
-  await writeFriends(remaining)
+  const friend = friends.find((item) => item.id === request.params.id)
+  if (!friend) { response.status(404).json({ message: '找不到這位朋友。' }); return }
+  await writeFriends(friends.filter((item) => item.id !== friend.id))
+  await removeUnusedUploads(friend.avatarUrl)
   response.status(204).end()
 })
 
@@ -320,7 +349,7 @@ app.delete('/api/admin/music/:id', requireSameOrigin, requireAuthentication, asy
   const track = tracks.find((item) => item.id === request.params.id)
   if (!track) { response.status(404).json({ message: '找不到這首音樂。' }); return }
   await writeMusicTracks(tracks.filter((item) => item.id !== track.id).map((item, order) => ({ ...item, order })))
-  await removeMusicAsset(track.fileUrl)
+  await removeUnusedUploads(track.fileUrl)
   response.status(204).end()
 })
 
@@ -340,17 +369,16 @@ app.post('/api/auth/login', requireSameOrigin, async (request, response) => {
   const username = body.username
   const password = body.password
 
-  if (username !== adminUsername || password !== adminPassword) {
+  const usernameMatches = credentialMatches(username, adminUsername as string)
+  const passwordMatches = credentialMatches(password, adminPassword as string)
+  if (!usernameMatches || !passwordMatches) {
     const challengeConfig = await readSqlLoginChallengeConfig()
     if (challengeConfig.enabled && typeof username === 'string' && typeof password === 'string' && username.length <= 256 && password.length <= 256) {
       if (!allowSqlLoginChallengeAttempt(ip, Date.now())) {
         response.status(429).json({ message: 'Too many login attempts. Try again later.' })
         return
       }
-      const challengeSolved = (() => {
-        try { return solveSqlLoginChallenge(username, password) }
-        catch { return false }
-      })()
+      const challengeSolved = await solveSqlLoginChallenge(username, password)
       if (challengeSolved) {
         response.json({ authenticated: false, challenge: { flag: challengeConfig.flag } })
         return
@@ -395,13 +423,10 @@ app.post('/api/auth/login', requireSameOrigin, async (request, response) => {
 
 app.post('/api/auth/logout', requireSameOrigin, async (request, response) => {
   const sessionId = request.cookies.admin_session as string | undefined
-  if (sessionId) sessions.delete(hashSessionId(sessionId))
-  await persistSessions(sessions)
-  response.clearCookie('admin_session')
+  if (sessionId && sessions.delete(hashSessionId(sessionId))) await persistSessions(sessions)
+  response.clearCookie('admin_session', { httpOnly: true, sameSite: 'lax', path: '/' })
   response.json({ authenticated: false })
 })
-
-
 
 app.post('/api/analytics/view', requireSameOrigin, async (request, response) => {
   const clientKey = getClientIp(request)
@@ -538,6 +563,11 @@ app.put(
       backgroundMobilePositionX?: string
       backgroundMobilePositionY?: string
     }
+    if (!boundedText(siteName ?? '', 120) || !boundedText(biography ?? '', 20_000) || !boundedText(experience ?? '', 50_000)) {
+      await removeProjectUploads(uploadedFiles(request))
+      response.status(400).json({ message: '網站名稱、自我介紹或經歷超過字數限制。' })
+      return
+    }
     const position = (value: string | undefined, fallback: number) => {
       const parsed = Number(value)
       return Number.isFinite(parsed) ? Math.max(0, Math.min(100, parsed)) : fallback
@@ -559,6 +589,10 @@ app.put(
     }
 
     await writeSiteSettings(updatedSettings)
+    await removeUnusedUploads(
+      files?.avatar?.[0] ? existingSettings.avatarUrl : undefined,
+      files?.background?.[0] ? existingSettings.backgroundUrl : undefined,
+    )
     await recordActivity({ at: new Date().toISOString(), type: 'site', action: 'saved', title: '網站設定' })
     response.json(updatedSettings)
   },
@@ -575,19 +609,20 @@ app.put('/api/admin/home-profile', requireSameOrigin, requireAuthentication, upl
     tags = JSON.parse(body.tags ?? '[]') as string[]
     avatarMessages = JSON.parse(body.avatarMessages ?? '[]') as string[]
   } catch {
+    await removeProjectUploads(uploadedFiles(request))
     response.status(400).json({ message: 'Social links and tags must be valid JSON.' })
     return
   }
-  if (!Array.isArray(socials) || socials.length > 20 || !socials.every((item) => item && boundedText(item.name, 80) && boundedText(item.url, 2048) && isSafeSocialUrl(item.url))) {
-    response.status(400).json({ message: 'Social links are invalid.' })
-    return
-  }
-  if (!Array.isArray(tags) || tags.length > 50 || !tags.every((tag) => boundedText(tag, 80))) {
-    response.status(400).json({ message: 'Tags are invalid.' })
-    return
-  }
-  if (!Array.isArray(avatarMessages) || avatarMessages.length > 20 || !avatarMessages.every((message) => typeof message === 'string' && message.length <= 160)) {
-    response.status(400).json({ message: 'Avatar messages are invalid.' })
+  const textLimits: [keyof HomeProfile, number][] = [['name', 120], ['introduction', 5000], ['quote', 500], ['updateTitle', 160], ['updateText', 5000]]
+  const invalidMessage =
+    !textLimits.every(([key, limit]) => boundedText(body[key] ?? '', limit)) ? 'Profile text is invalid or too long.'
+      : !Array.isArray(socials) || socials.length > 20 || !socials.every((item) => item && boundedText(item.name, 80) && boundedText(item.url, 2048) && isSafeSocialUrl(item.url.trim())) ? 'Social links are invalid.'
+        : !Array.isArray(tags) || tags.length > 50 || !tags.every((tag) => boundedText(tag, 80)) ? 'Tags are invalid.'
+          : !Array.isArray(avatarMessages) || avatarMessages.length > 20 || !avatarMessages.every((message) => boundedText(message, 160)) ? 'Avatar messages are invalid.'
+            : undefined
+  if (invalidMessage) {
+    await removeProjectUploads(uploadedFiles(request))
+    response.status(400).json({ message: invalidMessage })
     return
   }
   const updated: HomeProfile = {
@@ -602,6 +637,7 @@ app.put('/api/admin/home-profile', requireSameOrigin, requireAuthentication, upl
     ...(request.file ? { avatarUrl: `/uploads/${request.file.filename}` } : existing.avatarUrl ? { avatarUrl: existing.avatarUrl } : {}),
   }
   await writeHomeProfile(updated)
+  if (request.file) await removeUnusedUploads(existing.avatarUrl)
   await recordActivity({ at: new Date().toISOString(), type: 'homepage', action: 'saved', title: '首頁個人介紹' })
   response.json(updated)
 })

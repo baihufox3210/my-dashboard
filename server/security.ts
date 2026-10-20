@@ -8,6 +8,8 @@ import { persistSessions } from './storage.js'
 export const sessions = new Map<string, number>()
 export const loginFailures = new Map<string, { count: number; windowStarted: number; blockedUntil: number }>()
 
+const regionNames = new Intl.DisplayNames(['zh-TW'], { type: 'region' })
+
 export function hashSessionId(sessionId: string) {
   return crypto.createHash('sha256').update(sessionId).digest('hex')
 }
@@ -46,7 +48,7 @@ export function getAnalyticsRegion(request: Request): AnalyticsRegion | null {
   const countryCode = (request.get('cf-ipcountry') ?? request.get('x-geo-country') ?? '').trim().toUpperCase()
   if (!/^[A-Z]{2}$/.test(countryCode) || countryCode === 'XX' || countryCode === 'T1') return null
 
-  const country = new Intl.DisplayNames(['zh-TW'], { type: 'region' }).of(countryCode)
+  const country = regionNames.of(countryCode)
   if (!country || country === countryCode) return null
 
   const rawRegion = request.get('cf-region') ?? request.get('x-geo-region') ?? ''

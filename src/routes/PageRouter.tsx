@@ -1,11 +1,12 @@
-import { useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import AboutPage from '../pages/AboutPage'
-import AdminPage from '../pages/AdminPage'
 import BlogPage from '../pages/BlogPage'
 import FriendsPage from '../pages/FriendsPage'
 import HomePage from '../pages/HomePage'
 import ProjectsPage from '../pages/ProjectsPage'
 import { getPublicPage, isAdminRoute, isLoginRoute } from './routes'
+
+const AdminPage = lazy(() => import('../pages/AdminPage'))
 
 function getCurrentPage() {
   if (isLoginRoute()) return 'login'
@@ -30,9 +31,8 @@ function PageRouter() {
 
   switch (currentPage) {
     case 'admin':
-      return <AdminPage />
     case 'login':
-      return <AdminPage loginOnly />
+      return <Suspense fallback={null}><AdminPage loginOnly={currentPage === 'login'} /></Suspense>
     case 'about':
       return <AboutPage />
     case 'projects':

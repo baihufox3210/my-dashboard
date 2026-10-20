@@ -3,7 +3,7 @@ import { Router } from 'express'
 import type { Article } from '../types.js'
 import { recordActivity, readArticles, writeArticles } from '../storage.js'
 import { requireAuthentication, requireSameOrigin } from '../security.js'
-import { upload, validateUploadedImages, removeProjectUploads } from '../uploads.js'
+import { upload, validateUploadedImages, removeProjectUploads, removeUnusedUploads } from '../uploads.js'
 
 const router = Router()
 
@@ -107,6 +107,7 @@ router.put('/:id', requireSameOrigin, requireAuthentication, upload.single('cove
 
   articles[articleIndex] = updatedArticle
   await writeArticles(articles)
+  if (request.file) await removeUnusedUploads(existingArticle.coverImage)
   await recordActivity({ at: now, type: 'article', action: 'updated', title: updatedArticle.title })
   response.json(updatedArticle)
 })
@@ -120,6 +121,7 @@ router.delete('/:id', requireSameOrigin, requireAuthentication, async (request, 
   }
 
   await writeArticles(articles.filter((entry) => entry.id !== request.params.id))
+  await removeUnusedUploads(article.coverImage)
   await recordActivity({ at: new Date().toISOString(), type: 'article', action: 'deleted', title: article.title })
   response.status(204).end()
 })

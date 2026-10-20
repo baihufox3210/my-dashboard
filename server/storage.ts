@@ -36,6 +36,7 @@ let sessionWriteQueue: Promise<void> = Promise.resolve()
 let analyticsWriteQueue: Promise<void> = Promise.resolve()
 let activityWriteQueue: Promise<void> = Promise.resolve()
 let analyticsDatabase: DatabaseSync | undefined
+let lastAnalyticsPruneDay = ''
 
 type AtomicWriteOptions = { mode?: number; pretty?: boolean }
 
@@ -282,10 +283,13 @@ export async function queuePageView(page: AnalyticsPage, device: AnalyticsDevice
           DO UPDATE SET views = analytics_region_views.views + 1
         `).run(day, region.country, region.region)
       }
-      const cutoff = new Date(Date.now() - 120 * 86_400_000).toISOString().slice(0, 10)
-      database.prepare('DELETE FROM analytics_page_views WHERE day < ?').run(cutoff)
-      database.prepare('DELETE FROM analytics_region_views WHERE day < ?').run(cutoff)
+      if (lastAnalyticsPruneDay !== day) {
+        const cutoff = new Date(Date.now() - 120 * 86_400_000).toISOString().slice(0, 10)
+        database.prepare('DELETE FROM analytics_page_views WHERE day < ?').run(cutoff)
+        database.prepare('DELETE FROM analytics_region_views WHERE day < ?').run(cutoff)
+      }
       database.exec('COMMIT')
+      lastAnalyticsPruneDay = day
     } catch (error) {
       database.exec('ROLLBACK')
       throw error
