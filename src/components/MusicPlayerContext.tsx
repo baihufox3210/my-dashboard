@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { fetchMusicTracks } from '../features/blog/api'
 import type { MusicTrack } from '../features/blog/article'
 import { resolveSameOriginMediaUrl } from '../features/blog/media'
@@ -7,15 +7,18 @@ type MusicPlayerContextValue = {
   tracks: MusicTrack[]
   currentTrackIndex: number
   isPlaying: boolean
-  progress: number
-  duration: number
   toggle: () => void
   changeTrack: (direction: -1 | 1) => void
   seek: (value: number) => void
   requestAutoplay: () => void
 }
 
+type MusicProgressContextValue = { progress: number; duration: number }
+
 const MusicPlayerContext = createContext<MusicPlayerContextValue | null>(null)
+// Progress changes several times per second, so it lives in its own context and only
+// the components showing it re-render.
+const MusicProgressContext = createContext<MusicProgressContextValue | null>(null)
 
 function MusicPlayerProvider({ children }: { children: ReactNode }) {
   const [tracks, setTracks] = useState<MusicTrack[]>([])
@@ -141,9 +144,17 @@ function MusicPlayerProvider({ children }: { children: ReactNode }) {
     play()
   }, [play])
 
+  const player = useMemo(
+    () => ({ tracks, currentTrackIndex, isPlaying, toggle, changeTrack, seek, requestAutoplay }),
+    [tracks, currentTrackIndex, isPlaying, toggle, changeTrack, seek, requestAutoplay],
+  )
+  const progressValue = useMemo(() => ({ progress, duration }), [progress, duration])
+
   return (
-    <MusicPlayerContext.Provider value={{ tracks, currentTrackIndex, isPlaying, progress, duration, toggle, changeTrack, seek, requestAutoplay }}>
-      {children}
+    <MusicPlayerContext.Provider value={player}>
+      <MusicProgressContext.Provider value={progressValue}>
+        {children}
+      </MusicProgressContext.Provider>
       <audio ref={audioRef} preload="metadata" loop aria-hidden="true" />
     </MusicPlayerContext.Provider>
   )
@@ -154,6 +165,19 @@ export function useMusicPlayer() {
   const context = useContext(MusicPlayerContext)
   if (!context) throw new Error('useMusicPlayer must be used inside MusicPlayerProvider')
   return context
+}
+
+// eslint-disable-next-line react-refresh/only-export-components
+export function useMusicProgress() {
+  const context = useContext(MusicProgressContext)
+  if (!context) throw new Error('useMusicProgress must be used inside MusicPlayerProvider')
+  return context
+}
+
+// eslint-disable-next-line react-refresh/only-export-components
+export function formatMusicTime(seconds: number) {
+  if (!Number.isFinite(seconds)) return '0:00'
+  return `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`
 }
 
 export default MusicPlayerProvider

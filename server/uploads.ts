@@ -65,8 +65,17 @@ export async function removeUnusedUploads(...urls: (string | undefined)[]) {
   await Promise.all(candidates.filter((url) => !referenced.has(url)).map((url) => unlinkIfPresent(uploadPath(url) as string)))
 }
 
+const extensions: Record<string, string> = { 'image/jpeg': '.jpg', 'image/png': '.png', 'image/webp': '.webp', 'image/gif': '.gif', 'application/pdf': '.pdf' }
+
+// Random names keep uploads unguessable and cacheable; the extension lets the static
+// server send the right Content-Type.
+const randomNameStorage = multer.diskStorage({
+  destination: uploadsDirectory,
+  filename: (_request, file, callback) => callback(null, `${crypto.randomUUID()}${extensions[file.mimetype] ?? ''}`),
+})
+
 export const upload = multer({
-  dest: uploadsDirectory,
+  storage: randomNameStorage,
   limits: { fileSize: 8 * 1024 * 1024, files: 2, fields: 20, fieldSize: 1024 * 1024 },
   fileFilter: (_request, file, callback) => {
     if (!imageMimeTypes.includes(file.mimetype as typeof imageMimeTypes[number])) {
@@ -93,16 +102,7 @@ export const musicUpload = multer({
 })
 
 export const projectUpload = multer({
-  storage: multer.diskStorage({
-    destination: uploadsDirectory,
-    filename: (_request, file, callback) => {
-      const extension = file.mimetype === 'application/pdf' ? '.pdf'
-        : file.mimetype === 'image/jpeg' ? '.jpg'
-          : file.mimetype === 'image/png' ? '.png'
-            : file.mimetype === 'image/webp' ? '.webp' : '.gif'
-      callback(null, `${crypto.randomUUID()}${extension}`)
-    },
-  }),
+  storage: randomNameStorage,
   limits: { fileSize: 25 * 1024 * 1024, files: 2, fields: 20, fieldSize: 1024 * 1024 },
   fileFilter: (_request, file, callback) => {
     if (!projectMimeTypes.includes(file.mimetype as typeof projectMimeTypes[number])) {

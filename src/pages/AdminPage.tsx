@@ -23,7 +23,7 @@ import {
   deleteFriend,
   updateSiteSettings,
 } from '../features/blog/api'
-import type { AnalyticsStats, Article, ArticleStats, Friend, HomeProfile, SiteSettings } from '../features/blog/article'
+import type { AnalyticsStats, ArticleStats, ArticleSummary, Friend, HomeProfile, SiteSettings } from '../features/blog/article'
 import type { AdminActivity } from '../features/blog/api'
 import { getAdminPath, getAdminSection, getPublicPath } from '../routes/routes'
 
@@ -52,7 +52,7 @@ function AdminPage({ loginOnly = false }: AdminPageProps) {
   const [password, setPassword] = useState('')
   const [challengeFlag, setChallengeFlag] = useState('')
   const [stats, setStats] = useState(blankStats)
-  const [articles, setArticles] = useState<Article[]>([])
+  const [articles, setArticles] = useState<ArticleSummary[]>([])
   const [activity, setActivity] = useState<AdminActivity[]>([])
   const [analytics, setAnalytics] = useState(blankAnalytics)
   const [analyticsDays, setAnalyticsDays] = useState<7 | 30>(7)

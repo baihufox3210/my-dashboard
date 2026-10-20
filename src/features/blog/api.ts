@@ -1,4 +1,4 @@
-import type { AnalyticsStats, Article, ArticleStats, Friend, HomeProfile, MusicTrack, Project, ServerStatus, SiteSettings } from './article'
+import type { AnalyticsStats, Article, ArticleStats, ArticleSummary, Friend, HomeProfile, MusicTrack, Project, ServerStatus, SiteSettings } from './article'
 
 async function request<T>(input: RequestInfo, init?: RequestInit): Promise<T> {
   const response = await fetch(input, { credentials: 'include', ...init })
@@ -22,7 +22,21 @@ async function request<T>(input: RequestInfo, init?: RequestInit): Promise<T> {
 }
 
 export function fetchArticles() {
-  return request<Article[]>('/api/articles', { cache: 'no-store' })
+  return request<ArticleSummary[]>('/api/articles', { cache: 'no-store' })
+}
+
+const articleCache = new Map<string, Promise<Article>>()
+
+// Full articles are cached per revision, so reopening an unchanged article is instant.
+export function fetchArticle(summary: Pick<ArticleSummary, 'id' | 'publishedAt' | 'updatedAt'>) {
+  const key = `${summary.id}:${summary.updatedAt ?? summary.publishedAt}`
+  let article = articleCache.get(key)
+  if (!article) {
+    article = request<Article>(`/api/articles/${encodeURIComponent(summary.id)}`, { cache: 'no-store' })
+    article.catch(() => articleCache.delete(key))
+    articleCache.set(key, article)
+  }
+  return article
 }
 
 export function fetchArticleStats() {
@@ -80,17 +94,19 @@ export function logoutAdmin() {
   return request<{ authenticated: boolean }>('/api/auth/logout', { method: 'POST' })
 }
 
+type SavedArticle = Article & ArticleSummary
+
 export function publishArticle(formData: FormData) {
-  return request<Article>('/api/articles', { method: 'POST', body: formData })
+  return request<SavedArticle>('/api/articles', { method: 'POST', body: formData })
 }
 
 export function updateArticle(id: string, formData: FormData) {
-  return request<Article>(`/api/articles/${id}`, { method: 'PUT', body: formData })
+  return request<SavedArticle>(`/api/articles/${encodeURIComponent(id)}`, { method: 'PUT', body: formData })
 }
 
 
 export function deleteArticle(id: string) {
-  return request<void>(`/api/articles/${id}`, { method: 'DELETE' })
+  return request<void>(`/api/articles/${encodeURIComponent(id)}`, { method: 'DELETE' })
 }
 
 export function fetchSiteSettings() {

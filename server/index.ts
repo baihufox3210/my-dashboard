@@ -1,7 +1,9 @@
 import cookieParser from 'cookie-parser'
 import crypto from 'node:crypto'
 import express from 'express'
+import { createReadStream } from 'node:fs'
 import fs from 'node:fs/promises'
+import { pipeline } from 'node:stream/promises'
 import multer from 'multer'
 import path from 'node:path'
 import {
@@ -30,9 +32,9 @@ import {
   ensureStorage,
   persistSessions,
   queuePageView,
-  readAnalyticsRows,
   readAnalyticsRegionStats,
-  readArticles,
+  readAnalyticsTotals,
+  readArticleSummaries,
   readFriends,
   readHomeProfile,
   readMusicTracks,
@@ -115,7 +117,7 @@ function parseProjectInput(value: unknown): ProjectFields | null {
 
 async function fingerprintFile(filePath: string) {
   const hash = crypto.createHash('sha256')
-  hash.update(await fs.readFile(filePath))
+  await pipeline(createReadStream(filePath), hash)
   return hash.digest('hex')
 }
 
@@ -156,6 +158,17 @@ setInterval(() => {
   if (removed) void persistSessions(sessions).catch((error: unknown) => console.error('Could not persist admin sessions:', error))
 }, 60 * 60 * 1000).unref()
 
+// Runs authenticated content changes one at a time so concurrent read-modify-write
+// requests on the JSON data files cannot overwrite each other.
+let contentWriteQueue: Promise<void> = Promise.resolve()
+const serializeContentWrites: express.RequestHandler = (request, response, next) => {
+  if (request.method === 'GET' || request.method === 'HEAD' || !isAuthenticated(request)) { next(); return }
+  const previous = contentWriteQueue
+  const finished = new Promise<void>((resolve) => response.once('close', resolve))
+  contentWriteQueue = previous.then(() => finished)
+  void previous.then(() => { if (!response.writableEnded && !request.destroyed) next() })
+}
+
 const app = express()
 app.disable('x-powered-by')
 app.use((_request, response, next) => {
@@ -174,7 +187,9 @@ app.use('/api', (_request, response, next) => {
   response.setHeader('Cache-Control', 'no-store')
   next()
 })
-app.use('/uploads', express.static(uploadsDirectory))
+// Uploaded files get a random name per upload, so their URLs never change content.
+app.use('/uploads', express.static(uploadsDirectory, { maxAge: '365d', immutable: true, index: false }))
+app.use(['/api/admin', '/api/articles'], serializeContentWrites)
 app.use('/api/articles', articleRoutes)
 app.use('/api', publicRoutes)
 
@@ -458,7 +473,7 @@ app.post('/api/analytics/view', requireSameOrigin, async (request, response) => 
     return
   }
   if (articleId) {
-    const articles = await readArticles()
+    const articles = await readArticleSummaries()
     if (!articles.some((article) => article.id === articleId)) {
       response.status(404).json({ message: 'Article not found.' })
       return
@@ -490,38 +505,27 @@ app.get('/api/admin/analytics', requireAuthentication, async (request, response)
   const currentStartDay = currentStart.toISOString().slice(0, 10)
   const previousStartDay = previousStart.toISOString().slice(0, 10)
   const todayDay = today.toISOString().slice(0, 10)
-  const rows = await readAnalyticsRows()
-  const regionStats = await readAnalyticsRegionStats(currentStartDay, todayDay)
-  const pageTotals = new Map<AnalyticsPage, number>()
-  const articleTotals = new Map<string, number>()
+  const [totals, regionStats, articles] = await Promise.all([
+    readAnalyticsTotals(currentStartDay, todayDay, previousStartDay),
+    readAnalyticsRegionStats(currentStartDay, todayDay),
+    readArticleSummaries(),
+  ])
   const sourceTotals: Record<AnalyticsSource, number> = { direct: 0, search: 0, social: 0, referral: 0 }
   const deviceTotals: Record<AnalyticsDevice, number> = { mobile: 0, tablet: 0, desktop: 0 }
-  const dailyTotals = new Map<string, number>()
-  let totalViews = 0
-  let previousViews = 0
-  for (const row of rows) {
-    if (row.day >= currentStartDay && row.day <= todayDay) {
-      totalViews += row.views
-      dailyTotals.set(row.day, (dailyTotals.get(row.day) ?? 0) + row.views)
-      pageTotals.set(row.page, (pageTotals.get(row.page) ?? 0) + row.views)
-      deviceTotals[row.device] += row.views
-      if (row.articleId) articleTotals.set(row.articleId, (articleTotals.get(row.articleId) ?? 0) + row.views)
-      if (row.source) sourceTotals[row.source] += row.views
-    } else if (row.day >= previousStartDay && row.day < currentStartDay) previousViews += row.views
-  }
+  for (const { key, views } of totals.sources) if (key) sourceTotals[key] += views
+  for (const { key, views } of totals.devices) deviceTotals[key] += views
+  const dailyTotals = new Map(totals.daily.map(({ key, views }) => [key, views]))
+  const totalViews = totals.daily.reduce((total, { views }) => total + views, 0)
+  const previousViews = totals.previousViews
   const labels: Record<AnalyticsPage, string> = { home: '首頁', about: '關於', projects: '作品', blog: 'Blog', article: '文章閱讀', contact: '聯絡', friends: '友站' }
   const daily = Array.from({ length: days }, (_unused, index) => {
     const date = new Date(currentStart.getTime() + index * 86_400_000)
     const day = date.toISOString().slice(0, 10)
     return { day, views: dailyTotals.get(day) ?? 0 }
   })
-  const topPages = [...pageTotals.entries()].map(([page, views]) => ({ page, label: labels[page], views })).sort((first, second) => second.views - first.views)
-  const articles = await readArticles()
+  const topPages = totals.pages.map(({ key: page, views }) => ({ page, label: labels[page], views })).sort((first, second) => second.views - first.views)
   const articleById = new Map(articles.map((article) => [article.id, article]))
-  const topArticles = [...articleTotals.entries()].map(([id, views]) => {
-    const article = articleById.get(id)
-    return { id, title: article?.title ?? '已刪除文章', views }
-  }).sort((first, second) => second.views - first.views).slice(0, 10)
+  const topArticles = totals.topArticles.map(({ key: id, views }) => ({ id, title: articleById.get(id)?.title ?? '已刪除文章', views }))
   response.json({ days, totalViews, previousViews, ...regionStats, daily, topPages, topArticles, sources: sourceTotals, devices: deviceTotals })
 })
 

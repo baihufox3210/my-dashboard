@@ -11,6 +11,12 @@ export type Article = {
   updatedAt?: string
 }
 
+// Article list entries omit the Markdown body; load it with fetchArticle when needed.
+export type ArticleSummary = Omit<Article, 'content'> & {
+  excerpt: string
+  wordCount: number
+}
+
 export type ArticleStats = {
   articleCount: number
   categoryCount: number

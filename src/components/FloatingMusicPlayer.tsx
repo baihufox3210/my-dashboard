@@ -1,10 +1,23 @@
 import { useEffect, useRef, useState } from 'react'
 import useEscapeKey from './useEscapeKey'
-import { useMusicPlayer } from './MusicPlayerContext'
+import { formatMusicTime, useMusicPlayer, useMusicProgress } from './MusicPlayerContext'
 
-function formatTime(seconds: number) {
-  if (!Number.isFinite(seconds)) return '0:00'
-  return `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`
+function FloatingMusicProgress({ open, seek }: { open: boolean; seek: (value: number) => void }) {
+  const { progress, duration } = useMusicProgress()
+  return <>
+    <input
+      className="floating-music-progress"
+      type="range"
+      min="0"
+      max={duration || 0}
+      step="0.1"
+      value={Math.min(progress, duration || 0)}
+      onChange={(event) => seek(Number(event.target.value))}
+      aria-label="音樂播放進度"
+      tabIndex={open ? 0 : -1}
+    />
+    <div className="floating-music-times"><span>{formatMusicTime(progress)}</span><span>{formatMusicTime(duration)}</span></div>
+  </>
 }
 
 function FloatingMusicPlayer({ isHome }: { isHome: boolean }) {
@@ -12,8 +25,6 @@ function FloatingMusicPlayer({ isHome }: { isHome: boolean }) {
     tracks,
     currentTrackIndex,
     isPlaying,
-    progress,
-    duration,
     toggle,
     changeTrack,
     seek,
@@ -60,18 +71,7 @@ function FloatingMusicPlayer({ isHome }: { isHome: boolean }) {
         </div>
         <button type="button" aria-label="關閉音樂播放器" onClick={() => setOpen(false)}>×</button>
       </header>
-      <input
-        className="floating-music-progress"
-        type="range"
-        min="0"
-        max={duration || 0}
-        step="0.1"
-        value={Math.min(progress, duration || 0)}
-        onChange={(event) => seek(Number(event.target.value))}
-        aria-label="音樂播放進度"
-        tabIndex={open ? 0 : -1}
-      />
-      <div className="floating-music-times"><span>{formatTime(progress)}</span><span>{formatTime(duration)}</span></div>
+      <FloatingMusicProgress open={open} seek={seek} />
       <div className="floating-music-controls">
         <button type="button" onClick={() => changeTrack(-1)} aria-label="上一首" tabIndex={open ? 0 : -1}>◀</button>
         <button type="button" className="floating-music-play" onClick={toggle} aria-label={isPlaying ? '暫停播放' : '播放'} tabIndex={open ? 0 : -1}>{isPlaying ? 'Ⅱ' : '▶'}</button>
