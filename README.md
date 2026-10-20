@@ -117,4 +117,4 @@ Vite 開發伺服器提供前端，並將 `/api` 與 `/uploads` 請求代理至 
 
 為避免濫用，同一 IP 每分鐘最多記錄 60 次瀏覽。若 API 位於反向代理之後，必須設定 `TRUSTED_PROXY_IP`，伺服器才會採用代理提供的 `X-Real-IP`，否則記錄到的會是代理本身的位址。
 
-如需地區彙總統計，請只信任實際連線到 API 的反向代理：設定 `TRUSTED_PROXY_IP`，並由該代理提供 `CF-IPCountry`／`CF-Region` 或 `X-Geo-Country`／`X-Geo-Region` 標頭。伺服器不會保存來源 IP，也不會呼叫第三方 IP 查詢服務。`SITE_START_DATE` 可設定網站啟用日期；未設定時會以伺服器啟動時間作為預設值。`DATA_DIR` 與 `UPLOADS_DIR` 可改變資料與上傳檔的存放位置（預設為 `data/` 與 `public/uploads/`）。
+正式環境請設定 `TRUSTED_PROXY_IP` 為實際連線到 API 的反向代理位址：伺服器只會採用該代理提供的 `X-Real-IP` 與地區標頭，其他來源的同名標頭一律忽略。地區由本機資料庫判斷，伺服器不會呼叫第三方 IP 查詢服務。`SITE_START_DATE` 可設定網站啟用日期；未設定時會以伺服器啟動時間作為預設值。`DATA_DIR` 與 `UPLOADS_DIR` 可改變資料與上傳檔的存放位置（預設為 `data/` 與 `public/uploads/`）。
