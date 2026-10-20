@@ -1,9 +1,9 @@
 import crypto from 'node:crypto'
 import { Router } from 'express'
 import type { Article } from '../types.js'
-import { recordActivity, readArticles, writeArticles } from '../storage.js'
+import { recordActivity, readArticleSummaries, readArticles, summarizeArticle, writeArticles } from '../storage.js'
 import { requireAuthentication, requireSameOrigin } from '../security.js'
-import { upload, validateUploadedImages, removeProjectUploads } from '../uploads.js'
+import { upload, validateUploadedImages, removeProjectUploads, removeUnusedUploads } from '../uploads.js'
 
 const router = Router()
 
@@ -38,8 +38,16 @@ function parseTags(tags: string | undefined) {
 }
 
 router.get('/', async (_request, response) => {
-  const articles = await readArticles()
-  response.json(articles.sort((first, second) => second.publishedAt.localeCompare(first.publishedAt)))
+  response.json(await readArticleSummaries())
+})
+
+router.get('/:id', async (request, response) => {
+  const article = (await readArticles()).find((entry) => entry.id === request.params.id)
+  if (!article) {
+    response.status(404).json({ message: 'Article not found.' })
+    return
+  }
+  response.json(article)
 })
 
 router.post('/', requireSameOrigin, requireAuthentication, upload.single('coverImage'), validateUploadedImages, async (request, response) => {
@@ -67,7 +75,7 @@ router.post('/', requireSameOrigin, requireAuthentication, upload.single('coverI
   const articles = await readArticles()
   await writeArticles([article, ...articles])
   await recordActivity({ at: now, type: 'article', action: 'published', title: article.title })
-  response.status(201).json(article)
+  response.status(201).json({ ...summarizeArticle(article), content: article.content })
 })
 
 router.put('/:id', requireSameOrigin, requireAuthentication, upload.single('coverImage'), validateUploadedImages, async (request, response) => {
@@ -107,8 +115,9 @@ router.put('/:id', requireSameOrigin, requireAuthentication, upload.single('cove
 
   articles[articleIndex] = updatedArticle
   await writeArticles(articles)
+  if (request.file) await removeUnusedUploads(existingArticle.coverImage)
   await recordActivity({ at: now, type: 'article', action: 'updated', title: updatedArticle.title })
-  response.json(updatedArticle)
+  response.json({ ...summarizeArticle(updatedArticle), content: updatedArticle.content })
 })
 
 router.delete('/:id', requireSameOrigin, requireAuthentication, async (request, response) => {
@@ -120,6 +129,7 @@ router.delete('/:id', requireSameOrigin, requireAuthentication, async (request, 
   }
 
   await writeArticles(articles.filter((entry) => entry.id !== request.params.id))
+  await removeUnusedUploads(article.coverImage)
   await recordActivity({ at: new Date().toISOString(), type: 'article', action: 'deleted', title: article.title })
   response.status(204).end()
 })

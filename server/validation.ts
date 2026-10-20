@@ -11,10 +11,6 @@ export function isSafeSocialUrl(value: string) {
   }
 }
 
-export function countWords(content: string) {
-  return content.trim() ? content.trim().split(/\s+/u).length : 0
-}
-
 export function getAnalyticsDevice(userAgent: string) {
   if (/ipad|tablet/i.test(userAgent)) return 'tablet' as const
   if (/mobile|iphone|ipod|android/i.test(userAgent)) return 'mobile' as const

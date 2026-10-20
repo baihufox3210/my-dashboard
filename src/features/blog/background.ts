@@ -130,10 +130,35 @@ function applyPalette(paletteName: PaletteName, dark: boolean) {
   document.documentElement.style.setProperty('--theme-page-base', pageBase)
 }
 
+const paletteCacheKey = 'site-background-palette'
+
+type CachedPalette = { url: string; palette: PaletteName; dark: boolean }
+
+function readCachedPalette(url: string) {
+  try {
+    const cached = JSON.parse(localStorage.getItem(paletteCacheKey) ?? 'null') as CachedPalette | null
+    return cached?.url === url && cached.palette in paletteColors ? cached : null
+  } catch {
+    return null
+  }
+}
+
+function writeCachedPalette(value: CachedPalette) {
+  try { localStorage.setItem(paletteCacheKey, JSON.stringify(value)) } catch { /* storage unavailable */ }
+}
+
 function applyBackgroundContrast(imageUrl?: string): Promise<void> {
   const requestId = ++contrastRequest
   if (!imageUrl) {
     resetThemeColors()
+    return Promise.resolve()
+  }
+
+  // Uploaded backgrounds get a new URL whenever they change, so a palette computed
+  // for a URL stays valid and the image does not need to be downloaded again.
+  const cached = readCachedPalette(imageUrl)
+  if (cached) {
+    applyPalette(cached.palette, cached.dark)
     return Promise.resolve()
   }
 
@@ -200,7 +225,10 @@ function applyBackgroundContrast(imageUrl?: string): Promise<void> {
         const averageBlue = Math.round(blue / weight)
         const dominant = [...buckets.values()].sort((first, second) => second.count - first.count)[0]
           ?? { red: averageRed, green: averageGreen, blue: averageBlue }
-        applyPalette(getPaletteName(dominant.red, dominant.green, dominant.blue), averageLuminance < 145)
+        const palette = getPaletteName(dominant.red, dominant.green, dominant.blue)
+        const dark = averageLuminance < 145
+        applyPalette(palette, dark)
+        writeCachedPalette({ url: imageUrl, palette, dark })
       } catch {
         resetThemeColors()
       }

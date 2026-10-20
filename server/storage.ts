@@ -1,6 +1,6 @@
 import crypto from 'node:crypto'
 import fs from 'node:fs/promises'
-import { DatabaseSync } from 'node:sqlite'
+import { DatabaseSync, type StatementSync } from 'node:sqlite'
 import {
   activityFile,
   analyticsDatabaseFile,
@@ -36,8 +36,30 @@ let sessionWriteQueue: Promise<void> = Promise.resolve()
 let analyticsWriteQueue: Promise<void> = Promise.resolve()
 let activityWriteQueue: Promise<void> = Promise.resolve()
 let analyticsDatabase: DatabaseSync | undefined
+let lastAnalyticsPruneDay = ''
+let pageViewStatements: { page: StatementSync; region: StatementSync } | undefined
 
 type AtomicWriteOptions = { mode?: number; pretty?: boolean }
+
+// Parsed JSON keyed by file and validated against mtime/size, so repeated reads skip
+// disk I/O and parsing while manual edits to data files are still picked up.
+// Cached values are shared: readers below return copies and callers must not mutate items.
+const jsonCache = new Map<string, { mtimeMs: number; size: number; value: unknown }>()
+
+async function readJsonFile<T>(file: string, missing?: () => T): Promise<T> {
+  let stat
+  try {
+    stat = await fs.stat(file)
+  } catch (error) {
+    if (missing && (error as NodeJS.ErrnoException).code === 'ENOENT') return missing()
+    throw error
+  }
+  const cached = jsonCache.get(file)
+  if (cached && cached.mtimeMs === stat.mtimeMs && cached.size === stat.size) return cached.value as T
+  const value = JSON.parse(await fs.readFile(file, 'utf8')) as T
+  jsonCache.set(file, { mtimeMs: stat.mtimeMs, size: stat.size, value })
+  return value
+}
 
 export async function writeJsonAtomically(file: string, value: unknown, options: AtomicWriteOptions = {}) {
   const temporaryFile = `${file}.${crypto.randomUUID()}.tmp`
@@ -49,6 +71,7 @@ export async function writeJsonAtomically(file: string, value: unknown, options:
       ...(options.mode === undefined ? {} : { mode: options.mode }),
     })
     await fs.rename(temporaryFile, file)
+    jsonCache.delete(file)
     if (options.mode !== undefined) await fs.chmod(file, options.mode)
   } catch (error) {
     await fs.unlink(temporaryFile).catch(() => undefined)
@@ -182,8 +205,42 @@ export async function ensureStorage(sessions: Map<string, number>) {
   }
 }
 
+export type ArticleSummary = Omit<Article, 'content'> & { excerpt: string; wordCount: number }
+
+const articleSummaryCache = new WeakMap<Article[], ArticleSummary[]>()
+
+function countWords(content: string) {
+  return content.trim() ? content.trim().split(/\s+/u).length : 0
+}
+
+function articleExcerpt(content: string) {
+  return content
+    .replace(/\|\|[\s\S]+?\|\|/g, '▒▒▒')
+    .replace(/[#*`>_[\]!~]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 200)
+}
+
+export function summarizeArticle({ content, ...article }: Article): ArticleSummary {
+  return { ...article, excerpt: articleExcerpt(content), wordCount: countWords(content) }
+}
+
+const loadArticles = () => readJsonFile<Article[]>(articlesFile)
+
 export async function readArticles(): Promise<Article[]> {
-  return JSON.parse(await fs.readFile(articlesFile, 'utf8')) as Article[]
+  return [...await loadArticles()]
+}
+
+// Newest first, without article bodies; recomputed only when the articles file changes.
+export async function readArticleSummaries(): Promise<ArticleSummary[]> {
+  const articles = await loadArticles()
+  let summaries = articleSummaryCache.get(articles)
+  if (!summaries) {
+    summaries = articles.map(summarizeArticle).sort((first, second) => second.publishedAt.localeCompare(first.publishedAt))
+    articleSummaryCache.set(articles, summaries)
+  }
+  return summaries
 }
 
 export async function writeArticles(articles: Article[]) {
@@ -191,8 +248,7 @@ export async function writeArticles(articles: Article[]) {
 }
 
 export async function readFriends(): Promise<Friend[]> {
-  try { return JSON.parse(await fs.readFile(friendsFile, 'utf8')) as Friend[] }
-  catch (error) { if ((error as NodeJS.ErrnoException).code === 'ENOENT') return []; throw error }
+  return [...await readJsonFile<Friend[]>(friendsFile, () => [])]
 }
 
 export async function writeFriends(friends: Friend[]) {
@@ -200,8 +256,7 @@ export async function writeFriends(friends: Friend[]) {
 }
 
 export async function readProjects(): Promise<Project[]> {
-  try { return JSON.parse(await fs.readFile(projectsFile, 'utf8')) as Project[] }
-  catch (error) { if ((error as NodeJS.ErrnoException).code === 'ENOENT') return []; throw error }
+  return [...await readJsonFile<Project[]>(projectsFile, () => [])]
 }
 
 export async function writeProjects(projects: Project[]) {
@@ -227,13 +282,8 @@ function normalizeMusicTrack(track: MusicTrack): MusicTrack {
 }
 
 export async function readMusicTracks(): Promise<MusicTrack[]> {
-  try {
-    const tracks = JSON.parse(await fs.readFile(musicFile, 'utf8')) as MusicTrack[]
-    return tracks.filter((track) => track && typeof track.id === 'string' && typeof track.fileUrl === 'string').map(normalizeMusicTrack).sort((first, second) => first.order - second.order)
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return []
-    throw error
-  }
+  const tracks = await readJsonFile<MusicTrack[]>(musicFile, () => [])
+  return tracks.filter((track) => track && typeof track.id === 'string' && typeof track.fileUrl === 'string').map(normalizeMusicTrack).sort((first, second) => first.order - second.order)
 }
 
 export async function writeMusicTracks(tracks: MusicTrack[]) {
@@ -241,7 +291,7 @@ export async function writeMusicTracks(tracks: MusicTrack[]) {
 }
 
 export async function readSiteSettings(): Promise<SiteSettings> {
-  const settings = JSON.parse(await fs.readFile(siteSettingsFile, 'utf8')) as Partial<SiteSettings>
+  const settings = await readJsonFile<Partial<SiteSettings>>(siteSettingsFile)
   return {
     ...defaultSiteSettings,
     ...settings,
@@ -255,7 +305,7 @@ export async function writeSiteSettings(settings: SiteSettings) {
 }
 
 export async function readHomeProfile(): Promise<HomeProfile> {
-  return { ...defaultHomeProfile, ...(JSON.parse(await fs.readFile(homeProfileFile, 'utf8')) as Partial<HomeProfile>) }
+  return { ...defaultHomeProfile, ...await readJsonFile<Partial<HomeProfile>>(homeProfileFile) }
 }
 
 export async function writeHomeProfile(profile: HomeProfile) {
@@ -266,26 +316,31 @@ export async function queuePageView(page: AnalyticsPage, device: AnalyticsDevice
   const day = new Date().toISOString().slice(0, 10)
   const operation = analyticsWriteQueue.then(() => {
     const database = getAnalyticsDatabase()
-    database.exec('BEGIN')
-    try {
-      database.prepare(`
+    pageViewStatements ??= {
+      page: database.prepare(`
         INSERT INTO analytics_page_views (day, page, device, article_id, source, views)
         VALUES (?, ?, ?, ?, ?, 1)
         ON CONFLICT(day, page, device, article_id, source)
         DO UPDATE SET views = analytics_page_views.views + 1
-      `).run(day, page, device, articleId ?? '', source ?? '')
-      if (region) {
-        database.prepare(`
-          INSERT INTO analytics_region_views (day, country, region, views)
-          VALUES (?, ?, ?, 1)
-          ON CONFLICT(day, country, region)
-          DO UPDATE SET views = analytics_region_views.views + 1
-        `).run(day, region.country, region.region)
+      `),
+      region: database.prepare(`
+        INSERT INTO analytics_region_views (day, country, region, views)
+        VALUES (?, ?, ?, 1)
+        ON CONFLICT(day, country, region)
+        DO UPDATE SET views = analytics_region_views.views + 1
+      `),
+    }
+    database.exec('BEGIN')
+    try {
+      pageViewStatements.page.run(day, page, device, articleId ?? '', source ?? '')
+      if (region) pageViewStatements.region.run(day, region.country, region.region)
+      if (lastAnalyticsPruneDay !== day) {
+        const cutoff = new Date(Date.now() - 120 * 86_400_000).toISOString().slice(0, 10)
+        database.prepare('DELETE FROM analytics_page_views WHERE day < ?').run(cutoff)
+        database.prepare('DELETE FROM analytics_region_views WHERE day < ?').run(cutoff)
       }
-      const cutoff = new Date(Date.now() - 120 * 86_400_000).toISOString().slice(0, 10)
-      database.prepare('DELETE FROM analytics_page_views WHERE day < ?').run(cutoff)
-      database.prepare('DELETE FROM analytics_region_views WHERE day < ?').run(cutoff)
       database.exec('COMMIT')
+      lastAnalyticsPruneDay = day
     } catch (error) {
       database.exec('ROLLBACK')
       throw error
@@ -321,20 +376,33 @@ export async function readAnalyticsRegionStats(startDay: string, endDay: string)
   return { regionCount: count.regions ?? 0, topRegions: totals }
 }
 
-export async function readAnalyticsRows(): Promise<AnalyticsRow[]> {
-  const rows = getAnalyticsDatabase().prepare(`
-    SELECT day, page, device, article_id, source, views
+// Aggregates page views for [startDay, endDay] in SQLite and counts views in [previousStartDay, startDay).
+export async function readAnalyticsTotals(startDay: string, endDay: string, previousStartDay: string) {
+  const database = getAnalyticsDatabase()
+  const range = [startDay, endDay] as const
+  const grouped = <T>(column: string) => database.prepare(`
+    SELECT ${column} AS key, SUM(views) AS views
     FROM analytics_page_views
-    ORDER BY day ASC
-  `).all() as Array<{ day: string; page: AnalyticsPage; device: AnalyticsDevice; article_id: string; source: AnalyticsSource; views: number }>
-  return rows.map((row) => ({
-    day: row.day,
-    page: row.page,
-    device: row.device,
-    views: row.views,
-    ...(row.article_id ? { articleId: row.article_id } : {}),
-    ...(row.source ? { source: row.source } : {}),
-  }))
+    WHERE day >= ? AND day <= ?
+    GROUP BY ${column}
+  `).all(...range) as Array<{ key: T; views: number }>
+  const previous = database.prepare('SELECT SUM(views) AS views FROM analytics_page_views WHERE day >= ? AND day < ?').get(previousStartDay, startDay) as { views: number | null }
+  const topArticles = database.prepare(`
+    SELECT article_id AS key, SUM(views) AS views
+    FROM analytics_page_views
+    WHERE day >= ? AND day <= ? AND article_id != ''
+    GROUP BY article_id
+    ORDER BY views DESC
+    LIMIT 10
+  `).all(...range) as Array<{ key: string; views: number }>
+  return {
+    daily: grouped<string>('day'),
+    pages: grouped<AnalyticsPage>('page'),
+    devices: grouped<AnalyticsDevice>('device'),
+    sources: grouped<AnalyticsSource | ''>('source'),
+    topArticles,
+    previousViews: previous.views ?? 0,
+  }
 }
 
 export function recordActivity(entry: ActivityEntry) {

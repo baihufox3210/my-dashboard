@@ -24,6 +24,8 @@ function App() {
       document.body.classList.remove('site-background-loading')
       setBackgroundReady(true)
     }
+    // Never hold the first paint for long on a slow background download.
+    const revealTimer = window.setTimeout(reveal, 1500)
     fetchSiteSettings()
       .then(async (loaded) => {
         settings = loaded
@@ -34,6 +36,7 @@ function App() {
     window.addEventListener('resize', syncBackground)
     return () => {
       active = false
+      window.clearTimeout(revealTimer)
       document.body.classList.remove('site-background-loading')
       window.removeEventListener('resize', syncBackground)
     }

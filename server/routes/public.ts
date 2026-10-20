@@ -1,8 +1,8 @@
 import os from 'node:os'
 import { Router } from 'express'
 import { siteStartDate } from '../config.js'
-import { readArticles, readFriends, readHomeProfile, readMusicTracks, readProjects, readSiteSettings } from '../storage.js'
-import { countWords, daysSince } from '../validation.js'
+import { readArticleSummaries, readFriends, readHomeProfile, readMusicTracks, readProjects, readSiteSettings } from '../storage.js'
+import { daysSince } from '../validation.js'
 
 const router = Router()
 
@@ -19,7 +19,7 @@ router.get('/friends', async (_request, response) => response.json(await readFri
 router.get('/music', async (_request, response) => response.json(await readMusicTracks()))
 
 router.get('/server-status', async (_request, response) => {
-  const [articles, projects, music] = await Promise.all([readArticles(), readProjects(), readMusicTracks()])
+  const [articles, projects, music] = await Promise.all([readArticleSummaries(), readProjects(), readMusicTracks()])
   const activityTimes = [
     ...articles.map((item) => item.updatedAt ?? item.publishedAt),
     ...projects.map((item) => item.updatedAt ?? item.publishedAt),
@@ -35,11 +35,11 @@ router.get('/projects', async (_request, response) => {
 })
 
 router.get('/stats', async (_request, response) => {
-  const articles = await readArticles()
+  const articles = await readArticleSummaries()
   const tags = new Set(articles.flatMap((article) => article.tags))
   const categories = new Set(articles.map((article) => article.category).filter(Boolean))
-  const totalWords = articles.reduce((total, article) => total + countWords(article.content), 0)
-  const latestArticle = [...articles].sort((first, second) => second.publishedAt.localeCompare(first.publishedAt))[0]
+  const totalWords = articles.reduce((total, article) => total + article.wordCount, 0)
+  const latestArticle = articles[0]
 
   response.json({
     articleCount: articles.length,

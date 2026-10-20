@@ -1,11 +1,11 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import ArticleReader from '../components/ArticleReader'
 import MarkdownPreview from '../components/MarkdownPreview'
 import FileDropzone from '../components/FileDropzone'
 import ConfirmDialog from '../components/ConfirmDialog'
 import UiIcon from '../components/UiIcon'
-import useEscapeKey from '../components/useEscapeKey'
-import { deleteArticle, fetchAdminSession, fetchArticleStats, fetchArticles, publishArticle, recordPageView, updateArticle } from '../features/blog/api'
-import type { Article, ArticleStats } from '../features/blog/article'
+import { deleteArticle, fetchAdminSession, fetchArticle, fetchArticleStats, fetchArticles, publishArticle, recordPageView, updateArticle } from '../features/blog/api'
+import type { ArticleStats, ArticleSummary } from '../features/blog/article'
 import { getPublicPath, getRouteSegments } from '../routes/routes'
 
 function measureArticleCoverAspectRatio(articleId?: string) {
@@ -42,11 +42,10 @@ const emptyStats: ArticleStats = {
 }
 
 function BlogPage() {
-  const [articles, setArticles] = useState<Article[]>([])
+  const [articles, setArticles] = useState<ArticleSummary[]>([])
   const [stats, setStats] = useState<ArticleStats>(emptyStats)
-  const [selectedArticle, setSelectedArticle] = useState<Article | null>(null)
-  const [articleToDelete, setArticleToDelete] = useState<Article | null>(null)
-  useEscapeKey(Boolean(selectedArticle), () => setSelectedArticle(null), 10)
+  const [selectedArticle, setSelectedArticle] = useState<ArticleSummary | null>(null)
+  const [articleToDelete, setArticleToDelete] = useState<ArticleSummary | null>(null)
   const [currentTime] = useState(() => Date.now())
   const [isAdmin, setIsAdmin] = useState(false)
   const [adminMessage, setAdminMessage] = useState('')
@@ -70,23 +69,18 @@ function BlogPage() {
     if (selectedArticle && !isAdmin) void recordPageView('article', { articleId: selectedArticle.id })
   }, [selectedArticle, isAdmin])
 
-  const recentArticles = articles.filter((article) => {
+  const recentArticles = useMemo(() => articles.filter((article) => {
     const publishedAt = new Date(article.publishedAt).getTime()
     return currentTime - publishedAt <= 7 * 86_400_000
-  })
+  }), [articles, currentTime])
   const visibleRecentArticles = recentArticles.slice(0, 4)
   const recentArticlePlaceholders = Math.max(0, 5 - visibleRecentArticles.length)
 
-  const tagCounts = articles.reduce<Record<string, number>>((counts, article) => {
-    article.tags.forEach((tag) => {
-      counts[tag] = (counts[tag] ?? 0) + 1
-    })
-    return counts
-  }, {})
-
-  const popularTags = Object.entries(tagCounts)
-    .sort((first, second) => second[1] - first[1])
-    .slice(0, 5)
+  const popularTags = useMemo(() => {
+    const tagCounts = new Map<string, number>()
+    for (const article of articles) for (const tag of article.tags) tagCounts.set(tag, (tagCounts.get(tag) ?? 0) + 1)
+    return [...tagCounts].sort((first, second) => second[1] - first[1]).slice(0, 5)
+  }, [articles])
 
   useEffect(() => {
     Promise.all([fetchArticles(), fetchArticleStats(), fetchAdminSession()])
@@ -99,7 +93,9 @@ function BlogPage() {
   }, [])
 
   useEffect(() => {
+    let syncRequest = 0
     const sync = () => {
+      const request = ++syncRequest
       const [, action, rawId] = getRouteSegments()
       if (action !== 'new' && action !== 'edit') { setEditor(null); return }
       if (!isAdmin) return
@@ -110,17 +106,26 @@ function BlogPage() {
       setDraftTitle(article?.title ?? '')
       setDraftCategory(article?.category ?? '')
       setDraftTags(article?.tags.join(', ') ?? '')
-      setDraftContent(article?.content ?? '')
+      setDraftContent('')
       setDraftCover(null)
       setDraftCoverPosition(article?.coverImagePosition ?? '50% 50%')
       setDraftCoverScale(article?.coverImageScale ?? 1)
       setDraftPreview(false)
       setAdminMessage('')
+      // The list only carries summaries; load the body before editing is allowed.
+      setDraftBusy(Boolean(article))
+      if (article) {
+        fetchArticle(article)
+          .then((full) => { if (request === syncRequest) setDraftContent(full.content) })
+          .catch(() => { if (request === syncRequest) setAdminMessage('文章內容載入失敗，請重新整理後再試。') })
+          .finally(() => { if (request === syncRequest) setDraftBusy(false) })
+      }
     }
     sync()
     window.addEventListener('popstate', sync)
     window.addEventListener('hashchange', sync)
     return () => {
+      syncRequest += 1
       window.removeEventListener('popstate', sync)
       window.removeEventListener('hashchange', sync)
     }
@@ -265,19 +270,7 @@ function BlogPage() {
                 <span>
                   <small>{article.category} · {new Date(article.publishedAt).toLocaleDateString()}</small>
                   <strong>{article.title}</strong>
-                  <p>
-                    {article.content
-                      .replaceAll('#', '')
-                      .replaceAll('*', '')
-                      .replaceAll('`', '')
-                      .replaceAll('>', '')
-                      .replaceAll('[', '')
-                      .replaceAll(']', '')
-                      .replaceAll('!', '')
-                      .replaceAll('_', '')
-                      .replaceAll('~', '')
-                      .slice(0, 110)}...
-                  </p>
+                  <p>{article.excerpt.slice(0, 110)}...</p>
                   <em>{article.tags.map((tag) => `#${tag}`).join(' ')}</em>
                 </span>
               </button>
@@ -331,28 +324,17 @@ function BlogPage() {
       </section>
 
       {selectedArticle && (
-        <div className="project-modal-backdrop article-reader-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setSelectedArticle(null) }}>
-          <article className="project-detail-modal article-reader" role="dialog" aria-modal="true" aria-labelledby="article-reader-title">
-            <header className="project-detail-header">
-              <p>{selectedArticle.category || 'BLOG POST'} <span>///</span> {new Date(selectedArticle.publishedAt).toLocaleDateString()}</p>
-              <button type="button" className="modal-close-button" aria-label="關閉文章" onClick={() => setSelectedArticle(null)}>×</button>
-            </header>
-            {selectedArticle.coverImage && <img className="project-detail-cover" src={selectedArticle.coverImage} alt="" style={{ objectPosition: selectedArticle.coverImagePosition ?? '50% 50%', transform: `scale(${selectedArticle.coverImageScale ?? 1})` }} />}
-            <h2 id="article-reader-title">{selectedArticle.title}</h2>
-            <div className="project-detail-content article-reader-content">
-              <MarkdownPreview content={selectedArticle.content} />
-            </div>
-            {isAdmin && (
-              <footer className="project-detail-actions">
-                <div className="project-detail-admin-actions">
-                  <a className="ui-button ui-button-secondary" href={`${getPublicPath('blog')}/edit/${encodeURIComponent(selectedArticle.id)}`}><UiIcon name="edit" />編輯</a>
-                  <button type="button" className="ui-button ui-button-danger" onClick={() => setArticleToDelete(selectedArticle)}><UiIcon name="trash" />刪除</button>
-                </div>
-              </footer>
-            )}
-            {adminMessage && <p className="error-message">{adminMessage}</p>}
-          </article>
-        </div>
+        <ArticleReader article={selectedArticle} onClose={() => setSelectedArticle(null)}>
+          {isAdmin && (
+            <footer className="project-detail-actions">
+              <div className="project-detail-admin-actions">
+                <a className="ui-button ui-button-secondary" href={`${getPublicPath('blog')}/edit/${encodeURIComponent(selectedArticle.id)}`}><UiIcon name="edit" />編輯</a>
+                <button type="button" className="ui-button ui-button-danger" onClick={() => setArticleToDelete(selectedArticle)}><UiIcon name="trash" />刪除</button>
+              </div>
+            </footer>
+          )}
+          {adminMessage && <p className="error-message">{adminMessage}</p>}
+        </ArticleReader>
       )}
       {isAdmin && <a className="ui-button ui-button-primary ui-button-floating" href={`${getPublicPath('blog')}/new`}><UiIcon name="plus" />撰寫文章</a>}
       <ConfirmDialog
