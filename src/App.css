@@ -1687,7 +1687,7 @@ body.menu-open {
 .admin-traffic-card-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .admin-traffic-card-heading h3 { margin: 0; color: var(--theme-card-ink); font-size: 13px; }
 .admin-traffic-card-heading p { margin: 5px 0 0; color: var(--theme-muted); font-size: 10px; }
-.admin-traffic-card-heading > strong { color: var(--theme-card-ink); font-size: 16px; }
+.admin-traffic-card-heading > strong { color: var(--theme-card-ink); font-size: 16px; white-space: nowrap; }
 .admin-traffic-card-heading > strong small { color: var(--theme-muted); font-size: 10px; font-weight: 500; }
 .admin-traffic-chart { display: flex; align-items: stretch; gap: 5px; height: 178px; margin-top: 15px; padding: 4px 0 0; border-bottom: 1px solid var(--theme-line); }
 .admin-chart-column { display: flex; position: relative; min-width: 0; flex: 1; flex-direction: column; align-items: center; justify-content: flex-end; }
@@ -1724,6 +1724,30 @@ body.menu-open {
 .admin-region-count { color: var(--theme-card-ink); font-size: 11px; text-align: right; white-space: nowrap; }
 .admin-region-count small { color: var(--theme-muted); font-size: 10px; font-weight: 500; }
 .admin-analytics-note { margin: -5px 0 0; color: var(--theme-muted); font-size: 10px; line-height: 1.6; }
+.admin-traffic-split { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 16px; }
+.admin-traffic-split .admin-top-pages-list > div { grid-template-columns: 30px minmax(0,1fr) minmax(60px,.8fr) 70px; }
+.admin-traffic-split .admin-top-pages-list strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.admin-hourly-chart { gap: 3px; }
+.admin-table-scroll { margin-top: 14px; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.admin-traffic-table { width: 100%; min-width: 720px; border-collapse: collapse; color: var(--theme-card-ink); font-size: 11px; }
+.admin-traffic-table th { padding: 0 10px 9px 0; border-bottom: 1px solid var(--theme-line); color: var(--theme-muted); font-size: 10px; font-weight: 600; text-align: left; white-space: nowrap; }
+.admin-traffic-table td { padding: 9px 10px 9px 0; border-bottom: 1px solid var(--theme-line); vertical-align: top; }
+.admin-traffic-table tr:last-child td { border-bottom: 0; }
+.admin-traffic-table td small { display: block; margin-top: 2px; color: var(--theme-muted); font-size: 10px; }
+.admin-traffic-table td strong { font-weight: 600; }
+.admin-traffic-table code { color: var(--theme-muted); font-size: 10px; }
+.admin-table-nowrap { white-space: nowrap; }
+.admin-ip-link { padding: 0; border: 0; color: var(--theme-primary-strong); background: none; font: inherit; font-family: var(--font-code); font-weight: 600; cursor: pointer; }
+.admin-ip-link:hover { text-decoration: underline; }
+.admin-ip-filter { display: flex; align-items: center; gap: 6px; }
+.admin-ip-filter input { width: 170px; min-height: 30px; padding: 0 10px; border: 1px solid var(--theme-line); border-radius: 7px; color: var(--theme-card-ink); background: #fff; font: inherit; font-size: 11px; }
+.admin-visit-more { display: flex; justify-content: center; padding-top: 12px; }
+@media (max-width: 768px) {
+  .admin-traffic-split { grid-template-columns: minmax(0,1fr); gap: 13px; }
+  .admin-visit-card .admin-traffic-card-heading { flex-direction: column; align-items: stretch; }
+  .admin-ip-filter input { flex: 1; width: auto; min-width: 0; }
+  .admin-hourly-chart .admin-chart-value { display: none; }
+}
 @media (max-width: 760px) {
   .admin-mobile-nav { grid-template-columns: repeat(6, minmax(0,1fr)); }
   .admin-mobile-nav a { min-width: 0; padding-right: 2px; padding-left: 2px; }

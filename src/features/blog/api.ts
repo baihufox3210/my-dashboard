@@ -1,4 +1,4 @@
-import type { AnalyticsStats, Article, ArticleStats, ArticleSummary, Friend, HomeProfile, MusicTrack, Project, ServerStatus, SiteSettings } from './article'
+import type { AnalyticsStats, AnalyticsVisit, Article, ArticleStats, ArticleSummary, Friend, HomeProfile, MusicTrack, Project, ServerStatus, SiteSettings } from './article'
 
 async function request<T>(input: RequestInfo, init?: RequestInit): Promise<T> {
   const response = await fetch(input, { credentials: 'include', ...init })
@@ -68,7 +68,7 @@ export function fetchArticleStats() {
 }
 
 
-export async function fetchAnalyticsStats(days: 7 | 30): Promise<AnalyticsStats> {
+export async function fetchAnalyticsStats(days: 1 | 7 | 30): Promise<AnalyticsStats> {
   const stats = await request<Partial<AnalyticsStats>>(`/api/admin/analytics?days=${days}`)
   return {
     days: stats.days ?? days,
@@ -81,17 +81,50 @@ export async function fetchAnalyticsStats(days: 7 | 30): Promise<AnalyticsStats>
     topArticles: stats.topArticles ?? [],
     sources: stats.sources ?? { direct: 0, search: 0, social: 0, referral: 0 },
     devices: stats.devices ?? { mobile: 0, tablet: 0, desktop: 0 },
+    trackedViews: stats.trackedViews ?? 0,
+    uniqueVisitors: stats.uniqueVisitors ?? 0,
+    sessions: stats.sessions ?? 0,
+    returningVisitors: stats.returningVisitors ?? 0,
+    hourlyUtc: stats.hourlyUtc ?? Array.from({ length: 24 }, () => 0),
+    browsers: stats.browsers ?? [],
+    operatingSystems: stats.operatingSystems ?? [],
+    referrers: stats.referrers ?? [],
+    topPaths: stats.topPaths ?? [],
+    topIps: stats.topIps ?? [],
+    eventsSince: stats.eventsSince ?? null,
+    eventRetentionDays: stats.eventRetentionDays ?? 90,
+  }
+}
+
+export function fetchAnalyticsVisits(options: { ip?: string; before?: number } = {}) {
+  const query = new URLSearchParams()
+  if (options.ip) query.set('ip', options.ip)
+  if (options.before) query.set('before', String(options.before))
+  return request<{ visits: AnalyticsVisit[]; hasMore: boolean }>(`/api/admin/analytics/visits?${query}`)
+}
+
+// One id per browser tab session, so the dashboard can group views into visits.
+function analyticsSessionId() {
+  try {
+    let id = sessionStorage.getItem('analytics-session-id')
+    if (!id) {
+      id = crypto.randomUUID()
+      sessionStorage.setItem('analytics-session-id', id)
+    }
+    return id
+  } catch {
+    return undefined
   }
 }
 
 export type AnalyticsPage = 'home' | 'about' | 'projects' | 'blog' | 'article' | 'contact' | 'friends'
 export type AnalyticsSource = 'direct' | 'search' | 'social' | 'referral'
 
-export function recordPageView(page: AnalyticsPage, options: { articleId?: string; source?: AnalyticsSource } = {}) {
+export function recordPageView(page: AnalyticsPage, options: { articleId?: string; source?: AnalyticsSource; referrer?: string } = {}) {
   return fetch('/api/analytics/view', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ page, ...options }),
+    body: JSON.stringify({ page, ...options, path: window.location.pathname, sessionId: analyticsSessionId() }),
     keepalive: true,
   }).catch(() => undefined)
 }

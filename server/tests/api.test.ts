@@ -134,13 +134,30 @@ describe('friends', () => {
 })
 
 describe('analytics', () => {
-  test('records page views and aggregates them', async () => {
-    assert.equal((await postJson('/api/analytics/view', { page: 'home', source: 'direct' })).status, 204)
+  test('records every view, including repeats, with visitor details', async () => {
+    const view = { page: 'home', source: 'direct', path: '/', sessionId: 'session-1', referrer: 'www.google.com' }
+    assert.equal((await postJson('/api/analytics/view', view)).status, 204)
+    assert.equal((await postJson('/api/analytics/view', { ...view, source: undefined, referrer: undefined })).status, 204)
     assert.equal((await postJson('/api/analytics/view', { page: 'nope' })).status, 400)
-    const stats = await (await api('/api/admin/analytics?days=7')).json() as { totalViews: number; sources: { direct: number }; daily: unknown[] }
-    assert.equal(stats.totalViews, 1)
+
+    const stats = await (await api('/api/admin/analytics?days=1')).json() as {
+      totalViews: number; trackedViews: number; uniqueVisitors: number; sessions: number; daily: unknown[]
+      sources: { direct: number }; referrers: Array<{ key: string }>; topIps: Array<{ ip: string; views: number }>
+    }
+    assert.equal(stats.daily.length, 1)
+    assert.equal(stats.totalViews, 2)
+    assert.equal(stats.trackedViews, 2)
+    assert.equal(stats.uniqueVisitors, 1)
+    assert.equal(stats.sessions, 1)
     assert.equal(stats.sources.direct, 1)
-    assert.equal(stats.daily.length, 7)
+    assert.deepEqual(stats.referrers.map((item) => item.key), ['www.google.com'])
+    assert.deepEqual(stats.topIps.map(({ ip, views }) => ({ ip, views })), [{ ip: '127.0.0.1', views: 2 }])
+
+    const { visits, hasMore } = await (await api('/api/admin/analytics/visits?ip=127.0.0.1')).json() as { visits: Array<{ ip: string; path: string }>; hasMore: boolean }
+    assert.equal(visits.length, 2)
+    assert.equal(hasMore, false)
+    assert.equal(visits[0]?.path, '/')
+    assert.equal((await api('/api/admin/analytics/visits?ip=not-an-ip')).status, 400)
   })
 })
 

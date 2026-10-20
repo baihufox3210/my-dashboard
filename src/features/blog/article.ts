@@ -37,6 +37,53 @@ export type AnalyticsStats = {
   topArticles: { id: string; title: string; views: number }[]
   sources: { direct: number; search: number; social: number; referral: number }
   devices: { mobile: number; tablet: number; desktop: number }
+  trackedViews: number
+  uniqueVisitors: number
+  sessions: number
+  returningVisitors: number
+  hourlyUtc: number[]
+  browsers: AnalyticsCount[]
+  operatingSystems: AnalyticsCount[]
+  referrers: AnalyticsCount[]
+  topPaths: AnalyticsCount[]
+  topIps: AnalyticsIp[]
+  eventsSince: string | null
+  eventRetentionDays: number
+}
+
+export type AnalyticsCount = { key: string; views: number }
+
+export type AnalyticsIp = {
+  ip: string
+  views: number
+  sessions: number
+  days: number
+  firstSeen: string
+  lastSeen: string
+  country: string
+  region: string
+  device: string
+  browser: string
+  os: string
+}
+
+export type AnalyticsVisit = {
+  id: number
+  at: string
+  ip: string
+  sessionId: string
+  page: string
+  path: string
+  articleId: string
+  articleTitle: string
+  source: string
+  referrer: string
+  device: string
+  browser: string
+  os: string
+  country: string
+  region: string
+  userAgent: string
 }
 
 export type SiteSettings = {

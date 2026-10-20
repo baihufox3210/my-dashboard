@@ -1,11 +1,12 @@
 import fs from 'node:fs/promises'
+import { isIP } from 'node:net'
 import { Router } from 'express'
-import { activityFile } from '../config.js'
+import { activityFile, analyticsEventRetentionDays } from '../config.js'
 import { createRateLimiter } from '../rateLimit.js'
 import { getAnalyticsRegion, getClientIp, requireAuthentication, requireSameOrigin } from '../security.js'
-import { queuePageView, readAnalyticsRegionStats, readAnalyticsTotals, readArticleSummaries, waitForActivityWrites, waitForAnalyticsWrites } from '../storage.js'
+import { queuePageView, readAnalyticsDetails, readAnalyticsRegionStats, readAnalyticsTotals, readAnalyticsVisits, readArticleSummaries, waitForActivityWrites, waitForAnalyticsWrites } from '../storage.js'
 import type { ActivityEntry, AnalyticsDevice, AnalyticsPage, AnalyticsSource } from '../types.js'
-import { getAnalyticsDevice } from '../validation.js'
+import { getAnalyticsDevice, parseUserAgent } from '../validation.js'
 
 const router = Router()
 
@@ -42,10 +43,20 @@ router.post('/analytics/view', requireSameOrigin, async (request, response) => {
     response.status(400).json({ message: 'Invalid traffic source.' })
     return
   }
-  const device = getAnalyticsDevice(request.get('user-agent') ?? '')
-  const region = getAnalyticsRegion(request)
+  const text = (value: unknown, pattern: RegExp, maxLength: number) => typeof value === 'string' && value.length <= maxLength && pattern.test(value) ? value : undefined
+  const userAgent = (request.get('user-agent') ?? '').slice(0, 400)
   try {
-    await queuePageView(page, device, articleId, source, region)
+    await queuePageView({
+      page, articleId, source,
+      device: getAnalyticsDevice(userAgent),
+      region: getAnalyticsRegion(request),
+      ip: getClientIp(request).replace(/^::ffff:(?=\d+\.\d+\.\d+\.\d+$)/, ''),
+      sessionId: text(request.body?.sessionId, /^[A-Za-z0-9-]+$/, 64),
+      path: text(request.body?.path, /^\/[^\s]*$/, 200),
+      referrer: text(request.body?.referrer, /^[a-z0-9.-]+$/i, 200)?.toLowerCase(),
+      userAgent,
+      ...parseUserAgent(userAgent),
+    })
     response.status(204).end()
   } catch {
     response.status(500).json({ message: 'Could not record page view.' })
@@ -54,7 +65,7 @@ router.post('/analytics/view', requireSameOrigin, async (request, response) => {
 
 router.get('/admin/analytics', requireAuthentication, async (request, response) => {
   await waitForAnalyticsWrites()
-  const days = request.query.days === '7' ? 7 : 30
+  const days = request.query.days === '1' ? 1 : request.query.days === '7' ? 7 : 30
   const today = new Date()
   today.setUTCHours(0, 0, 0, 0)
   const currentStart = new Date(today.getTime() - (days - 1) * 86_400_000)
@@ -62,9 +73,10 @@ router.get('/admin/analytics', requireAuthentication, async (request, response) 
   const currentStartDay = currentStart.toISOString().slice(0, 10)
   const previousStartDay = previousStart.toISOString().slice(0, 10)
   const todayDay = today.toISOString().slice(0, 10)
-  const [totals, regionStats, articles] = await Promise.all([
+  const [totals, regionStats, details, articles] = await Promise.all([
     readAnalyticsTotals(currentStartDay, todayDay, previousStartDay),
     readAnalyticsRegionStats(currentStartDay, todayDay),
+    readAnalyticsDetails(currentStartDay, todayDay),
     readArticleSummaries(),
   ])
   const sourceTotals: Record<AnalyticsSource, number> = { direct: 0, search: 0, social: 0, referral: 0 }
@@ -83,7 +95,27 @@ router.get('/admin/analytics', requireAuthentication, async (request, response) 
   const topPages = totals.pages.map(({ key: page, views }) => ({ page, label: labels[page], views })).sort((first, second) => second.views - first.views)
   const articleById = new Map(articles.map((article) => [article.id, article]))
   const topArticles = totals.topArticles.map(({ key: id, views }) => ({ id, title: articleById.get(id)?.title ?? '已刪除文章', views }))
-  response.json({ days, totalViews, previousViews, ...regionStats, daily, topPages, topArticles, sources: sourceTotals, devices: deviceTotals })
+  response.json({ days, totalViews, previousViews, ...regionStats, daily, topPages, topArticles, sources: sourceTotals, devices: deviceTotals, ...details, eventRetentionDays: analyticsEventRetentionDays })
+})
+
+router.get('/admin/analytics/visits', requireAuthentication, async (request, response) => {
+  await waitForAnalyticsWrites()
+  const ip = typeof request.query.ip === 'string' && request.query.ip ? request.query.ip : undefined
+  if (ip && !isIP(ip)) {
+    response.status(400).json({ message: 'Invalid IP address.' })
+    return
+  }
+  const before = Number(request.query.before)
+  const limit = 50
+  const [visits, articles] = await Promise.all([
+    readAnalyticsVisits({ ip, before: Number.isInteger(before) && before > 0 ? before : undefined, limit: limit + 1 }),
+    readArticleSummaries(),
+  ])
+  const titles = new Map(articles.map((article) => [article.id, article.title]))
+  response.json({
+    visits: visits.slice(0, limit).map((visit) => ({ ...visit, articleTitle: visit.articleId ? titles.get(visit.articleId) ?? '已刪除文章' : '' })),
+    hasMore: visits.length > limit,
+  })
 })
 
 router.get('/admin/activity', requireAuthentication, async (_request, response) => {

@@ -26,6 +26,8 @@ export const host = process.env.API_HOST ?? '127.0.0.1'
 export const trustedProxyIp = process.env.TRUSTED_PROXY_IP
 export const adminUsername = process.env.ADMIN_USERNAME
 export const adminPassword = process.env.ADMIN_PASSWORD
+// Per-view analytics events (including visitor IPs) are kept this many days.
+export const analyticsEventRetentionDays = Math.max(1, Math.min(365, Number(process.env.ANALYTICS_EVENT_RETENTION_DAYS) || 90))
 export const siteStartDate = process.env.SITE_START_DATE ?? new Date().toISOString()
 
 if (!adminUsername || !adminPassword || adminPassword.length < 8 || adminUsername === 'admin' || adminPassword === 'change-me') {

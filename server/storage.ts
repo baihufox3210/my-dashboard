@@ -4,6 +4,7 @@ import { DatabaseSync, type StatementSync } from 'node:sqlite'
 import {
   activityFile,
   analyticsDatabaseFile,
+  analyticsEventRetentionDays,
   analyticsLegacyFile,
   articlesFile,
   dataDirectory,
@@ -37,7 +38,22 @@ let analyticsWriteQueue: Promise<void> = Promise.resolve()
 let activityWriteQueue: Promise<void> = Promise.resolve()
 let analyticsDatabase: DatabaseSync | undefined
 let lastAnalyticsPruneDay = ''
-let pageViewStatements: { page: StatementSync; region: StatementSync } | undefined
+let pageViewStatements: { page: StatementSync; region: StatementSync; event: StatementSync } | undefined
+
+export type PageViewInput = {
+  page: AnalyticsPage
+  device: AnalyticsDevice
+  articleId?: string
+  source?: AnalyticsSource
+  region?: AnalyticsRegion | null
+  ip: string
+  sessionId?: string
+  path?: string
+  referrer?: string
+  browser: string
+  os: string
+  userAgent: string
+}
 
 type AtomicWriteOptions = { mode?: number; pretty?: boolean }
 
@@ -107,6 +123,26 @@ async function initializeAnalyticsDatabase() {
       PRIMARY KEY (day, country, region)
     ) STRICT;
     CREATE INDEX IF NOT EXISTS analytics_region_views_day_idx ON analytics_region_views(day);
+    CREATE TABLE IF NOT EXISTS analytics_events (
+      id INTEGER PRIMARY KEY,
+      at TEXT NOT NULL,
+      day TEXT NOT NULL CHECK(length(day) = 10),
+      ip TEXT NOT NULL,
+      session_id TEXT NOT NULL DEFAULT '',
+      page TEXT NOT NULL,
+      path TEXT NOT NULL DEFAULT '',
+      article_id TEXT NOT NULL DEFAULT '',
+      source TEXT NOT NULL DEFAULT '',
+      referrer TEXT NOT NULL DEFAULT '',
+      device TEXT NOT NULL,
+      browser TEXT NOT NULL DEFAULT '',
+      os TEXT NOT NULL DEFAULT '',
+      country TEXT NOT NULL DEFAULT '',
+      region TEXT NOT NULL DEFAULT '',
+      user_agent TEXT NOT NULL DEFAULT ''
+    ) STRICT;
+    CREATE INDEX IF NOT EXISTS analytics_events_day_idx ON analytics_events(day);
+    CREATE INDEX IF NOT EXISTS analytics_events_ip_idx ON analytics_events(ip, id);
     CREATE TABLE IF NOT EXISTS storage_metadata (
       key TEXT PRIMARY KEY,
       value TEXT NOT NULL
@@ -312,8 +348,11 @@ export async function writeHomeProfile(profile: HomeProfile) {
   await writeJsonAtomically(homeProfileFile, profile, { pretty: true })
 }
 
-export async function queuePageView(page: AnalyticsPage, device: AnalyticsDevice, articleId?: string, source?: AnalyticsSource, region?: AnalyticsRegion | null) {
-  const day = new Date().toISOString().slice(0, 10)
+// Every view updates the long-lived daily aggregates and appends one detailed event row.
+export async function queuePageView(view: PageViewInput) {
+  const { page, device, articleId, source, region } = view
+  const at = new Date().toISOString()
+  const day = at.slice(0, 10)
   const operation = analyticsWriteQueue.then(() => {
     const database = getAnalyticsDatabase()
     pageViewStatements ??= {
@@ -329,15 +368,25 @@ export async function queuePageView(page: AnalyticsPage, device: AnalyticsDevice
         ON CONFLICT(day, country, region)
         DO UPDATE SET views = analytics_region_views.views + 1
       `),
+      event: database.prepare(`
+        INSERT INTO analytics_events (at, day, ip, session_id, page, path, article_id, source, referrer, device, browser, os, country, region, user_agent)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `),
     }
     database.exec('BEGIN')
     try {
       pageViewStatements.page.run(day, page, device, articleId ?? '', source ?? '')
       if (region) pageViewStatements.region.run(day, region.country, region.region)
+      pageViewStatements.event.run(
+        at, day, view.ip, view.sessionId ?? '', page, view.path ?? '', articleId ?? '', source ?? '', view.referrer ?? '',
+        device, view.browser, view.os, region?.country ?? '', region?.region ?? '', view.userAgent,
+      )
       if (lastAnalyticsPruneDay !== day) {
         const cutoff = new Date(Date.now() - 120 * 86_400_000).toISOString().slice(0, 10)
         database.prepare('DELETE FROM analytics_page_views WHERE day < ?').run(cutoff)
         database.prepare('DELETE FROM analytics_region_views WHERE day < ?').run(cutoff)
+        const eventCutoff = new Date(Date.now() - analyticsEventRetentionDays * 86_400_000).toISOString().slice(0, 10)
+        database.prepare('DELETE FROM analytics_events WHERE day < ?').run(eventCutoff)
       }
       database.exec('COMMIT')
       lastAnalyticsPruneDay = day
@@ -403,6 +452,84 @@ export async function readAnalyticsTotals(startDay: string, endDay: string, prev
     topArticles,
     previousViews: previous.views ?? 0,
   }
+}
+
+export type AnalyticsVisit = {
+  id: number; at: string; ip: string; sessionId: string; page: AnalyticsPage; path: string; articleId: string
+  source: string; referrer: string; device: AnalyticsDevice; browser: string; os: string; country: string; region: string; userAgent: string
+}
+
+// Visitor-level breakdowns for [startDay, endDay], computed from the per-view event log.
+export async function readAnalyticsDetails(startDay: string, endDay: string) {
+  const database = getAnalyticsDatabase()
+  const range = [startDay, endDay] as const
+  const summary = database.prepare(`
+    SELECT COUNT(*) AS views, COUNT(DISTINCT ip) AS visitors,
+      COUNT(DISTINCT CASE WHEN session_id != '' THEN session_id END) AS sessions
+    FROM analytics_events WHERE day >= ? AND day <= ?
+  `).get(...range) as { views: number; visitors: number; sessions: number }
+  const returning = database.prepare(`
+    SELECT COUNT(*) AS visitors FROM (
+      SELECT ip FROM analytics_events WHERE day >= ? AND day <= ? GROUP BY ip HAVING COUNT(DISTINCT day) > 1
+    )
+  `).get(...range) as { visitors: number }
+  const grouped = (column: string, limit = 10) => database.prepare(`
+    SELECT ${column} AS key, COUNT(*) AS views
+    FROM analytics_events
+    WHERE day >= ? AND day <= ? AND ${column} != ''
+    GROUP BY ${column}
+    ORDER BY views DESC, key ASC
+    LIMIT ${limit}
+  `).all(...range) as Array<{ key: string; views: number }>
+  const hourly = database.prepare(`
+    SELECT CAST(strftime('%H', at) AS INTEGER) AS hour, COUNT(*) AS views
+    FROM analytics_events WHERE day >= ? AND day <= ?
+    GROUP BY hour
+  `).all(...range) as Array<{ hour: number; views: number }>
+  // SQLite returns the other bare columns from the row holding MAX(at), i.e. the latest visit.
+  const topIps = database.prepare(`
+    SELECT ip, COUNT(*) AS views, COUNT(DISTINCT CASE WHEN session_id != '' THEN session_id END) AS sessions,
+      COUNT(DISTINCT day) AS days, MIN(at) AS firstSeen, MAX(at) AS lastSeen,
+      country, region, device, browser, os
+    FROM analytics_events WHERE day >= ? AND day <= ?
+    GROUP BY ip
+    ORDER BY views DESC, lastSeen DESC
+    LIMIT 50
+  `).all(...range) as Array<{ ip: string; views: number; sessions: number; days: number; firstSeen: string; lastSeen: string; country: string; region: string; device: string; browser: string; os: string }>
+  const since = database.prepare('SELECT MIN(at) AS at FROM analytics_events').get() as { at: string | null }
+
+  const hourlyUtc = Array.from({ length: 24 }, () => 0)
+  for (const { hour, views } of hourly) hourlyUtc[hour] = views
+  return {
+    trackedViews: summary.views,
+    uniqueVisitors: summary.visitors,
+    sessions: summary.sessions,
+    returningVisitors: returning.visitors,
+    hourlyUtc,
+    browsers: grouped('browser'),
+    operatingSystems: grouped('os'),
+    referrers: grouped('referrer'),
+    topPaths: grouped('path'),
+    topIps,
+    eventsSince: since.at,
+  }
+}
+
+// Newest visits first; `before` is the id of the last row already shown.
+export async function readAnalyticsVisits({ ip, before, limit }: { ip?: string; before?: number; limit: number }) {
+  const database = getAnalyticsDatabase()
+  const conditions = ['1 = 1']
+  const parameters: Array<string | number> = []
+  if (ip) { conditions.push('ip = ?'); parameters.push(ip) }
+  if (before) { conditions.push('id < ?'); parameters.push(before) }
+  return database.prepare(`
+    SELECT id, at, ip, session_id AS sessionId, page, path, article_id AS articleId, source, referrer,
+      device, browser, os, country, region, user_agent AS userAgent
+    FROM analytics_events
+    WHERE ${conditions.join(' AND ')}
+    ORDER BY id DESC
+    LIMIT ?
+  `).all(...parameters, limit) as AnalyticsVisit[]
 }
 
 export function recordActivity(entry: ActivityEntry) {
