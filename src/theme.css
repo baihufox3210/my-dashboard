@@ -434,7 +434,6 @@ body.site-background-dark .admin-nav-item {
 }
 :is(
   .friend-avatar-frame,
-  .friend-card-arrow,
   .projects-orbit,
   .projects-loading-mark,
   .home-blog-empty > span,
