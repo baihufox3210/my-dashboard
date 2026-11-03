@@ -9,6 +9,7 @@ import authRoutes from './routes/auth.js'
 import friendRoutes from './routes/friends.js'
 import { adminGuestbook, publicGuestbook } from './routes/guestbook.js'
 import musicRoutes from './routes/music.js'
+import presenceRoutes from './routes/presence.js'
 import projectRoutes from './routes/projects.js'
 import publicRoutes from './routes/public.js'
 import settingsRoutes from './routes/settings.js'
@@ -56,6 +57,7 @@ export function createApp() {
   app.use('/api/admin/music', musicRoutes)
   app.use('/api/admin/guestbook', adminGuestbook)
   app.use('/api/guestbook', publicGuestbook)
+  app.use('/api/presence', presenceRoutes)
   app.use('/api/admin', settingsRoutes)
   app.use('/api', analyticsRoutes)
   app.use('/api', publicRoutes)

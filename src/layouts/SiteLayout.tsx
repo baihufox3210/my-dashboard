@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import SiteHeader from '../components/SiteHeader'
 import SiteFooter from '../components/SiteFooter'
 import FloatingMusicPlayer from '../components/FloatingMusicPlayer'
+import FunLayer from '../components/FunLayer'
 import { getPublicPage, isAdminRoute, isLoginRoute, useLocationKey } from '../routes/routes'
 
 type SiteLayoutProps = {
@@ -18,6 +19,7 @@ function SiteLayout({ children }: SiteLayoutProps) {
       {children}
       {!isAdmin && <FloatingMusicPlayer isHome={isHome} />}
       {!isAdmin && <SiteFooter />}
+      {!isAdmin && <FunLayer />}
     </div>
   )
 }

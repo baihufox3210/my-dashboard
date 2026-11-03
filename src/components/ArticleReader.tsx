@@ -5,6 +5,7 @@ import useEscapeKey from './useEscapeKey'
 import { fetchArticle, fetchArticleReactions, toggleArticleReaction, type ArticleReaction, type ArticleReactions } from '../features/blog/api'
 import type { ArticleSummary } from '../features/blog/article'
 import { coverImageStyle } from '../features/blog/media'
+import { trackProgress, unlock } from '../features/fun/achievements'
 
 type ArticleReaderProps = {
   article: ArticleSummary
@@ -35,7 +36,11 @@ function Reactions({ articleId }: { articleId: string }) {
 
   async function toggle(reaction: ArticleReaction) {
     setBusy(true)
-    try { setState(await toggleArticleReaction(articleId, reaction)) } catch { /* rate limited or offline */ } finally { setBusy(false) }
+    try {
+      const next = await toggleArticleReaction(articleId, reaction)
+      setState(next)
+      if (next.mine.includes(reaction)) unlock('reaction')
+    } catch { /* rate limited or offline */ } finally { setBusy(false) }
   }
 
   if (!state) return null
@@ -80,7 +85,12 @@ function ArticleReader({ article, onClose, children }: ArticleReaderProps) {
   useEffect(() => {
     let active = true
     fetchArticle(article)
-      .then((full) => { if (active) setLoaded({ id: article.id, content: full.content }) })
+      .then((full) => {
+        if (!active) return
+        setLoaded({ id: article.id, content: full.content })
+        unlock('reader')
+        trackProgress('articles', article.id, 3, 'bookworm')
+      })
       .catch(() => { if (active) setLoaded({ id: article.id, content: null }) })
     return () => { active = false }
   }, [article])

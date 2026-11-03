@@ -7,6 +7,7 @@ import { applySiteBackground } from './features/blog/background'
 import MusicPlayerProvider from './components/MusicPlayerContext'
 import SiteLayout from './layouts/SiteLayout'
 import PageRouter from './routes/PageRouter'
+import { trackProgress } from './features/fun/achievements'
 import { getRouteSegments, isAdminRoute, isLoginRoute, navigate, useLocationKey } from './routes/routes'
 
 function App() {
@@ -70,6 +71,7 @@ function App() {
       // repeated effect run for the same URL (e.g. React StrictMode in development).
       if (lastTrackedLocation.current === locationKey) return
       lastTrackedLocation.current = locationKey
+      if (trackedPages.includes(route as AnalyticsPage)) trackProgress('pages', route, trackedPages.length, 'explorer')
       let source: 'direct' | 'search' | 'social' | 'referral' | undefined
       let referrerHost: string | undefined
       try {

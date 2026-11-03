@@ -53,6 +53,10 @@ body {
   --theme-avatar-gradient: linear-gradient(145deg, color-mix(in srgb, var(--theme-primary) 45%, #fff), var(--theme-primary));
   --theme-surface-error: color-mix(in srgb, var(--theme-danger) 10%, var(--theme-surface));
   --theme-focus-ring: 0 0 0 3px var(--theme-primary-soft);
+  /* Dark terminal panel, still tinted by the palette. */
+  --theme-terminal-background: color-mix(in srgb, var(--theme-primary-strong) 28%, #0f0b09);
+  --theme-terminal-accent: color-mix(in srgb, var(--theme-primary) 45%, #fff);
+  --theme-terminal-error: color-mix(in srgb, var(--theme-danger) 55%, #fff);
 }
 
 html { background-color: var(--theme-page-base); }

@@ -3172,3 +3172,48 @@ button, input, textarea, select { font-kerning: normal; }
 .article-reactions button:focus-visible, .article-share:focus-visible { outline: none; box-shadow: var(--theme-focus-ring); }
 .blog-rss-link { display: inline-flex; align-items: center; gap: .35rem; margin-top: .75rem; color: var(--theme-primary-strong); font-size: .78rem; font-weight: 700; text-decoration: none; }
 .blog-rss-link:hover { text-decoration: underline; }
+
+/* Footer extras: live visitor count and the terminal shortcut. */
+.footer-online i { display: inline-block; width: .45rem; height: .45rem; margin-right: .3rem; border-radius: 50%; background: var(--theme-success); box-shadow: 0 0 0 3px var(--theme-success-soft); vertical-align: .05em; animation: online-pulse 2.4s ease-in-out infinite; }
+@keyframes online-pulse { 50% { box-shadow: 0 0 0 5px var(--theme-success-soft); } }
+.footer-terminal { margin-left: .6rem; padding: .05rem .4rem; border: 1px solid var(--theme-line); border-radius: .35rem; color: var(--theme-primary-strong); background: var(--theme-surface-soft); font: 700 .72rem var(--font-code); cursor: pointer; }
+.footer-terminal:hover { background: var(--theme-surface-white); }
+.footer-terminal:focus-visible { outline: none; box-shadow: var(--theme-focus-ring); }
+
+/* Terminal easter egg. */
+.terminal-backdrop { position: fixed; z-index: 120; inset: 0; display: grid; place-items: center; padding: 1rem; background: var(--theme-backdrop); }
+.terminal-window { display: flex; width: min(100%, 46rem); height: min(78dvh, 32rem); flex-direction: column; overflow: hidden; border: 1px solid var(--theme-on-overlay-line); border-radius: .9rem; color: var(--theme-on-overlay); background: var(--theme-terminal-background); box-shadow: 0 1.5rem 4rem rgb(var(--theme-shadow-rgb) / .35); font-family: var(--font-code); }
+.terminal-titlebar { display: flex; align-items: center; gap: .75rem; padding: .6rem .8rem; border-bottom: 1px solid var(--theme-on-overlay-faint); font-size: .78rem; }
+.terminal-titlebar strong { flex: 1; color: var(--theme-on-overlay-muted); font-weight: 600; text-align: center; }
+.terminal-titlebar button { width: 1.6rem; height: 1.6rem; padding: 0; border: 0; border-radius: .4rem; color: var(--theme-on-overlay-muted); background: transparent; font-size: 1.1rem; cursor: pointer; }
+.terminal-titlebar button:hover { color: var(--theme-on-overlay); background: var(--theme-on-overlay-faint); }
+.terminal-dots { display: flex; gap: .35rem; }
+.terminal-dots i { width: .7rem; height: .7rem; border-radius: 50%; background: var(--theme-terminal-error); }
+.terminal-dots i:nth-child(2) { background: var(--theme-terminal-accent); }
+.terminal-dots i:nth-child(3) { background: var(--theme-success); }
+.terminal-output { flex: 1; overflow-y: auto; padding: .9rem 1rem 1rem; font-size: .84rem; line-height: 1.65; overscroll-behavior: contain; }
+.terminal-output p { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.terminal-output .is-input { color: var(--theme-on-overlay); }
+.terminal-output .is-muted { color: var(--theme-on-overlay-muted); }
+.terminal-output .is-accent { color: var(--theme-terminal-accent); }
+.terminal-output .is-error { color: var(--theme-terminal-error); }
+.terminal-prompt { display: flex; align-items: center; gap: .55rem; }
+.terminal-prompt span { color: var(--theme-terminal-accent); white-space: nowrap; }
+.terminal-prompt input { flex: 1; min-width: 0; padding: 0; border: 0; outline: none; color: var(--theme-on-overlay); background: transparent; caret-color: var(--theme-terminal-accent); font: inherit; }
+
+/* Achievement toast (bottom-left, clear of the music bubble). */
+.achievement-toast { position: fixed; z-index: 130; bottom: 1.25rem; left: 1.25rem; display: flex; max-width: min(20rem, calc(100vw - 2.5rem)); align-items: center; gap: .75rem; padding: .75rem 1rem; border: 1px solid var(--theme-surface-border); border-radius: .9rem; color: var(--theme-card-ink); background: var(--theme-surface-solid); box-shadow: 0 1rem 2.5rem rgb(var(--theme-shadow-rgb) / .2); animation: toast-in 380ms cubic-bezier(.2, .9, .3, 1.3); }
+.achievement-toast > span { display: grid; width: 2.6rem; height: 2.6rem; flex: 0 0 auto; place-items: center; border-radius: 50%; background: var(--theme-selected); font-size: 1.4rem; }
+.achievement-toast small { color: var(--theme-primary-strong); font-size: .66rem; font-weight: 800; letter-spacing: .08em; }
+.achievement-toast strong { display: block; font-size: .95rem; }
+.achievement-toast p { margin: .1rem 0 0; color: var(--theme-muted); font-size: .76rem; }
+@keyframes toast-in { from { opacity: 0; transform: translateY(1rem) scale(.96); } }
+
+/* Konami code emoji rain. */
+.emoji-rain { position: fixed; z-index: 125; inset: 0; overflow: hidden; pointer-events: none; }
+.emoji-rain span { position: absolute; top: -3rem; animation-name: emoji-fall; animation-timing-function: linear; animation-fill-mode: forwards; }
+@keyframes emoji-fall { to { transform: translateY(calc(100vh + 6rem)) rotate(540deg); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .footer-online i, .achievement-toast { animation: none; }
+}

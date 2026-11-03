@@ -106,7 +106,7 @@ export function fetchAnalyticsVisits(options: { ip?: string; before?: number } =
 }
 
 // One id per browser tab session, so the dashboard can group views into visits.
-function analyticsSessionId() {
+export function analyticsSessionId() {
   try {
     let id = sessionStorage.getItem('analytics-session-id')
     if (!id) {
@@ -289,4 +289,12 @@ export function toggleArticleReaction(id: string, reaction: ArticleReaction) {
 
 export function fetchVisitCounts() {
   return request<{ today: number; total: number }>('/api/visits', { cache: 'no-store' })
+}
+
+export function sendPresence(sessionId: string) {
+  return request<{ online: number }>('/api/presence', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sessionId }),
+  })
 }

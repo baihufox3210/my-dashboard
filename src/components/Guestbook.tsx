@@ -3,7 +3,8 @@ import { createPortal } from 'react-dom'
 import useEscapeKey from './useEscapeKey'
 import { fetchGuestbook, postGuestbookEntry } from '../features/blog/api'
 import type { GuestbookEntry, GuestbookMood } from '../features/blog/article'
-import { formatRelativeTime, guestbookMoods, nameTint } from '../features/blog/guestbook'
+import { formatRelativeTime, guestbookMoods, guestbookOpenEvent, nameTint, takeGuestbookRequest } from '../features/blog/guestbook'
+import { unlock } from '../features/fun/achievements'
 
 const nameStorageKey = 'guestbook-name'
 
@@ -78,6 +79,7 @@ function GuestbookDialog({ onClose, onCountChange }: { onClose: () => void; onCo
       }
       setMessage('')
       setFeedback({ tone: 'success', text: '謝謝你的留言！' })
+      unlock('guestbook')
     } catch (error) {
       setFeedback({ tone: 'error', text: error instanceof Error ? error.message : '留言失敗，請稍後再試。' })
     } finally {
@@ -128,6 +130,13 @@ export function GuestbookButton() {
     let active = true
     fetchGuestbook().then((page) => { if (active) setTotal(page.total) }).catch(() => undefined)
     return () => { active = false }
+  }, [])
+
+  useEffect(() => {
+    const openIfRequested = () => { if (takeGuestbookRequest()) setOpen(true) }
+    openIfRequested()
+    window.addEventListener(guestbookOpenEvent, openIfRequested)
+    return () => window.removeEventListener(guestbookOpenEvent, openIfRequested)
   }, [])
 
   return <>

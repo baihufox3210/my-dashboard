@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import ArticleReader from '../components/ArticleReader'
+import { unlock } from '../features/fun/achievements'
 import { GuestbookButton } from '../components/Guestbook'
 import SocialLinks from '../components/SocialLinks'
 import { fetchArticles, fetchHomeProfile, fetchServerStatus, recordPageView } from '../features/blog/api'
@@ -53,6 +54,7 @@ function HomePage() {
     requestAutoplay,
   } = useMusicPlayer()
   const articleListRef = useRef<HTMLDivElement>(null)
+  const avatarClicks = useRef({ count: 0, last: 0 })
   const homeTagsRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -139,6 +141,9 @@ function HomePage() {
   }, [articles])
 
   function showAvatarMessage() {
+    const now = Date.now()
+    avatarClicks.current = now - avatarClicks.current.last < 2500 ? { count: avatarClicks.current.count + 1, last: now } : { count: 1, last: now }
+    if (avatarClicks.current.count >= 10) unlock('avatar-fan')
     const messages = profile.avatarMessages.filter(Boolean)
     setAvatarMessage(messages.length ? messages[Math.floor(Math.random() * messages.length)] ?? '' : '(๑•̀ㅂ•́)و✧')
   }

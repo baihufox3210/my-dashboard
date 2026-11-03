@@ -243,6 +243,15 @@ describe('guestbook', () => {
   })
 })
 
+test('counts open tabs from heartbeats', async () => {
+  const beat = (sessionId: string) => postJson('/api/presence', { sessionId }).then((response) => response.json() as Promise<{ online: number }>)
+  const start = (await (await fetch(`${base}/api/presence`)).json() as { online: number }).online
+  assert.equal((await beat('tab-aaaaaaaa')).online, start + 1)
+  assert.equal((await beat('tab-aaaaaaaa')).online, start + 1)
+  assert.equal((await beat('tab-bbbbbbbb')).online, start + 2)
+  assert.equal((await postJson('/api/presence', { sessionId: 'x' })).status, 400)
+})
+
 describe('visitor location', () => {
   test('resolves Taiwanese coordinates to county and township', async () => {
     assert.deepEqual(await locateVisitor('127.0.0.1', { country: 'TW', city: 'Banqiao', latitude: '25.0117', longitude: '121.4659' }), { country: '台灣', region: '新北市', city: '板橋區' })

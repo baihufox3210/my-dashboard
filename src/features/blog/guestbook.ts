@@ -23,3 +23,19 @@ export function nameTint(name: string) {
   for (const character of name) hash = (hash * 31 + character.codePointAt(0)!) >>> 0
   return `color-mix(in srgb, var(--theme-primary) ${35 + (hash % 6) * 9}%, var(--theme-surface-white))`
 }
+
+// Lets other parts of the site (the terminal) ask the home page to open the guestbook,
+// including when the home page has not mounted yet.
+export const guestbookOpenEvent = 'guestbook:open'
+let pendingOpen = false
+
+export function requestGuestbook() {
+  pendingOpen = true
+  window.dispatchEvent(new Event(guestbookOpenEvent))
+}
+
+export function takeGuestbookRequest() {
+  const pending = pendingOpen
+  pendingOpen = false
+  return pending
+}
