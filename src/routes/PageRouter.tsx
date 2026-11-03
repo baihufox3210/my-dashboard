@@ -10,6 +10,8 @@ const FriendsPage = lazy(() => import('../pages/FriendsPage'))
 const ProjectsPage = lazy(() => import('../pages/ProjectsPage'))
 const ScamPanelPage = lazy(() => import('../pages/fun/ScamPanelPage'))
 const HoneypotPage = lazy(() => import('../pages/fun/HoneypotPage'))
+const NotFoundPage = lazy(() => import('../pages/fun/NotFoundPage'))
+const CertificatePage = lazy(() => import('../pages/fun/CertificatePage'))
 
 function currentPage() {
   if (isLoginRoute()) return 'login'
@@ -28,6 +30,8 @@ function PageRouter() {
       {page === 'admin' || page === 'login' ? <AdminPage loginOnly={page === 'login'} />
         : page === 'panel' ? <ScamPanelPage />
         : page === 'honeypot' ? <HoneypotPage />
+        : page === 'notfound' ? <NotFoundPage />
+        : page === 'certificate' ? <CertificatePage />
         : page === 'about' ? <AboutPage />
           : page === 'projects' ? <ProjectsPage />
             : page === 'blog' ? <BlogPage />

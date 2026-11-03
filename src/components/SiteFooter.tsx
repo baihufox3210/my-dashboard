@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { terminalOpenEvent } from './FunLayer'
 import { analyticsSessionId, fetchVisitCounts, sendPresence } from '../features/blog/api'
+import { isAprilFools } from '../features/fun/memes'
 
 // Heartbeat every 30 seconds while the tab is visible; returns how many tabs are online.
 function useOnlineCount() {
@@ -38,6 +39,7 @@ function SiteFooter() {
     <footer className="footer">
       <p className="footer-text">
         Copyright © {new Date().getFullYear()} Baihu Personal Website. All Rights Reserved.
+        {isAprilFools() && <span> · 今天寫的都是真的 🤥</span>}
         {visits && <span className="footer-visits"> · 今日 {visits.today.toLocaleString()} 次 · 累計 {visits.total.toLocaleString()} 次瀏覽</span>}
         {online !== null && <span className="footer-online"> · <i aria-hidden="true" />{online} 人在線</span>}
         <button type="button" className="footer-terminal" onClick={() => window.dispatchEvent(new Event(terminalOpenEvent))} aria-label="開啟終端機" title="終端機（按 ` 或 Ctrl+K）">&gt;_</button>

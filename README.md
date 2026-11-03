@@ -119,6 +119,15 @@ flag 設定（選用）放在不納入 Git 的 `data/security-flags.json`，格�
 
 Google 經典彩蛋：在網頁上打 `67`（或終端機 `67`、`six seven`）整個頁面會上下左右劇烈搖晃；終端機另有 `thanos`（一半卡片化為灰燼後復原）、`gravity`（卡片掉到底部）、`blink`、`recursion`、`anagram`、`flip a coin`、`roll a die`、`game of life`、`loneliest number`、`dino`（狐狸跑酷，斷線時也會自動出現）。
 
+更多彩蛋：
+
+- 切到別的分頁時標題會喊你回來；閒置 90 秒會出現 DVD 螢幕保護程式（撞到角落有煙火）；4 月 1 日全站變 Comic Sans、標題倒過來。
+- 不存在的網址會顯示迷路狐狸的 404 頁，並猜你想去哪裡。
+- 終端機：`zerg rush`（點掉吃卡片的 o）、`snake`、`hackertyper`（連按 3 次 Alt）、`sus`、`nyan`；在網頁上直接打 `sus`、`nyan` 也可以。
+- 開發者工具 Console 輸入 `play()` 開始文字冒險。
+- 連點網站名稱 7 次會進入「開發人員模式」。
+- 解鎖全部成就（「夜貓子」「正中角落」為加分成就，不需要）後可到 `/certificate` 下載寫上自己名字的通關證書。
+
 留言板與終端機只輸入「特選」「你好」這類單純的招呼語（含 hi、安安、在嗎、請問、學長好等）會被擋下並回覆一段提醒；加上實際內容即可正常留言。
 
 其他彩蛋：掃描器常探測的路徑（`/wp-admin`、`/phpmyadmin`、`/.env`、`/xmlrpc.php`、`/.git` 等）會顯示嘲諷頁面；`robots.txt` 裡有狐狸；終端機另有 `matrix`、`hack`、`coffee`；在鍵盤打出 `fox` 會有狐狸跑過畫面。

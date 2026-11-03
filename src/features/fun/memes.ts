@@ -10,7 +10,17 @@ export function isLowEffortGreeting(text: string) {
   const core = text.normalize('NFKC').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '')
   return core.length > 0 && core.length <= 16 && lowEffortWords.test(core)
 }
-export type FunEffect = 'padoru' | 'newyear' | 'barrel-roll' | 'askew' | 'tableflip' | 'six-seven' | 'snap' | 'gravity' | 'blink' | 'dino' | 'life'
+export type FunEffect = 'padoru' | 'newyear' | 'barrel-roll' | 'askew' | 'tableflip' | 'six-seven' | 'snap' | 'gravity' | 'blink' | 'dino' | 'life' | 'zerg' | 'sus' | 'nyan' | 'fireworks'
+
+// Android-style short message at the bottom of the screen.
+export const funToastEvent = 'fun:toast'
+export function showToast(text: string) {
+  window.dispatchEvent(new CustomEvent<string>(funToastEvent, { detail: text }))
+}
+
+export function isAprilFools(date = new Date()) {
+  return date.getMonth() === 3 && date.getDate() === 1
+}
 
 export function playEffect(effect: FunEffect) {
   window.dispatchEvent(new CustomEvent<FunEffect>(funEffectEvent, { detail: effect }))

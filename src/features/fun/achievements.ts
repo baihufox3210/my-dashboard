@@ -5,8 +5,10 @@ export type AchievementId =
   | 'scam-buster' | 'webshell' | 'bobby-tables' | 'scanner' | 'fox-runner' | 'matrix'
   | 'prompt' | 'rickroll' | 'padoru' | 'lunar-new-year' | 'barrel-roll' | 'vim'
   | 'six-seven' | 'thanos' | 'gravity' | 'dino' | 'life'
+  | 'lost' | 'dvd-corner' | 'zerg' | 'snake' | 'console' | 'hacker' | 'sus' | 'nyan' | 'developer' | 'completionist'
 
-export type Achievement = { id: AchievementId; emoji: string; title: string; description: string }
+// Bonus achievements depend on luck or the clock, so the certificate does not require them.
+export type Achievement = { id: AchievementId; emoji: string; title: string; description: string; bonus?: boolean }
 
 export const achievements: Achievement[] = [
   { id: 'first-visit', emoji: '👋', title: '初次見面', description: '第一次來到這個網站' },
@@ -15,7 +17,7 @@ export const achievements: Achievement[] = [
   { id: 'reaction', emoji: '❤️', title: '有感而發', description: '對文章按下表情回應' },
   { id: 'guestbook', emoji: '✍️', title: '留下足跡', description: '在留言板留言' },
   { id: 'explorer', emoji: '🧭', title: '探險家', description: '逛遍首頁、About、Projects、Blog 與 Friends' },
-  { id: 'night-owl', emoji: '🦉', title: '夜貓子', description: '在凌晨 0 點到 5 點之間造訪' },
+  { id: 'night-owl', emoji: '🦉', title: '夜貓子', description: '在凌晨 0 點到 5 點之間造訪', bonus: true },
   { id: 'dj', emoji: '🎧', title: 'DJ', description: '播放網站上的音樂' },
   { id: 'avatar-fan', emoji: '🦊', title: '頭像粉絲', description: '連續點了頭像 10 次' },
   { id: 'terminal', emoji: '⌨️', title: '駭客模式', description: '打開隱藏的終端機' },
@@ -38,6 +40,16 @@ export const achievements: Achievement[] = [
   { id: 'gravity', emoji: '🍎', title: '牛頓', description: '讓整個網站掉下來' },
   { id: 'dino', emoji: '🦖', title: '離線也要玩', description: '玩了狐狸跑酷' },
   { id: 'life', emoji: '🧬', title: '生命遊戲', description: '看了 Conway 的生命遊戲' },
+  { id: 'lost', emoji: '🗺️', title: '迷路了', description: '走進了不存在的頁面' },
+  { id: 'dvd-corner', emoji: '📀', title: '正中角落', description: 'DVD 螢幕保護程式剛好撞進角落', bonus: true },
+  { id: 'zerg', emoji: '🐜', title: 'Zerg Rush', description: '擊退了所有吃卡片的 o' },
+  { id: 'snake', emoji: '🐍', title: '貪食蛇', description: '在終端機吃到 10 顆果子' },
+  { id: 'console', emoji: '🧭', title: '文字冒險家', description: '在 Console 的文字冒險找到白狐' },
+  { id: 'hacker', emoji: '💻', title: 'ACCESS GRANTED', description: '在 Hacker Typer 取得權限' },
+  { id: 'sus', emoji: 'ඞ', title: 'sus', description: '發現了冒名頂替者' },
+  { id: 'nyan', emoji: '🌈', title: 'Nyan 狐', description: '讓彩虹狐狸飛過畫面' },
+  { id: 'developer', emoji: '🛠️', title: '開發人員模式', description: '連點網站名稱 7 次' },
+  { id: 'completionist', emoji: '🏆', title: '全成就達成', description: '解鎖了所有成就（加分成就除外）' },
 ]
 
 const storageKey = 'achievements'
@@ -64,6 +76,16 @@ export function unlock(id: AchievementId) {
   writeJson(storageKey, unlocked)
   const achievement = achievements.find((item) => item.id === id)
   if (achievement) window.dispatchEvent(new CustomEvent<Achievement>(achievementEvent, { detail: achievement }))
+  if (id !== 'completionist' && !unlocked.completionist && requiredAchievements().every((item) => unlocked[item.id])) {
+    unlock('completionist')
+    window.dispatchEvent(new Event(completionEvent))
+  }
+}
+
+export const completionEvent = 'achievements-complete'
+
+export function requiredAchievements() {
+  return achievements.filter((item) => !item.bonus && item.id !== 'completionist')
 }
 
 // Adds `value` to a named set and unlocks `id` once the set reaches `target` entries.

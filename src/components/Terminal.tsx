@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { createPortal } from 'react-dom'
 import useEscapeKey from './useEscapeKey'
 import { useMusicPlayer } from './MusicPlayerContext'
+import { HackerTyper, SnakeGame } from './TerminalGames'
 import { fetchArticles, fetchHomeProfile } from '../features/blog/api'
 import { requestGuestbook } from '../features/blog/guestbook'
 import { achievements, matrixEvent, unlock, unlockedAchievements } from '../features/fun/achievements'
@@ -11,7 +12,7 @@ import { getPublicPath, navigate, type PublicPage } from '../routes/routes'
 type Line = { text: string; tone?: 'input' | 'muted' | 'accent' | 'error' }
 
 const pages: PublicPage[] = ['home', 'about', 'projects', 'blog', 'friends']
-const commands = ['help', 'whoami', 'ls', 'cd', 'blog', 'read', 'guestbook', 'music', 'achievements', 'fortune', 'matrix', 'hack', 'coffee', 'prompt', 'rickroll', 'padoru', 'newyear', 'askew', 'tableflip', 'vim', 'thanos', 'gravity', 'blink', 'dino', 'recursion', 'anagram', 'coin', 'dice', 'date', 'echo', 'history', 'clear', 'exit', 'sudo']
+const commands = ['help', 'whoami', 'ls', 'cd', 'blog', 'read', 'guestbook', 'music', 'achievements', 'fortune', 'matrix', 'hack', 'coffee', 'prompt', 'rickroll', 'padoru', 'newyear', 'askew', 'tableflip', 'vim', 'thanos', 'gravity', 'blink', 'dino', 'recursion', 'anagram', 'coin', 'dice', 'snake', 'hackertyper', 'zerg', 'sus', 'nyan', 'certificate', 'date', 'echo', 'history', 'clear', 'exit', 'sudo']
 const fortunes = [
   '今天適合寫一點 code，也適合什麼都不寫。',
   '保持好奇心，答案通常藏在下一個 commit。',
@@ -33,7 +34,8 @@ const help: Line[] = [
   { text: '  fortune           今日運勢' },
   { text: '  matrix · hack · coffee · prompt · rickroll · padoru · newyear' },
   { text: '  askew · tableflip · vim · thanos · gravity · blink · dino · 67' },
-  { text: '  recursion · anagram · coin · dice · do a barrel roll …（還有更多，自己找）' },
+  { text: '  recursion · anagram · coin · dice · snake · hackertyper · zerg rush · sus · nyan' },
+  { text: '  certificate（通關證書）· do a barrel roll …（還有更多，自己找）' },
   { text: '  date · echo · history · clear · exit' },
 ]
 
@@ -49,7 +51,8 @@ function Terminal({ onClose }: { onClose: () => void }) {
   const { tracks, currentTrackIndex, isPlaying, toggle, changeTrack } = useMusicPlayer()
   // Inside vim, Esc does what it does in vim: nothing that helps you leave.
   const [inVim, setInVim] = useState(false)
-  useEscapeKey(!inVim, onClose, 30)
+  const [game, setGame] = useState<'snake' | 'hacker' | null>(null)
+  useEscapeKey(!inVim && !game, onClose, 30)
 
   useEffect(() => { unlock('terminal'); inputRef.current?.focus() }, [])
   useEffect(() => { outputRef.current?.scrollTo({ top: outputRef.current.scrollHeight }) }, [lines])
@@ -65,6 +68,7 @@ function Terminal({ onClose }: { onClose: () => void }) {
     if (/^(?:roll a die|roll a dice|dice|die|擲骰子)$/.test(text)) { print({ text: `🎲 ${Math.floor(Math.random() * 6) + 1}`, tone: 'accent' }); return true }
     if (/^(?:game of life|conway'?s game of life|life)$/.test(text)) { playEffect('life'); onClose(); return true }
     if (/loneliest number/.test(text)) { print({ text: '1', tone: 'accent' }, { text: '（One is the loneliest number…）', tone: 'muted' }); return true }
+    if (/^zerg\s*rush$/.test(text)) { playEffect('zerg'); onClose(); return true }
     if (/^(?:do a )?barrel roll$/.test(text)) { unlock('barrel-roll'); playEffect('barrel-roll'); print({ text: '🌀 Do a barrel roll!', tone: 'accent' }); return true }
     if (text === 'sudo make me a sandwich') { print({ text: 'Okay. 🥪', tone: 'accent' }, { text: '(xkcd 149)', tone: 'muted' }); return true }
     if (text === 'make me a sandwich') { print({ text: 'What? Make it yourself.', tone: 'error' }); return true }
@@ -186,6 +190,12 @@ function Terminal({ onClose }: { onClose: () => void }) {
       case 'gravity': playEffect('gravity'); print({ text: '🍎 牛頓說：掉下來吧。', tone: 'accent' }); onClose(); break
       case 'blink': playEffect('blink'); print({ text: '<blink>歡迎回到 1996 年</blink>', tone: 'accent' }); onClose(); break
       case 'dino': case 't-rex': playEffect('dino'); onClose(); break
+      case 'snake': setGame('snake'); break
+      case 'hackertyper': case 'hacker': setGame('hacker'); break
+      case 'zerg': playEffect('zerg'); onClose(); break
+      case 'sus': case 'impostor': playEffect('sus'); onClose(); break
+      case 'nyan': playEffect('nyan'); onClose(); break
+      case 'certificate': go('/certificate'); break
       case 'recursion': print({ text: '你是不是要找：recursion', tone: 'accent' }); break
       case 'anagram': print({ text: '你是不是要找：nag a ram', tone: 'accent' }); break
       case 'askew': playEffect('askew'); print({ text: '這個網站好像有點歪…', tone: 'muted' }); break
@@ -244,10 +254,12 @@ function Terminal({ onClose }: { onClose: () => void }) {
         </header>
         <div className="terminal-output" ref={outputRef} aria-live="polite">
           {lines.map((line, index) => <p key={index} className={line.tone ? `is-${line.tone}` : undefined}>{line.text || ' '}</p>)}
-          <label className="terminal-prompt">
+          {game === 'snake' ? <SnakeGame onExit={(score) => { setGame(null); print({ text: score < 0 ? '🐍 離開 snake' : `🐍 Game over · 分數 ${score}`, tone: 'accent' }); window.setTimeout(() => inputRef.current?.focus(), 0) }} />
+            : game === 'hacker' ? <HackerTyper onExit={() => { setGame(null); window.setTimeout(() => inputRef.current?.focus(), 0) }} />
+            : <label className="terminal-prompt">
             <span aria-hidden="true">{inVim ? ':' : 'baihu@site:~$'}</span>
             <input ref={inputRef} value={input} onChange={(event) => setInput(event.target.value)} onKeyDown={handleKeyDown} spellCheck={false} autoComplete="off" autoCapitalize="off" aria-label="輸入指令" />
-          </label>
+          </label>}
         </div>
       </section>
     </div>,
