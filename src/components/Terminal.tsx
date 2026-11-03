@@ -6,7 +6,7 @@ import { HackerTyper, SnakeGame } from './TerminalGames'
 import { fetchArticles, fetchHomeProfile } from '../features/blog/api'
 import { requestGuestbook } from '../features/blog/guestbook'
 import { achievements, matrixEvent, unlock, unlockedAchievements } from '../features/fun/achievements'
-import { isLowEffortGreeting, lowEffortReply, playEffect, rickroll } from '../features/fun/memes'
+import { crashSite, isLowEffortGreeting, isRmRfRoot, lowEffortReply, playEffect, rickroll } from '../features/fun/memes'
 import { getPublicPath, navigate, type PublicPage } from '../routes/routes'
 
 type Line = { text: string; tone?: 'input' | 'muted' | 'accent' | 'error' }
@@ -63,6 +63,7 @@ function Terminal({ onClose }: { onClose: () => void }) {
   // Meme phrases that are more than one word.
   function runPhrase(text: string) {
     if (isLowEffortGreeting(text)) { print(...lowEffortReply.split('\n').map((line) => ({ text: line, tone: 'error' as const }))); return true }
+    if (isRmRfRoot(text)) { wipeRoot(); return true }
     if (/^(?:6\s*-?\s*7|six\s*-?\s*seven)$/.test(text)) { playEffect('six-seven'); print({ text: '🤷 6 7 🤷', tone: 'accent' }); onClose(); return true }
     if (/^(?:flip a coin|coin|擲硬幣)$/.test(text)) { print({ text: `🪙 ${Math.random() < .5 ? '正面' : '反面'}`, tone: 'accent' }); return true }
     if (/^(?:roll a die|roll a dice|dice|die|擲骰子)$/.test(text)) { print({ text: `🎲 ${Math.floor(Math.random() * 6) + 1}`, tone: 'accent' }); return true }
@@ -77,6 +78,14 @@ function Terminal({ onClose }: { onClose: () => void }) {
     if (/^never gonna give you up/.test(text)) { rickroll(); print({ text: '🕺 Never gonna let you down…', tone: 'accent' }); return true }
     if (/^(?:恭喜發財|新年快樂)$/.test(text)) { unlock('lunar-new-year'); playEffect('newyear'); print({ text: '🧧 恭喜你發財，恭喜你精彩！', tone: 'accent' }); return true }
     return false
+  }
+
+  function wipeRoot() {
+    unlock('rm-rf')
+    const paths = ['/bin', '/boot', '/dev', '/etc', '/home/baihu', '/lib', '/usr', '/var/www/my-dashboard', '/proc/1']
+    paths.forEach((path, index) => window.setTimeout(() => print({ text: `removed directory '${path}'`, tone: 'muted' }), index * 140))
+    window.setTimeout(() => print({ text: 'bash: /usr/bin/ls: No such file or directory', tone: 'error' }), paths.length * 140)
+    window.setTimeout(crashSite, paths.length * 140 + 700)
   }
 
   function showPrompt() {

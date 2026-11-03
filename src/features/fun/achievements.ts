@@ -5,7 +5,7 @@ export type AchievementId =
   | 'scam-buster' | 'webshell' | 'bobby-tables' | 'scanner' | 'fox-runner' | 'matrix'
   | 'prompt' | 'rickroll' | 'padoru' | 'lunar-new-year' | 'barrel-roll' | 'vim'
   | 'six-seven' | 'thanos' | 'gravity' | 'dino' | 'life'
-  | 'lost' | 'dvd-corner' | 'zerg' | 'snake' | 'console' | 'hacker' | 'sus' | 'nyan' | 'developer' | 'completionist'
+  | 'lost' | 'dvd-corner' | 'zerg' | 'snake' | 'console' | 'hacker' | 'sus' | 'nyan' | 'developer' | 'rm-rf' | 'completionist'
 
 // Bonus achievements depend on luck or the clock, so the certificate does not require them.
 export type Achievement = { id: AchievementId; emoji: string; title: string; description: string; bonus?: boolean }
@@ -49,6 +49,7 @@ export const achievements: Achievement[] = [
   { id: 'sus', emoji: 'ඞ', title: 'sus', description: '發現了冒名頂替者' },
   { id: 'nyan', emoji: '🌈', title: 'Nyan 狐', description: '讓彩虹狐狸飛過畫面' },
   { id: 'developer', emoji: '🛠️', title: '開發人員模式', description: '連點網站名稱 7 次' },
+  { id: 'rm-rf', emoji: '💥', title: '刪庫跑路', description: '在終端機執行 rm -rf /' },
   { id: 'completionist', emoji: '🏆', title: '全成就達成', description: '解鎖了所有成就（加分成就除外）' },
 ]
 
