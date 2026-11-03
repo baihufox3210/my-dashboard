@@ -9,6 +9,7 @@ import {
   articlesFile,
   dataDirectory,
   friendsFile,
+  guestbookFile,
   homeProfileFile,
   projectsFile,
   musicFile,
@@ -27,6 +28,7 @@ import {
   type AnalyticsSource,
   type Article,
   type Friend,
+  type GuestbookEntry,
   type HomeProfile,
   type Project,
   type MusicTrack,
@@ -38,7 +40,7 @@ let analyticsWriteQueue: Promise<void> = Promise.resolve()
 let activityWriteQueue: Promise<void> = Promise.resolve()
 let analyticsDatabase: DatabaseSync | undefined
 let lastAnalyticsPruneDay = ''
-let pageViewStatements: { page: StatementSync; region: StatementSync; event: StatementSync } | undefined
+let pageViewStatements: { page: StatementSync; region: StatementSync; event: StatementSync; lifetime: StatementSync } | undefined
 
 export type PageViewInput = {
   page: AnalyticsPage
@@ -77,7 +79,7 @@ async function readJsonFile<T>(file: string, missing?: () => T): Promise<T> {
   return value
 }
 
-export async function writeJsonAtomically(file: string, value: unknown, options: AtomicWriteOptions = {}) {
+async function writeJsonAtomically(file: string, value: unknown, options: AtomicWriteOptions = {}) {
   const temporaryFile = `${file}.${crypto.randomUUID()}.tmp`
   const serialized = JSON.stringify(value, null, options.pretty ? 2 : undefined)
   try {
@@ -148,7 +150,19 @@ async function initializeAnalyticsDatabase() {
       key TEXT PRIMARY KEY,
       value TEXT NOT NULL
     ) STRICT;
+    CREATE TABLE IF NOT EXISTS article_reactions (
+      article_id TEXT NOT NULL,
+      reaction TEXT NOT NULL,
+      voter TEXT NOT NULL,
+      at TEXT NOT NULL,
+      PRIMARY KEY (article_id, reaction, voter)
+    ) STRICT;
   `)
+  // Lifetime view counter, seeded from the daily aggregates the first time it is needed.
+  database.prepare(`
+    INSERT OR IGNORE INTO storage_metadata (key, value)
+    SELECT 'lifetime_views', CAST(COALESCE(SUM(views), 0) AS TEXT) FROM analytics_page_views
+  `).run()
 
   const eventColumns = database.prepare('PRAGMA table_info(analytics_events)').all() as Array<{ name: string }>
   if (!eventColumns.some((column) => column.name === 'city')) database.exec("ALTER TABLE analytics_events ADD COLUMN city TEXT NOT NULL DEFAULT ''")
@@ -245,12 +259,23 @@ export async function ensureStorage(sessions: Map<string, number>) {
   }
 }
 
-export type ArticleSummary = Omit<Article, 'content'> & { excerpt: string; wordCount: number }
+export type ArticleSummary = Omit<Article, 'content'> & { excerpt: string; wordCount: number; readingMinutes: number }
 
 const articleSummaryCache = new WeakMap<Article[], ArticleSummary[]>()
 
-function countWords(content: string) {
-  return content.trim() ? content.trim().split(/\s+/u).length : 0
+const cjkCharacter = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/gu
+
+// Each CJK character counts as one word (Chinese has no spaces between words);
+// everything else is split on whitespace.
+export function countWords(content: string) {
+  const cjk = content.match(cjkCharacter)?.length ?? 0
+  const other = content.replace(cjkCharacter, ' ').match(/[\p{L}\p{N}][\p{L}\p{N}'’-]*/gu)?.length ?? 0
+  return { cjk, other, total: cjk + other }
+}
+
+// Roughly 400 CJK characters or 220 English words per minute.
+function readingMinutes({ cjk, other }: { cjk: number; other: number }) {
+  return Math.max(1, Math.round(cjk / 400 + other / 220))
 }
 
 function articleExcerpt(content: string) {
@@ -263,7 +288,8 @@ function articleExcerpt(content: string) {
 }
 
 export function summarizeArticle({ content, ...article }: Article): ArticleSummary {
-  return { ...article, excerpt: articleExcerpt(content), wordCount: countWords(content) }
+  const words = countWords(content)
+  return { ...article, excerpt: articleExcerpt(content), wordCount: words.total, readingMinutes: readingMinutes(words) }
 }
 
 const loadArticles = () => readJsonFile<Article[]>(articlesFile)
@@ -293,6 +319,25 @@ export async function readFriends(): Promise<Friend[]> {
 
 export async function writeFriends(friends: Friend[]) {
   await writeJsonAtomically(friendsFile, friends, { pretty: true })
+}
+
+let guestbookWriteQueue: Promise<unknown> = Promise.resolve()
+
+// Newest first. Callers must not mutate the returned entries.
+export async function readGuestbook(): Promise<GuestbookEntry[]> {
+  return readJsonFile<GuestbookEntry[]>(guestbookFile, () => [])
+}
+
+// Visitors and the admin both change the guestbook, so every change runs through
+// one queue as a read-modify-write of the whole file.
+export function updateGuestbook<T>(change: (entries: GuestbookEntry[]) => { entries: GuestbookEntry[]; result: T }) {
+  const operation = guestbookWriteQueue.then(async () => {
+    const { entries, result } = change([...await readGuestbook()])
+    await writeJsonAtomically(guestbookFile, entries, { mode: 0o600, pretty: true })
+    return result
+  })
+  guestbookWriteQueue = operation.catch(() => undefined)
+  return operation
 }
 
 export async function readProjects(): Promise<Project[]> {
@@ -372,6 +417,7 @@ export async function queuePageView(view: PageViewInput) {
         ON CONFLICT(day, country, region)
         DO UPDATE SET views = analytics_region_views.views + 1
       `),
+      lifetime: database.prepare("UPDATE storage_metadata SET value = CAST(CAST(value AS INTEGER) + 1 AS TEXT) WHERE key = 'lifetime_views'"),
       event: database.prepare(`
         INSERT INTO analytics_events (at, day, ip, session_id, page, path, article_id, source, referrer, device, browser, os, country, region, city, user_agent)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -380,6 +426,7 @@ export async function queuePageView(view: PageViewInput) {
     database.exec('BEGIN')
     try {
       pageViewStatements.page.run(day, page, device, articleId ?? '', source ?? '')
+      pageViewStatements.lifetime.run()
       if (region) pageViewStatements.region.run(day, region.country, region.region || '未細分')
       pageViewStatements.event.run(
         at, day, view.ip, view.sessionId ?? '', page, view.path ?? '', articleId ?? '', source ?? '', view.referrer ?? '',
@@ -545,6 +592,42 @@ export async function readAnalyticsVisits({ ip, before, limit }: { ip?: string; 
     ORDER BY id DESC
     LIMIT ?
   `).all(...parameters, limit) as AnalyticsVisit[]
+}
+
+export async function readVisitCounts() {
+  await analyticsWriteQueue
+  const database = getAnalyticsDatabase()
+  const today = database.prepare('SELECT COALESCE(SUM(views), 0) AS views FROM analytics_page_views WHERE day = ?').get(new Date().toISOString().slice(0, 10)) as { views: number }
+  const lifetime = database.prepare("SELECT value FROM storage_metadata WHERE key = 'lifetime_views'").get() as { value?: string } | undefined
+  return { today: today.views, total: Number(lifetime?.value ?? 0) }
+}
+
+export const articleReactions = ['like', 'love', 'laugh', 'wow'] as const
+export type ArticleReaction = typeof articleReactions[number]
+
+export function readArticleReactions(articleId: string, voter: string) {
+  const database = getAnalyticsDatabase()
+  const rows = database.prepare('SELECT reaction, COUNT(*) AS count, MAX(voter = ?) AS mine FROM article_reactions WHERE article_id = ? GROUP BY reaction').all(voter, articleId) as Array<{ reaction: ArticleReaction; count: number; mine: number }>
+  const counts = Object.fromEntries(articleReactions.map((reaction) => [reaction, 0])) as Record<ArticleReaction, number>
+  const mine: ArticleReaction[] = []
+  for (const row of rows) {
+    if (!(row.reaction in counts)) continue
+    counts[row.reaction] = row.count
+    if (row.mine) mine.push(row.reaction)
+  }
+  return { counts, mine }
+}
+
+// Adds the voter's reaction, or removes it when they had already reacted the same way.
+export function toggleArticleReaction(articleId: string, reaction: ArticleReaction, voter: string) {
+  const database = getAnalyticsDatabase()
+  const removed = database.prepare('DELETE FROM article_reactions WHERE article_id = ? AND reaction = ? AND voter = ?').run(articleId, reaction, voter)
+  if (!removed.changes) database.prepare('INSERT INTO article_reactions (article_id, reaction, voter, at) VALUES (?, ?, ?, ?)').run(articleId, reaction, voter, new Date().toISOString())
+  return readArticleReactions(articleId, voter)
+}
+
+export function deleteArticleReactions(articleId: string) {
+  getAnalyticsDatabase().prepare('DELETE FROM article_reactions WHERE article_id = ?').run(articleId)
 }
 
 export function recordActivity(entry: ActivityEntry) {

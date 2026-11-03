@@ -37,6 +37,8 @@ export type HomeProfile = {
   updateText: string
 }
 
+export type GuestbookMood = 'wave' | 'heart' | 'laugh' | 'star' | 'coffee'
+export type GuestbookEntry = { id: string; name: string; message: string; mood: GuestbookMood; createdAt: string; ip: string; reply?: string; repliedAt?: string }
 export type Friend = { id: string; name: string; introduction: string; url: string; avatarUrl?: string }
 export type Project = { id: string; title: string; summary: string; description: string; category: string; tags: string[]; projectUrl: string; coverImage?: string; coverImagePosition?: string; coverImageScale?: number; documentUrl?: string; documentName?: string; publishedAt: string; updatedAt?: string }
 export type MusicTrack = { id: string; title: string; fileUrl: string; fileName: string; order: number; createdAt: string; fingerprint?: string }
@@ -45,7 +47,6 @@ export type AnalyticsPage = 'home' | 'about' | 'projects' | 'blog' | 'article' |
 export type AnalyticsDevice = 'mobile' | 'tablet' | 'desktop'
 export type AnalyticsSource = 'direct' | 'search' | 'social' | 'referral'
 export type AnalyticsRegion = { country: string; region: string; city?: string }
-export type AnalyticsRegionRow = AnalyticsRegion & { day: string; views: number }
 export type AnalyticsRow = { day: string; page: AnalyticsPage; device: AnalyticsDevice; views: number; articleId?: string; source?: AnalyticsSource }
 export type ActivityEntry = { at: string; type: 'article' | 'homepage' | 'site'; action: 'published' | 'updated' | 'deleted' | 'saved'; title: string }
 

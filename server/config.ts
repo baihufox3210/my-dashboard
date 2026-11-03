@@ -4,7 +4,7 @@ import 'dotenv/config'
 
 const currentFile = fileURLToPath(import.meta.url)
 const currentDirectory = path.dirname(currentFile)
-export const projectDirectory = path.resolve(currentDirectory, '..')
+const projectDirectory = path.resolve(currentDirectory, '..')
 // DATA_DIR and UPLOADS_DIR let tests and deployments keep runtime data elsewhere.
 export const dataDirectory = path.resolve(process.env.DATA_DIR ?? path.join(projectDirectory, 'data'))
 export const securityFlagsFile = path.join(dataDirectory, 'security-flags.json')
@@ -16,6 +16,7 @@ export const analyticsDatabaseFile = path.join(dataDirectory, 'analytics.sqlite'
 export const analyticsLegacyFile = path.join(dataDirectory, 'analytics.json')
 export const activityFile = path.join(dataDirectory, 'admin-activity.json')
 export const friendsFile = path.join(dataDirectory, 'friends.json')
+export const guestbookFile = path.join(dataDirectory, 'guestbook.json')
 export const projectsFile = path.join(dataDirectory, 'projects.json')
 export const musicFile = path.join(dataDirectory, 'music.json')
 export const uploadsDirectory = path.resolve(process.env.UPLOADS_DIR ?? path.join(projectDirectory, 'public', 'uploads'))
@@ -28,6 +29,8 @@ export const adminUsername = process.env.ADMIN_USERNAME
 export const adminPassword = process.env.ADMIN_PASSWORD
 // Per-view analytics events (including visitor IPs) are kept this many days.
 export const analyticsEventRetentionDays = Math.max(1, Math.min(365, Number(process.env.ANALYTICS_EVENT_RETENTION_DAYS) || 90))
+// Public site address for absolute links (RSS); derived from the request when unset.
+export const siteUrl = process.env.SITE_URL?.replace(/\/+$/, '')
 export const siteStartDate = process.env.SITE_START_DATE ?? new Date().toISOString()
 
 if (!adminUsername || !adminPassword || adminPassword.length < 8 || adminUsername === 'admin' || adminPassword === 'change-me') {

@@ -69,19 +69,25 @@ describe('auth', () => {
     assert.equal(wrong.status, 401)
   })
 
-  test('solves the SQL challenge without creating a session', async () => {
-    const response = await postJson('/api/auth/login', { username: "admin' --", password: 'x' })
-    assert.deepEqual(await response.json(), { authenticated: false, challenge: { flag: 'FLAG{test}' } })
+  test('turns SQL injection attempts into an easter egg without a session', async () => {
+    for (const username of ["admin' --", "' OR 1=1 --", "x' UNION SELECT password FROM users --"]) {
+      const response = await postJson('/api/auth/login', { username, password: 'x' })
+      assert.deepEqual(await response.json(), { authenticated: false, easterEgg: 'sql-injection', flag: 'FLAG{test}' })
+      assert.equal(response.headers.get('set-cookie'), null)
+    }
+  })
+
+  test('sends admin/admin123 to the scam-panel easter egg', async () => {
+    const response = await postJson('/api/auth/login', { username: 'admin', password: 'admin123' })
+    assert.deepEqual(await response.json(), { authenticated: false, easterEgg: 'scam-panel' })
     assert.equal(response.headers.get('set-cookie'), null)
   })
 
-  test('a runaway challenge query does not block other requests', async () => {
+  test('no query runs for injection payloads, so even a runaway one answers instantly', async () => {
     const started = Date.now()
-    const slow = postJson('/api/auth/login', { username: "' OR (WITH RECURSIVE c(x) AS (SELECT 1 UNION ALL SELECT x+1 FROM c) SELECT max(x) FROM c) --", password: 'x' })
-    const quick = await api('/api/server-status')
-    assert.equal(quick.status, 200)
-    assert.ok(Date.now() - started < 500)
-    assert.equal((await slow).status, 401)
+    const response = await postJson('/api/auth/login', { username: "' OR (WITH RECURSIVE c(x) AS (SELECT 1 UNION ALL SELECT x+1 FROM c) SELECT max(x) FROM c) --", password: 'x' })
+    assert.equal(((await response.json()) as { easterEgg?: string }).easterEgg, 'sql-injection')
+    assert.ok(Date.now() - started < 300)
   })
 
   test('logs in with the configured credentials', async () => {
@@ -123,6 +129,12 @@ describe('articles', () => {
     const list = await (await api('/api/articles')).json() as Array<{ title: string }>
     for (const title of titles) assert.ok(list.some((article) => article.title === title))
   })
+})
+
+test('authenticated JSON writes are not stalled by the write queue', async () => {
+  // express.json() consumes the body before the queue runs; the request must still be handled.
+  const response = await api('/api/admin/music/order', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids: [] }), signal: AbortSignal.timeout(3000) })
+  assert.equal(response.status, 400)
 })
 
 describe('friends', () => {
@@ -168,6 +180,82 @@ describe('analytics', () => {
     assert.equal(visit?.country, '')
     assert.equal(visit?.city, '')
   })
+})
+
+describe('reader features', () => {
+  test('counts Chinese characters as words and estimates reading time', async () => {
+    const created = await (await api('/api/articles', { method: 'POST', body: form({ title: '中文 & <XML>', content: '今天天氣很好，我們去 FRC 比賽！' + '字'.repeat(800) }) })).json() as { id: string; wordCount: number; readingMinutes: number }
+    assert.equal(created.wordCount, 12 + 800)
+    assert.equal(created.readingMinutes, 2)
+  })
+
+  test('toggles one reaction per kind per visitor', async () => {
+    const [article] = await (await api('/api/articles')).json() as Array<{ id: string }>
+    const react = (reaction: string) => postJson(`/api/articles/${article?.id}/reactions`, { reaction }).then((response) => response.json() as Promise<{ counts: Record<string, number>; mine: string[] }>)
+    assert.deepEqual(await react('love'), { counts: { like: 0, love: 1, laugh: 0, wow: 0 }, mine: ['love'] })
+    assert.deepEqual((await react('love')).counts.love, 0)
+    assert.equal((await postJson(`/api/articles/${article?.id}/reactions`, { reaction: 'angry' })).status, 400)
+    assert.equal((await postJson('/api/articles/missing/reactions', { reaction: 'like' })).status, 404)
+  })
+
+  test('serves an RSS feed with escaped titles and shareable links', async () => {
+    const response = await fetch(`${base}/api/rss.xml`)
+    assert.match(response.headers.get('content-type') ?? '', /application\/rss\+xml/)
+    const xml = await response.text()
+    assert.match(xml, /<title>中文 &amp; &lt;XML&gt;<\/title>/)
+    assert.match(xml, /<link>http:\/\/127\.0\.0\.1:\d+\/blog\/post\/[0-9a-f-]+<\/link>/)
+  })
+
+  test('reports today and lifetime views', async () => {
+    const before = await (await fetch(`${base}/api/visits`)).json() as { today: number; total: number }
+    await postJson('/api/analytics/view', { page: 'home' })
+    const after = await (await fetch(`${base}/api/visits`)).json() as { today: number; total: number }
+    assert.deepEqual({ today: after.today - before.today, total: after.total - before.total }, { today: 1, total: 1 })
+  })
+})
+
+describe('guestbook', () => {
+  test('accepts messages, hides IPs, and supports admin reply and delete', async () => {
+    const posted = await postJson('/api/guestbook', { name: '  小明 ', message: '你好！\n\n\n\n第一次來', mood: 'heart' })
+    assert.equal(posted.status, 201)
+    const entry = await posted.json() as { id: string; name: string; message: string; mood: string; ip?: string }
+    assert.deepEqual({ name: entry.name, message: entry.message, mood: entry.mood, ip: entry.ip }, { name: '小明', message: '你好！\n\n第一次來', mood: 'heart', ip: undefined })
+
+    const list = await (await fetch(`${base}/api/guestbook`)).json() as { entries: Array<Record<string, unknown>>; total: number }
+    assert.equal(list.total, 1)
+    assert.equal('ip' in (list.entries[0] ?? {}), false)
+
+    const admin = await (await api('/api/admin/guestbook')).json() as Array<{ ip: string }>
+    assert.equal(admin[0]?.ip, '127.0.0.1')
+
+    const replied = await (await api(`/api/admin/guestbook/${entry.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reply: '歡迎！' }) })).json() as { reply: string; repliedAt: string }
+    assert.equal(replied.reply, '歡迎！')
+    assert.ok(replied.repliedAt)
+
+    assert.equal((await api(`/api/admin/guestbook/${entry.id}`, { method: 'DELETE' })).status, 204)
+    assert.equal(((await (await fetch(`${base}/api/guestbook`)).json()) as { total: number }).total, 0)
+  })
+
+  test('rejects invalid input, drops honeypot posts, and rate-limits', async () => {
+    assert.equal((await postJson('/api/guestbook', { name: '', message: 'hi' })).status, 400)
+    assert.equal((await postJson('/api/guestbook', { name: 'a', message: 'x'.repeat(301) })).status, 400)
+    assert.equal((await postJson('/api/guestbook', { name: 'a', message: 'http://a http://b http://c' })).status, 400)
+    assert.equal((await postJson('/api/guestbook', { name: 'bot', message: 'spam', website: 'http://spam' })).status, 201)
+    assert.equal(((await (await fetch(`${base}/api/guestbook`)).json()) as { total: number }).total, 0)
+    // The first test used one of the three posts allowed per 10 minutes.
+    assert.equal((await postJson('/api/guestbook', { name: 'a', message: '2' })).status, 201)
+    assert.equal((await postJson('/api/guestbook', { name: 'a', message: '3' })).status, 201)
+    assert.equal((await postJson('/api/guestbook', { name: 'a', message: '4' })).status, 429)
+  })
+})
+
+test('counts open tabs from heartbeats', async () => {
+  const beat = (sessionId: string) => postJson('/api/presence', { sessionId }).then((response) => response.json() as Promise<{ online: number }>)
+  const start = (await (await fetch(`${base}/api/presence`)).json() as { online: number }).online
+  assert.equal((await beat('tab-aaaaaaaa')).online, start + 1)
+  assert.equal((await beat('tab-aaaaaaaa')).online, start + 1)
+  assert.equal((await beat('tab-bbbbbbbb')).online, start + 2)
+  assert.equal((await postJson('/api/presence', { sessionId: 'x' })).status, 400)
 })
 
 describe('visitor location', () => {

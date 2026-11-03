@@ -45,7 +45,6 @@ const emptyStats: ArticleStats = {
 function BlogPage() {
   const [articles, setArticles] = useState<ArticleSummary[]>([])
   const [stats, setStats] = useState<ArticleStats>(emptyStats)
-  const [selectedArticle, setSelectedArticle] = useState<ArticleSummary | null>(null)
   const [articleToDelete, setArticleToDelete] = useState<ArticleSummary | null>(null)
   const [currentTime] = useState(() => Date.now())
   const [isAdmin, setIsAdmin] = useState(false)
@@ -66,6 +65,11 @@ function BlogPage() {
   const sidebarContentRef = useRef<HTMLDivElement>(null)
   const [sidebarFit, setSidebarFit] = useState({ shift: 0, scale: 1, height: 0 })
   const locationKey = useLocationKey()
+  // The open article lives in the URL (/blog/post/:id), so it can be shared and Back closes it.
+  const [, routeAction, routeId] = getRouteSegments()
+  const selectedArticle = routeAction === 'post' ? articles.find((article) => article.id === decodeURIComponent(routeId ?? '')) ?? null : null
+  const openArticle = (article: ArticleSummary) => navigate(`${getPublicPath('blog')}/post/${encodeURIComponent(article.id)}`)
+  const closeArticle = () => navigate(getPublicPath('blog'))
 
   useEffect(() => {
     if (selectedArticle && !isAdmin) void recordPageView('article', { articleId: selectedArticle.id })
@@ -132,7 +136,7 @@ function BlogPage() {
     try {
       await deleteArticle(articleToDelete.id)
       setArticles((current) => current.filter((item) => item.id !== articleToDelete.id))
-      if (selectedArticle?.id === articleToDelete.id) setSelectedArticle(null)
+      if (selectedArticle?.id === articleToDelete.id) closeArticle()
       setArticleToDelete(null)
     } catch (error) {
       setAdminMessage(error instanceof Error ? error.message : 'Delete failed.')
@@ -261,7 +265,7 @@ function BlogPage() {
           ) : (
             articles.map((article) => (
               <div key={article.id} className="article-card-wrap">
-              <button className="public-article-card" data-article-id={article.id} type="button" onClick={() => setSelectedArticle(article)}>
+              <button className="public-article-card" data-article-id={article.id} type="button" onClick={() => openArticle(article)}>
                 {article.coverImage && <span className="public-article-cover-frame"><img className="public-article-cover" src={article.coverImage} alt="" style={coverImageStyle(article)} /></span>}
                 <span>
                   <small>{article.category} · {new Date(article.publishedAt).toLocaleDateString()}</small>
@@ -286,7 +290,7 @@ function BlogPage() {
               <p className="side-empty">還沒有發布動態</p>
             ) : (
               visibleRecentArticles.map((article) => (
-                <button key={article.id} type="button" onClick={() => setSelectedArticle(article)}>
+                <button key={article.id} type="button" onClick={() => openArticle(article)}>
                   <strong>{article.title}</strong>
                   <span>{new Date(article.publishedAt).toLocaleDateString()}</span>
                 </button>
@@ -302,8 +306,8 @@ function BlogPage() {
             <div className="stat-row"><span>分類</span><strong>{stats.categoryCount}</strong></div>
             <div className="stat-row"><span>標籤</span><strong>{stats.tagCount}</strong></div>
             <div className="stat-row"><span>總字數</span><strong>{stats.totalWords.toLocaleString()}</strong></div>
-
             <div className="stat-row"><span>最後活動</span><strong>{stats.lastActivity ? new Date(stats.lastActivity).toLocaleDateString() : '—'}</strong></div>
+            <a className="blog-rss-link" href="/api/rss.xml" target="_blank" rel="noreferrer">訂閱 RSS</a>
           </section>
           <section className="popular-tags-card">
             <div className="side-card-heading"><span />熱門標籤</div>
@@ -320,7 +324,7 @@ function BlogPage() {
       </section>
 
       {selectedArticle && (
-        <ArticleReader article={selectedArticle} onClose={() => setSelectedArticle(null)}>
+        <ArticleReader article={selectedArticle} onClose={closeArticle}>
           {isAdmin && (
             <footer className="project-detail-actions">
               <div className="project-detail-admin-actions">

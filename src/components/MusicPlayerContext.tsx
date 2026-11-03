@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { fetchMusicTracks } from '../features/blog/api'
 import type { MusicTrack } from '../features/blog/article'
 import { resolveSameOriginMediaUrl } from '../features/blog/media'
+import { unlock } from '../features/fun/achievements'
 
 type MusicPlayerContextValue = {
   tracks: MusicTrack[]
@@ -118,6 +119,7 @@ function MusicPlayerProvider({ children }: { children: ReactNode }) {
     if (!audio || !tracks.length) return
     userControlledRef.current = true
     if (audio.paused) {
+      unlock('dj')
       play()
     } else {
       shouldPlayRef.current = false

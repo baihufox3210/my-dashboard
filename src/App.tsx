@@ -7,7 +7,8 @@ import { applySiteBackground } from './features/blog/background'
 import MusicPlayerProvider from './components/MusicPlayerContext'
 import SiteLayout from './layouts/SiteLayout'
 import PageRouter from './routes/PageRouter'
-import { getRouteSegments, isAdminRoute, isLoginRoute, navigate, useLocationKey } from './routes/routes'
+import { trackProgress } from './features/fun/achievements'
+import { getEasterEggPage, getRouteSegments, isAdminRoute, isLoginRoute, navigate, useLocationKey } from './routes/routes'
 
 function App() {
   const lastTrackedLocation = useRef('')
@@ -62,13 +63,15 @@ function App() {
     const trackPage = () => {
       const parts = getRouteSegments()
       const route = parts[0] ?? 'home'
-      if (isAdminRoute() || isLoginRoute() || (route === 'blog' && ['new', 'edit'].includes(parts[1] ?? ''))) return
+      // Article pages (/blog/post/:id) record an 'article' view from the reader instead.
+      if (isAdminRoute() || isLoginRoute() || getEasterEggPage() || (route === 'blog' && ['new', 'edit', 'post'].includes(parts[1] ?? ''))) return
       const trackedPages: AnalyticsPage[] = ['home', 'about', 'projects', 'blog', 'friends']
       const page: AnalyticsPage = trackedPages.includes(route as AnalyticsPage) ? route as AnalyticsPage : 'home'
       // Count every navigation, including revisits of the same page; only skip a
       // repeated effect run for the same URL (e.g. React StrictMode in development).
       if (lastTrackedLocation.current === locationKey) return
       lastTrackedLocation.current = locationKey
+      if (trackedPages.includes(route as AnalyticsPage)) trackProgress('pages', route, trackedPages.length, 'explorer')
       let source: 'direct' | 'search' | 'social' | 'referral' | undefined
       let referrerHost: string | undefined
       try {

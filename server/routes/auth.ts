@@ -1,12 +1,14 @@
 import crypto from 'node:crypto'
 import { Router } from 'express'
 import { readSqlLoginChallengeConfig } from '../challenges/config.js'
-import { allowSqlLoginChallengeAttempt, solveSqlLoginChallenge } from '../challenges/sqlLogin.js'
+import { loginEasterEgg } from '../easterEggs.js'
+import { createRateLimiter } from '../rateLimit.js'
 import { adminPassword, adminUsername, sessionLifetimeMs } from '../config.js'
 import { getClientIp, hashSessionId, isAuthenticated, loginFailures, requireSameOrigin, sessions } from '../security.js'
 import { persistSessions } from '../storage.js'
 
 const router = Router()
+const takeEasterEgg = createRateLimiter({ windowMs: 60_000, max: 20, maxEntries: 5_000 })
 
 router.get('/me', (request, response) => {
   response.json({ authenticated: isAuthenticated(request) })
@@ -37,17 +39,17 @@ router.post('/login', requireSameOrigin, async (request, response) => {
   const usernameMatches = credentialMatches(username, adminUsername as string)
   const passwordMatches = credentialMatches(password, adminPassword as string)
   if (!usernameMatches || !passwordMatches) {
-    const challengeConfig = await readSqlLoginChallengeConfig()
-    if (challengeConfig.enabled && typeof username === 'string' && typeof password === 'string' && username.length <= 256 && password.length <= 256) {
-      if (!allowSqlLoginChallengeAttempt(ip, Date.now())) {
+    // Easter eggs never create a session; they share their own rate limit and do not
+    // count as failed logins, so playing with them cannot lock the owner out.
+    const easterEgg = loginEasterEgg(username, password)
+    if (easterEgg) {
+      if (takeEasterEgg(ip) !== 'allowed') {
         response.status(429).json({ message: 'Too many login attempts. Try again later.' })
         return
       }
-      const challengeSolved = await solveSqlLoginChallenge(username, password)
-      if (challengeSolved) {
-        response.json({ authenticated: false, challenge: { flag: challengeConfig.flag } })
-        return
-      }
+      const config = easterEgg === 'sql-injection' ? await readSqlLoginChallengeConfig() : undefined
+      response.json({ authenticated: false, easterEgg, ...(config?.enabled ? { flag: config.flag } : {}) })
+      return
     }
 
     const nextCount = (failure?.count ?? 0) + 1

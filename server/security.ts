@@ -35,7 +35,7 @@ export function isAuthenticated(request: Request) {
   return true
 }
 
-function isTrustedProxyRequest(request: Request) {
+export function isTrustedProxyRequest(request: Request) {
   const remoteAddress = request.socket.remoteAddress ?? ''
   return Boolean(trustedProxyIp && (remoteAddress === trustedProxyIp || remoteAddress === `::ffff:${trustedProxyIp}`))
 }

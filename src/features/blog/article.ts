@@ -15,6 +15,7 @@ export type Article = {
 export type ArticleSummary = Omit<Article, 'content'> & {
   excerpt: string
   wordCount: number
+  readingMinutes: number
 }
 
 export type ArticleStats = {
@@ -117,6 +118,20 @@ export type HomeProfile = {
   updateTitle: string
   updateText: string
 }
+
+export type GuestbookMood = 'wave' | 'heart' | 'laugh' | 'star' | 'coffee'
+
+export type GuestbookEntry = {
+  id: string
+  name: string
+  message: string
+  mood: GuestbookMood
+  createdAt: string
+  reply?: string
+  repliedAt?: string
+}
+
+export type AdminGuestbookEntry = GuestbookEntry & { ip: string }
 
 export type Friend = {
   id: string

@@ -1,10 +1,10 @@
 import { useSyncExternalStore } from 'react'
 
 export type PublicPage = 'home' | 'about' | 'projects' | 'blog' | 'friends'
-export type AdminSection = 'overview' | 'home' | 'site' | 'traffic' | 'friends' | 'projects' | 'music'
+export type AdminSection = 'overview' | 'home' | 'site' | 'traffic' | 'friends' | 'projects' | 'music' | 'guestbook'
 
 const publicPages = new Set<PublicPage>(['home', 'about', 'projects', 'blog', 'friends'])
-const adminSections = new Set<AdminSection>(['overview', 'home', 'site', 'traffic', 'friends', 'projects', 'music'])
+const adminSections = new Set<AdminSection>(['overview', 'home', 'site', 'traffic', 'friends', 'projects', 'music', 'guestbook'])
 
 function cleanSegment(value: string) {
   return value.trim().toLowerCase()
@@ -22,6 +22,15 @@ export function getPublicPage(): PublicPage {
   const firstSegment = getRouteSegments()[0]
   if (firstSegment && publicPages.has(firstSegment as PublicPage)) return firstSegment as PublicPage
   return 'home'
+}
+
+// Hidden easter-egg routes: the parody scam back-office and the pages scanners probe.
+const scannerPaths = new Set(['wp-admin', 'wp-login.php', 'phpmyadmin', '.env', 'xmlrpc.php', 'admin.php', 'administrator', '.git', 'config.php'])
+
+export function getEasterEggPage(): 'panel' | 'honeypot' | null {
+  const first = getRouteSegments()[0]
+  if (first === 'panel') return 'panel'
+  return first && scannerPaths.has(first) ? 'honeypot' : null
 }
 
 export function isLoginRoute() {

@@ -29,9 +29,34 @@
   --theme-on-danger: #fffaf8;
   --theme-surface-soft: rgba(255, 255, 255, .58);
   --theme-surface-hover: rgba(255, 255, 255, .84);
+  --theme-surface-solid: rgba(255, 255, 255, .94);
+  --theme-glass-light: rgba(255, 255, 255, .4);
+  --theme-glass-faint: rgba(255, 255, 255, .18);
+  --theme-shadow-rgb: 50 38 30;
+  /* Text and lines on dark overlays (image editors, code blocks). */
+  --theme-on-overlay: rgba(255, 255, 255, .9);
+  --theme-on-overlay-muted: rgba(255, 255, 255, .72);
+  --theme-on-overlay-line: rgba(255, 255, 255, .22);
+  --theme-on-overlay-faint: rgba(255, 255, 255, .1);
+}
 
+/*
+ * Tokens derived from the palette. background.ts sets the palette on <body>, so these
+ * are declared on body as well: a custom property resolves var() where it is declared.
+ */
+:root,
+body {
+  --theme-surface-muted: color-mix(in srgb, var(--theme-primary) 5%, #fff);
+  --theme-selected: color-mix(in srgb, var(--theme-primary) 12%, #fff);
+  --theme-danger-soft: color-mix(in srgb, var(--theme-danger) 10%, #fff);
+  --theme-success-soft: color-mix(in srgb, var(--theme-success) 12%, #fff);
+  --theme-avatar-gradient: linear-gradient(145deg, color-mix(in srgb, var(--theme-primary) 45%, #fff), var(--theme-primary));
   --theme-surface-error: color-mix(in srgb, var(--theme-danger) 10%, var(--theme-surface));
   --theme-focus-ring: 0 0 0 3px var(--theme-primary-soft);
+  /* Dark terminal panel, still tinted by the palette. */
+  --theme-terminal-background: color-mix(in srgb, var(--theme-primary-strong) 28%, #0f0b09);
+  --theme-terminal-accent: color-mix(in srgb, var(--theme-primary) 45%, #fff);
+  --theme-terminal-error: color-mix(in srgb, var(--theme-danger) 55%, #fff);
 }
 
 html { background-color: var(--theme-page-base); }
@@ -391,11 +416,6 @@ body.site-background-dark .admin-nav-item {
   border-color: var(--theme-line);
   color: var(--theme-primary-strong);
 }
-.admin-app {
-  --admin-accent: var(--theme-primary);
-  --admin-muted: var(--theme-muted);
-  --admin-line: var(--theme-line);
-}
 .admin-kicker,
 .admin-overview-card-heading > a {
   color: var(--theme-primary-strong);
@@ -452,8 +472,8 @@ body.site-background-dark .admin-nav-item {
   color: var(--theme-on-primary);
 }
 .home-avatar-wrap {
-  background: conic-gradient(from 215deg, #7188f5, #b99af9 25%, #f0a5cf 48%, #a29af8 72%, #7188f5);
-  box-shadow: 0 .55rem 1.5rem rgba(126,112,210,.24);
+  background: conic-gradient(from 215deg, var(--theme-primary), color-mix(in srgb, var(--theme-primary) 45%, var(--theme-surface-white)) 25%, var(--theme-primary-strong) 48%, color-mix(in srgb, var(--theme-primary) 70%, var(--theme-surface-white)) 72%, var(--theme-primary));
+  box-shadow: 0 .55rem 1.5rem color-mix(in srgb, var(--theme-primary) 24%, transparent);
 }
 .home-avatar-wrap:focus-visible {
   outline: 3px solid var(--theme-primary);
@@ -497,17 +517,6 @@ body.site-background-dark .admin-nav-item {
 .project-card-top > span:last-child {
   color: var(--theme-muted);
 }
-.project-tags > span,
-.project-card-featured .project-tags > span {
-  border-color: var(--theme-line);
-  color: var(--theme-control-foreground);
-  background: var(--theme-control-background);
-}
-.project-card-art:not(.has-cover),
-.project-art-placeholder {
-  color: var(--theme-primary-strong);
-  background: var(--theme-control-background);
-}
 .projects-heading h1 span,
 .projects-footer > span:nth-child(2),
 .project-card-art > b,
@@ -535,18 +544,6 @@ body.site-background-dark .admin-nav-item {
 .confirm-dialog-mark {
   color: var(--theme-danger);
 }
-.project-form-field input:not([type=file]),
-.project-form-field textarea,
-.project-pdf-drop {
-  border-color: var(--theme-line);
-  color: var(--theme-card-ink);
-  background: var(--theme-surface-raised);
-}
-.project-pdf-drop b {
-  border-color: var(--theme-line);
-  color: var(--theme-control-foreground);
-  background: var(--theme-control-background);
-}
 :focus-visible { outline-color: var(--theme-primary); }
 @media (max-width: 760px) {
   .music-preview-controls {
@@ -559,10 +556,6 @@ body.site-background-dark .admin-nav-item {
 
 /* Blog editor sits on white glass, so it must never inherit the on-background ink. */
 .blog-editor-form {
-  --admin-ink: var(--theme-card-ink);
-  --admin-muted: var(--theme-muted);
-  --admin-line: var(--theme-line);
-  --admin-accent: var(--theme-primary-strong);
   border-color: var(--theme-surface-border);
   color: var(--theme-card-ink);
   background: var(--theme-surface);
@@ -626,11 +619,6 @@ body.site-background-dark .admin-nav-item {
 }
 
 /* Projects use the same semantic surface system as every other route. */
-.projects-page {
-  --project-ink: var(--theme-card-ink);
-  --project-muted: var(--theme-muted);
-  --project-accent: var(--theme-primary-strong);
-}
 .projects-feedback,
 .projects-empty {
   border-color: var(--theme-line);
@@ -798,7 +786,7 @@ body.site-background-dark .admin-nav-item {
 .projects-page .projects-empty,
 .projects-page .project-card,
 .projects-page .project-card-featured {
-  border-color: color-mix(in srgb, var(--theme-primary-strong) 18%, white);
+  border-color: color-mix(in srgb, var(--theme-primary-strong) 18%, var(--theme-surface-raised));
   background: var(--theme-surface);
   box-shadow: var(--theme-shadow);
   -webkit-backdrop-filter: blur(18px) saturate(135%);
@@ -806,7 +794,7 @@ body.site-background-dark .admin-nav-item {
 }
 .projects-page .projects-toolbar {
   padding: .65rem .8rem;
-  border: 1px solid color-mix(in srgb, var(--theme-primary-strong) 18%, white);
+  border: 1px solid color-mix(in srgb, var(--theme-primary-strong) 18%, var(--theme-surface-raised));
   border-radius: .75rem;
 }
 .projects-page .projects-toolbar > span:first-child,
@@ -820,13 +808,13 @@ body.site-background-dark .admin-nav-item {
 }
 .projects-page .project-card:hover,
 .projects-page .project-card-featured:hover {
-  border-color: color-mix(in srgb, var(--theme-primary-strong) 30%, white);
+  border-color: color-mix(in srgb, var(--theme-primary-strong) 30%, var(--theme-surface-raised));
   background: var(--theme-surface-raised);
   box-shadow: var(--theme-shadow);
 }
 .projects-page .project-art-placeholder,
 .projects-page .project-card-art:not(.has-cover) {
-  background: color-mix(in srgb, var(--theme-primary) 12%, white);
+  background: color-mix(in srgb, var(--theme-primary) 12%, var(--theme-surface-white));
 }
 .projects-page .project-detail-modal,
 .projects-page .project-editor-modal {

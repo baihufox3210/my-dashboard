@@ -1,4 +1,4 @@
-import type { AnalyticsStats, AnalyticsVisit, Article, ArticleStats, ArticleSummary, Friend, HomeProfile, MusicTrack, Project, ServerStatus, SiteSettings } from './article'
+import type { AdminGuestbookEntry, AnalyticsStats, AnalyticsVisit, Article, ArticleStats, ArticleSummary, Friend, GuestbookEntry, GuestbookMood, HomeProfile, MusicTrack, Project, ServerStatus, SiteSettings } from './article'
 
 async function request<T>(input: RequestInfo, init?: RequestInit): Promise<T> {
   const response = await fetch(input, { credentials: 'include', ...init })
@@ -106,7 +106,7 @@ export function fetchAnalyticsVisits(options: { ip?: string; before?: number } =
 }
 
 // One id per browser tab session, so the dashboard can group views into visits.
-function analyticsSessionId() {
+export function analyticsSessionId() {
   try {
     let id = sessionStorage.getItem('analytics-session-id')
     if (!id) {
@@ -142,7 +142,7 @@ export function fetchAdminSession() {
 }
 
 export function loginAdmin(username: string, password: string) {
-  return mutate(request<{ authenticated: boolean; challenge?: { flag: string } }>('/api/auth/login', {
+  return mutate(request<{ authenticated: boolean; easterEgg?: 'scam-panel' | 'sql-injection'; flag?: string }>('/api/auth/login', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ username, password }),
@@ -238,4 +238,63 @@ export function updateMusicTrackOrder(ids: string[]) {
 
 export function deleteMusicTrack(id: string) {
   return mutate(request<void>(`/api/admin/music/${encodeURIComponent(id)}`, { method: 'DELETE' }), 'music')
+}
+
+export type GuestbookPage = { entries: GuestbookEntry[]; total: number; hasMore: boolean }
+
+export function fetchGuestbook(before?: string) {
+  return before
+    ? request<GuestbookPage>(`/api/guestbook?before=${encodeURIComponent(before)}`)
+    : cached('guestbook', () => request<GuestbookPage>('/api/guestbook'))
+}
+
+export function postGuestbookEntry(entry: { name: string; message: string; mood: GuestbookMood; website: string }) {
+  return mutate(request<GuestbookEntry>('/api/guestbook', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(entry),
+  }), 'guestbook')
+}
+
+export function fetchAdminGuestbook() {
+  return request<AdminGuestbookEntry[]>('/api/admin/guestbook')
+}
+
+export function replyGuestbookEntry(id: string, reply: string) {
+  return mutate(request<AdminGuestbookEntry>(`/api/admin/guestbook/${encodeURIComponent(id)}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ reply }),
+  }), 'guestbook')
+}
+
+export function deleteGuestbookEntry(id: string) {
+  return mutate(request<void>(`/api/admin/guestbook/${encodeURIComponent(id)}`, { method: 'DELETE' }), 'guestbook')
+}
+
+export type ArticleReaction = 'like' | 'love' | 'laugh' | 'wow'
+export type ArticleReactions = { counts: Record<ArticleReaction, number>; mine: ArticleReaction[] }
+
+export function fetchArticleReactions(id: string) {
+  return request<ArticleReactions>(`/api/articles/${encodeURIComponent(id)}/reactions`, { cache: 'no-store' })
+}
+
+export function toggleArticleReaction(id: string, reaction: ArticleReaction) {
+  return request<ArticleReactions>(`/api/articles/${encodeURIComponent(id)}/reactions`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ reaction }),
+  })
+}
+
+export function fetchVisitCounts() {
+  return request<{ today: number; total: number }>('/api/visits', { cache: 'no-store' })
+}
+
+export function sendPresence(sessionId: string) {
+  return request<{ online: number }>('/api/presence', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sessionId }),
+  })
 }
