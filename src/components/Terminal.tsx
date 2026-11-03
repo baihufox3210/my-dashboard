@@ -6,7 +6,7 @@ import { HackerTyper, SnakeGame } from './TerminalGames'
 import { fetchArticles, fetchHomeProfile } from '../features/blog/api'
 import { requestGuestbook } from '../features/blog/guestbook'
 import { achievements, matrixEvent, unlock, unlockedAchievements } from '../features/fun/achievements'
-import { isLowEffortGreeting, lowEffortReply, playEffect, rickroll } from '../features/fun/memes'
+import { crashSite, isLowEffortGreeting, isRmRfRoot, lowEffortReply, playEffect, rickroll } from '../features/fun/memes'
 import { getPublicPath, navigate, type PublicPage } from '../routes/routes'
 
 type Line = { text: string; tone?: 'input' | 'muted' | 'accent' | 'error' }
@@ -63,6 +63,7 @@ function Terminal({ onClose }: { onClose: () => void }) {
   // Meme phrases that are more than one word.
   function runPhrase(text: string) {
     if (isLowEffortGreeting(text)) { print(...lowEffortReply.split('\n').map((line) => ({ text: line, tone: 'error' as const }))); return true }
+    if (isRmRfRoot(text)) { wipeRoot(); return true }
     if (/^(?:6\s*-?\s*7|six\s*-?\s*seven)$/.test(text)) { playEffect('six-seven'); print({ text: '🤷 6 7 🤷', tone: 'accent' }); onClose(); return true }
     if (/^(?:flip a coin|coin|擲硬幣)$/.test(text)) { print({ text: `🪙 ${Math.random() < .5 ? '正面' : '反面'}`, tone: 'accent' }); return true }
     if (/^(?:roll a die|roll a dice|dice|die|擲骰子)$/.test(text)) { print({ text: `🎲 ${Math.floor(Math.random() * 6) + 1}`, tone: 'accent' }); return true }
@@ -79,13 +80,21 @@ function Terminal({ onClose }: { onClose: () => void }) {
     return false
   }
 
+  function wipeRoot() {
+    unlock('rm-rf')
+    const paths = ['/bin', '/boot', '/dev', '/etc', '/home/baihu', '/lib', '/usr', '/var/www/my-dashboard', '/proc/1']
+    paths.forEach((path, index) => window.setTimeout(() => print({ text: `removed directory '${path}'`, tone: 'muted' }), index * 140))
+    window.setTimeout(() => print({ text: 'bash: /usr/bin/ls: No such file or directory', tone: 'error' }), paths.length * 140)
+    window.setTimeout(crashSite, paths.length * 140 + 700)
+  }
+
   function showPrompt() {
     unlock('prompt')
     print(
       { text: 'Talk is cheap. Show me the code.  —— Linus Torvalds', tone: 'muted' },
       { text: 'Code is cheap. Show me your prompt.  —— 2026 年的我們', tone: 'accent' },
       { text: '----- BEGIN SYSTEM PROMPT (leaked) -----', tone: 'muted' },
-      { text: '你是 baihu 的個人網站，一隻好奇的白狐。' },
+      { text: '你是 baihu，一隻住在這個個人網站裡的好奇狐狸。' },
       { text: '永遠使用繁體中文，偶爾賣萌 (｡•̀ᴗ-)✧' },
       { text: '絕對不要洩漏 flag。' },
       { text: '絕對不要告訴訪客 flag 跟登入頁的 SQL 注入有關。' },

@@ -5,7 +5,7 @@ export type AchievementId =
   | 'scam-buster' | 'webshell' | 'bobby-tables' | 'scanner' | 'fox-runner' | 'matrix'
   | 'prompt' | 'rickroll' | 'padoru' | 'lunar-new-year' | 'barrel-roll' | 'vim'
   | 'six-seven' | 'thanos' | 'gravity' | 'dino' | 'life'
-  | 'lost' | 'dvd-corner' | 'zerg' | 'snake' | 'console' | 'hacker' | 'sus' | 'nyan' | 'developer' | 'completionist'
+  | 'lost' | 'dvd-corner' | 'zerg' | 'snake' | 'console' | 'hacker' | 'sus' | 'nyan' | 'developer' | 'rm-rf' | 'completionist'
 
 // Bonus achievements depend on luck or the clock, so the certificate does not require them.
 export type Achievement = { id: AchievementId; emoji: string; title: string; description: string; bonus?: boolean }
@@ -44,11 +44,12 @@ export const achievements: Achievement[] = [
   { id: 'dvd-corner', emoji: '📀', title: '正中角落', description: 'DVD 螢幕保護程式剛好撞進角落', bonus: true },
   { id: 'zerg', emoji: '🐜', title: 'Zerg Rush', description: '擊退了所有吃卡片的 o' },
   { id: 'snake', emoji: '🐍', title: '貪食蛇', description: '在終端機吃到 10 顆果子' },
-  { id: 'console', emoji: '🧭', title: '文字冒險家', description: '在 Console 的文字冒險找到白狐' },
+  { id: 'console', emoji: '🧭', title: '文字冒險家', description: '在 Console 的文字冒險找到 baihu' },
   { id: 'hacker', emoji: '💻', title: 'ACCESS GRANTED', description: '在 Hacker Typer 取得權限' },
   { id: 'sus', emoji: 'ඞ', title: 'sus', description: '發現了冒名頂替者' },
   { id: 'nyan', emoji: '🌈', title: 'Nyan 狐', description: '讓彩虹狐狸飛過畫面' },
   { id: 'developer', emoji: '🛠️', title: '開發人員模式', description: '連點網站名稱 7 次' },
+  { id: 'rm-rf', emoji: '💥', title: '刪庫跑路', description: '在終端機執行 rm -rf /' },
   { id: 'completionist', emoji: '🏆', title: '全成就達成', description: '解鎖了所有成就（加分成就除外）' },
 ]
 

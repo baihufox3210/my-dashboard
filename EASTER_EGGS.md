@@ -23,7 +23,8 @@
 | 指令 | 效果 | 成就 |
 | --- | --- | --- |
 | `sudo` | 「visitor is not in the sudoers file」 | 權限不足 |
-| `rm`、`cat flag` | 求饒／提示 flag 在登入頁 | |
+| `rm -rf /`（也接受 `sudo`、`-rf`／`-fr`／`-r`、`/*`、`--no-preserve-root`） | 一路刪掉系統目錄，然後整個網站崩潰黑屏；重新整理就會復原 | 刪庫跑路 |
+| `rm`（其他用法）、`cat flag` | 求饒／提示 flag 在登入頁 | |
 | `vim`／`vi`／`nvim` | 進入 vim，Esc 沒用，要 `:q!` 才出得來 | 逃出 vim |
 | `emacs` | 「請先安裝一個作業系統」 | |
 | `matrix` | 數位雨 | 紅藥丸 |
@@ -87,7 +88,7 @@
 ## 開發者工具
 
 - 頁面原始碼（`index.html`）註解：「Code is cheap. Show me your prompt.」
-- Console 有給開發者的訊息；輸入 `play()` 開始文字冒險，之後用 `look`、`north`、`south`、`east`、`west`、`take`、`give`、`inventory`、`help`（不用加括號）。在竹林撿起油豆腐，帶到神社交給白狐即可通關（成就「文字冒險家」）。
+- Console 有給開發者的訊息；輸入 `play()` 開始文字冒險，之後用 `look`、`north`、`south`、`east`、`west`、`take`、`give`、`inventory`、`help`（不用加括號）。在竹林撿起油豆腐，帶到神社交給 baihu 即可通關（成就「文字冒險家」）。
 - `robots.txt` 裡有一隻狐狸。
 
 ## 登入頁 `/login`
@@ -154,4 +155,4 @@ flag 設定（選用）放在不納入 Git 的 `data/security-flags.json`，格�
 
 ## 全成就與通關證書
 
-共 40 個成就，其中「夜貓子」與「正中角落」是加分成就，不列入通關條件。解鎖其餘全部成就後會放煙火、跳出橫幅，並解鎖「全成就達成」；到 `/certificate` 輸入名字即可下載通關證書 PNG。未完成時該頁會顯示進度條。
+共 41 個成就，其中「夜貓子」與「正中角落」是加分成就，不列入通關條件。解鎖其餘全部成就後會放煙火、跳出橫幅，並解鎖「全成就達成」；到 `/certificate` 輸入名字即可下載通關證書 PNG。未完成時該頁會顯示進度條。

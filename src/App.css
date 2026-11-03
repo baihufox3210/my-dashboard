@@ -3462,3 +3462,16 @@ body.fun-april-fools .app-shell :is(h1, h2) { display: inline-block; transform: 
   .nyan-fox { display: none; }
 }
 .honeypot-card p a { color: var(--theme-primary-strong); font-weight: 700; }
+
+/* rm -rf /: the page goes black until reloaded */
+html.fun-crashed { background: var(--theme-screensaver); }
+html.fun-crashed body { display: none !important; }
+.fun-crash-screen { position: fixed; inset: 0; z-index: 2147483647; padding: 24px; background: var(--theme-screensaver); color: var(--theme-crash-text); font: 16px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; cursor: none; }
+.fun-crash-cursor { display: inline-block; width: .6em; height: 1.1em; background: currentColor; animation: fun-crash-blink 1s steps(1) infinite; }
+.fun-crash-screen p { position: absolute; right: 16px; bottom: 24px; left: 16px; margin: 0; font-size: 13px; text-align: center; opacity: 0; animation: fun-crash-hint .8s 6s forwards; }
+@keyframes fun-crash-blink { 50% { opacity: 0; } }
+@keyframes fun-crash-hint { to { opacity: .55; } }
+@media (prefers-reduced-motion: reduce) {
+  .fun-crash-cursor { animation: none; }
+  .fun-crash-screen p { animation-duration: 0s; }
+}

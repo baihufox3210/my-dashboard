@@ -60,3 +60,35 @@ export function lunarYearAnimal(date = new Date()) {
   } catch { /* fall back to the Gregorian year */ }
   return zodiac[((year - 4) % 12 + 12) % 12] ?? '🐉'
 }
+
+// `rm -rf /` in the terminal: the whole page goes black, like the machine just died.
+// Nothing is stored, so reloading the page brings everything back.
+export function isRmRfRoot(text: string) {
+  const words = text.trim().split(/\s+/)
+  if (words[0] === 'sudo') words.shift()
+  if (words.shift() !== 'rm') return false
+  const flags = words.filter((word) => word.startsWith('-'))
+  const targets = words.filter((word) => !word.startsWith('-'))
+  const recursive = flags.some((flag) => /^-[a-z]*r/.test(flag) || flag === '--recursive')
+  return recursive && targets.length > 0 && targets.every((target) => target === '/' || target === '/*')
+}
+
+export function crashSite() {
+  const root = document.documentElement
+  if (root.classList.contains('fun-crashed')) return
+  document.querySelectorAll<HTMLMediaElement>('audio, video').forEach((media) => media.pause())
+  const screen = document.createElement('div')
+  screen.className = 'fun-crash-screen'
+  screen.setAttribute('role', 'alert')
+  const cursor = document.createElement('span')
+  cursor.className = 'fun-crash-cursor'
+  const hint = document.createElement('p')
+  hint.textContent = '（重新整理頁面即可復原）'
+  screen.append(cursor, hint)
+  // Outside <body>, which is hidden entirely while crashed.
+  root.append(screen)
+  root.classList.add('fun-crashed')
+  // The page is "dead": swallow keys so hidden shortcuts don't fire, but leave the
+  // browser's own reload keys alone (no preventDefault).
+  window.addEventListener('keydown', (event) => event.stopImmediatePropagation(), true)
+}
