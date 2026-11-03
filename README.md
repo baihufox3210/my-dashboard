@@ -8,6 +8,10 @@
 - 後台可管理個人介紹、網站設定、Projects、Friends、音樂與流量分析。
 - Blog 與 Projects 支援 Markdown、封面圖片位置調整；Projects 可附加 PDF。
 - 管理員可上傳及排序 MP3；播放狀態由全站播放器維持。
+- 首頁留言板：訪客可留下暱稱、心情與留言（同一 IP 每 10 分鐘最多 3 則，含防機器人欄位）；後台可回覆或刪除，並看到留言者 IP。
+- 文章閱讀：顯示閱讀時間與進度條、表情回應（每位訪客每種一次，可取消），每篇文章有可分享的網址 `/blog/post/:id`。
+- RSS 訂閱：`/api/rss.xml`（最新 20 篇）。若網站有固定網址，可設定 `SITE_URL`（例如 `https://example.com`），RSS 連結就不必依請求推算。
+- 頁尾顯示今日與累計瀏覽次數。
 - 桌面與手機背景可分別調整。
 - 流量統計：每次瀏覽（包含重複瀏覽）都會計入。每日彙總保存 120 天；逐筆紀錄（訪客 IP、時間、頁面與路徑、工作階段、來源網站、瀏覽器／作業系統、地區）預設保存 90 天，後台可依 IP 查詢每一筆瀏覽。
 
@@ -47,6 +51,10 @@ Vite 開發伺服器提供前端，並將 `/api` 與 `/uploads` 請求代理至 
 | `npm run build` | 執行 TypeScript 檢查並建置前端至 `dist/` |
 | `npm run preview` | 預覽已建置的前端；不會啟動 API |
 
+## 色彩
+
+所有顏色都定義在 `src/theme.css` 的 `--theme-*` 變數；`App.css` 只負責版面，不寫死顏色（陰影也共用 `--theme-shadow-rgb`）。主題色由 `background.ts` 依背景圖自動取色並設定在 `<body>`，衍生色（如 `--theme-selected`、`--theme-surface-muted`）因此宣告在 `:root, body`，會跟著背景變化。新增樣式時請使用這些變數。
+
 ## 專案結構
 
 - `server/app.ts`：建立 Express app（中介層與路由掛載）；`server/index.ts` 只負責啟動。
@@ -70,7 +78,7 @@ Vite 開發伺服器提供前端，並將 `/api` 與 `/uploads` 請求代理至 
 
 ## 內容與檔案儲存
 
-伺服器首次啟動時會建立 `data/` 與必要的預設資料檔。文章、Projects、Friends、音樂清單、網站設定與管理活動紀錄存放於 `data/`；分析資料使用 SQLite；上傳圖片、PDF 與 MP3 存放於 `public/uploads/`。
+伺服器首次啟動時會建立 `data/` 與必要的預設資料檔。文章、Projects、Friends、音樂清單、留言板（`guestbook.json`，含留言者 IP）、網站設定與管理活動紀錄存放於 `data/`；分析資料使用 SQLite；上傳圖片、PDF 與 MP3 存放於 `public/uploads/`。
 
 這些執行期資料與上傳檔案不會提交到 Git。部署或搬遷時，請另外備份並安全地轉移需要保留的 `data/` 與 `public/uploads/` 內容；不要把管理員 session、旗標或其他私密設定公開。
 

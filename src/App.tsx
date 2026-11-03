@@ -62,7 +62,8 @@ function App() {
     const trackPage = () => {
       const parts = getRouteSegments()
       const route = parts[0] ?? 'home'
-      if (isAdminRoute() || isLoginRoute() || (route === 'blog' && ['new', 'edit'].includes(parts[1] ?? ''))) return
+      // Article pages (/blog/post/:id) record an 'article' view from the reader instead.
+      if (isAdminRoute() || isLoginRoute() || (route === 'blog' && ['new', 'edit', 'post'].includes(parts[1] ?? ''))) return
       const trackedPages: AnalyticsPage[] = ['home', 'about', 'projects', 'blog', 'friends']
       const page: AnalyticsPage = trackedPages.includes(route as AnalyticsPage) ? route as AnalyticsPage : 'home'
       // Count every navigation, including revisits of the same page; only skip a

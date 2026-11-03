@@ -1,10 +1,10 @@
 import { useSyncExternalStore } from 'react'
 
 export type PublicPage = 'home' | 'about' | 'projects' | 'blog' | 'friends'
-export type AdminSection = 'overview' | 'home' | 'site' | 'traffic' | 'friends' | 'projects' | 'music'
+export type AdminSection = 'overview' | 'home' | 'site' | 'traffic' | 'friends' | 'projects' | 'music' | 'guestbook'
 
 const publicPages = new Set<PublicPage>(['home', 'about', 'projects', 'blog', 'friends'])
-const adminSections = new Set<AdminSection>(['overview', 'home', 'site', 'traffic', 'friends', 'projects', 'music'])
+const adminSections = new Set<AdminSection>(['overview', 'home', 'site', 'traffic', 'friends', 'projects', 'music', 'guestbook'])
 
 function cleanSegment(value: string) {
   return value.trim().toLowerCase()

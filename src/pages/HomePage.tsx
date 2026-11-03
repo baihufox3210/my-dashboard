@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import ArticleReader from '../components/ArticleReader'
+import { GuestbookButton } from '../components/Guestbook'
 import SocialLinks from '../components/SocialLinks'
 import { fetchArticles, fetchHomeProfile, fetchServerStatus, recordPageView } from '../features/blog/api'
 import type { ArticleSummary, HomeProfile, ServerStatus } from '../features/blog/article'
@@ -161,7 +162,7 @@ function HomePage() {
           <blockquote>{profile.quote}</blockquote>
         </section>
         <section className="home-tags-card home-panel" aria-label="興趣標籤"><p className="home-eyebrow">INTERESTS</p><div className="home-tags" ref={homeTagsRef}>{profile.tags.map((tag) => <span key={tag}>#{tag}</span>)}</div></section>
-        <section className="home-contact-card home-panel" aria-label="聯絡方式"><SocialLinks socials={profile.socials} /></section>
+        <section className="home-contact-card home-panel" aria-label="聯絡方式與留言板"><SocialLinks socials={profile.socials}><GuestbookButton /></SocialLinks></section>
       </div>
 
       <section className="home-blog home-panel">

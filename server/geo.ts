@@ -70,7 +70,7 @@ function insideRing(x: number, y: number, ring: Ring) {
   return inside
 }
 
-export async function findTaiwanTown(longitude: number, latitude: number) {
+async function findTaiwanTown(longitude: number, latitude: number) {
   for (const town of await loadTowns()) {
     const [minX, minY, maxX, maxY] = town.bbox
     if (longitude < minX || longitude > maxX || latitude < minY || latitude > maxY) continue
@@ -92,7 +92,7 @@ export function isCountyLevelName(name: string) {
   return countyLevelNames.has(name.toLowerCase().replace(/\b(city|county)\b/g, '').replace(/[-\s]+/g, ' ').trim())
 }
 
-export async function taiwanLocation(longitude: number, latitude: number, cityName: string): Promise<Pick<VisitorLocation, 'region' | 'city'> | null> {
+async function taiwanLocation(longitude: number, latitude: number, cityName: string): Promise<Pick<VisitorLocation, 'region' | 'city'> | null> {
   const town = await findTaiwanTown(longitude, latitude)
   if (!town) return null
   return { region: town.county, city: cityName && isCountyLevelName(cityName) ? '' : town.town }

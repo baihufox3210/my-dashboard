@@ -3,6 +3,7 @@ import MusicManager from '../../components/MusicManager'
 import { fetchAdminSession, loginAdmin, logoutAdmin } from '../../features/blog/api'
 import { getAdminPath, getAdminSection, getPublicPath, navigate, useLocationKey, type AdminSection } from '../../routes/routes'
 import FriendsSection from './FriendsSection'
+import GuestbookSection from './GuestbookSection'
 import HomeProfileSection from './HomeProfileSection'
 import OverviewSection from './OverviewSection'
 import SiteSettingsSection from './SiteSettingsSection'
@@ -17,6 +18,7 @@ const nav: { id: AdminSection; label: string; mobileLabel: string; icon: string 
   { id: 'friends', label: 'Friends', mobileLabel: '友站', icon: '♧' },
   { id: 'music', label: '音樂管理', mobileLabel: '音樂', icon: '♫' },
   { id: 'traffic', label: '流量分析', mobileLabel: '流量', icon: '◔' },
+  { id: 'guestbook', label: '留言板', mobileLabel: '留言', icon: '✉' },
   { id: 'site', label: '網站設定', mobileLabel: '設定', icon: '⚙' },
 ]
 
@@ -88,7 +90,7 @@ function AdminPage({ loginOnly = false }: AdminPageProps) {
     </>}
   </form></main>
 
-  const title = section === 'home' ? '首頁內容' : section === 'site' ? '網站設定' : section === 'traffic' ? '流量分析' : section === 'friends' ? 'Friends 管理' : section === 'projects' ? 'Projects 管理' : section === 'music' ? '音樂管理' : '總覽'
+  const title = section === 'home' ? '首頁內容' : section === 'site' ? '網站設定' : section === 'traffic' ? '流量分析' : section === 'friends' ? 'Friends 管理' : section === 'projects' ? 'Projects 管理' : section === 'music' ? '音樂管理' : section === 'guestbook' ? '留言板' : '總覽'
   return <main className="admin-app">
     <aside className="admin-rail"><a className="admin-brand" href={getAdminPath()}><span className="admin-brand-main">BAIHU</span></a><nav>{nav.map((item) => <a key={item.id} className={section === item.id ? 'active' : ''} href={getAdminPath(item.id)}><i>{item.icon}</i>{item.label}</a>)}</nav><a className="admin-rail-site" href={getPublicPath('home')}>↗ 查看網站</a></aside>
     <div className="admin-main"><header className="admin-topbar"><div className="admin-topbar-title"><strong>網站管理</strong><span aria-hidden="true">/</span><h1>{title}</h1></div><button className="admin-logout" onClick={() => logoutAdmin().then(() => { setAuthenticated(false); navigate(getPublicPath('home')) }).catch((error: unknown) => setMessage(error instanceof Error ? error.message : '登出失敗。'))}>登出</button></header>
@@ -101,6 +103,7 @@ function AdminPage({ loginOnly = false }: AdminPageProps) {
         {section === 'friends' && <FriendsSection onMessage={handleMessage} />}
         {section === 'projects' && <Suspense fallback={null}><ProjectsPage embedded /></Suspense>}
         {section === 'music' && <MusicManager onMessage={handleMessage} />}
+        {section === 'guestbook' && <GuestbookSection onMessage={handleMessage} />}
         {section === 'site' && <SiteSettingsSection onMessage={handleMessage} />}
       </div>
     </div>

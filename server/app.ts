@@ -7,6 +7,7 @@ import analyticsRoutes from './routes/analytics.js'
 import articleRoutes from './routes/articles.js'
 import authRoutes from './routes/auth.js'
 import friendRoutes from './routes/friends.js'
+import { adminGuestbook, publicGuestbook } from './routes/guestbook.js'
 import musicRoutes from './routes/music.js'
 import projectRoutes from './routes/projects.js'
 import publicRoutes from './routes/public.js'
@@ -18,9 +19,12 @@ let contentWriteQueue: Promise<void> = Promise.resolve()
 const serializeContentWrites: express.RequestHandler = (request, response, next) => {
   if (request.method === 'GET' || request.method === 'HEAD' || !isAuthenticated(request)) { next(); return }
   const previous = contentWriteQueue
-  const finished = new Promise<void>((resolve) => response.once('close', resolve))
+  // Track the response, not the request: Node destroys a request once its body has
+  // been read (express.json runs before this), which says nothing about the client.
+  let closed = false
+  const finished = new Promise<void>((resolve) => response.once('close', () => { closed = true; resolve() }))
   contentWriteQueue = previous.then(() => finished)
-  void previous.then(() => { if (!response.writableEnded && !request.destroyed) next() })
+  void previous.then(() => { if (!closed) next() })
 }
 
 export function createApp() {
@@ -50,6 +54,8 @@ export function createApp() {
   app.use('/api/admin/projects', projectRoutes)
   app.use('/api/admin/friends', friendRoutes)
   app.use('/api/admin/music', musicRoutes)
+  app.use('/api/admin/guestbook', adminGuestbook)
+  app.use('/api/guestbook', publicGuestbook)
   app.use('/api/admin', settingsRoutes)
   app.use('/api', analyticsRoutes)
   app.use('/api', publicRoutes)

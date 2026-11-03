@@ -34,18 +34,11 @@ body,
 
 body {
   min-height: 100vh;
-  background-color: var(--theme-page-base, #d8c8be);
   background-image: var(--site-background-image, none);
   background-position: var(--site-background-position-desktop, var(--site-background-position, center));
   background-size: cover;
   background-attachment: fixed;
   background-repeat: no-repeat;
-}
-
-@media (max-width: 768px) {
-  body {
-    background-position: var(--site-background-position-mobile, var(--site-background-position, center));
-  }
 }
 
 /* Blog owns a fixed-viewport layout; only its article column scrolls, so the
@@ -77,5 +70,4 @@ body:has(.projects-page) {
 }
 
 /* Keep the initial empty document hidden until settings and the background image are ready. */
-html { background-color: var(--theme-page-base, #d8c8be); }
 body.site-background-loading { visibility: hidden; }
