@@ -3,6 +3,7 @@ export type AchievementId =
   | 'first-visit' | 'reader' | 'bookworm' | 'reaction' | 'guestbook' | 'explorer'
   | 'night-owl' | 'dj' | 'avatar-fan' | 'terminal' | 'sudo' | 'konami'
   | 'scam-buster' | 'webshell' | 'bobby-tables' | 'scanner' | 'fox-runner' | 'matrix'
+  | 'prompt' | 'rickroll' | 'padoru' | 'lunar-new-year' | 'barrel-roll' | 'vim'
 
 export type Achievement = { id: AchievementId; emoji: string; title: string; description: string }
 
@@ -25,6 +26,12 @@ export const achievements: Achievement[] = [
   { id: 'scanner', emoji: '🔍', title: '掃描器', description: '找了不存在的 WordPress 或 .env' },
   { id: 'fox-runner', emoji: '🏃', title: '狐狸快跑', description: '在鍵盤上打出 fox' },
   { id: 'matrix', emoji: '🟩', title: '紅藥丸', description: '在終端機進入 Matrix' },
+  { id: 'prompt', emoji: '🤖', title: 'Show me your prompt', description: '套出了網站的系統提示詞' },
+  { id: 'rickroll', emoji: '🕺', title: 'Never gonna give you up', description: '被 Rick Roll 了' },
+  { id: 'padoru', emoji: '🎅', title: 'PADORU PADORU', description: '看到狐狸拉著雪橇飛過' },
+  { id: 'lunar-new-year', emoji: '🧧', title: '恭喜你發財', description: '在新年期間收到紅包雨' },
+  { id: 'barrel-roll', emoji: '🌀', title: 'Do a barrel roll', description: '讓網站轉了一圈' },
+  { id: 'vim', emoji: '🚪', title: '逃出 vim', description: '成功離開 vim（真的不容易）' },
 ]
 
 const storageKey = 'achievements'

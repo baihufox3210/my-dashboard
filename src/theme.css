@@ -38,6 +38,10 @@
   --theme-on-overlay-muted: rgba(255, 255, 255, .72);
   --theme-on-overlay-line: rgba(255, 255, 255, .22);
   --theme-on-overlay-faint: rgba(255, 255, 255, .1);
+  /* Lunar New Year banner: traditional red and gold, independent of the palette. */
+  --theme-festive-red: #b3261e;
+  --theme-festive-gold: #e8b44a;
+  --theme-on-festive: #ffe8b0;
 }
 
 /*

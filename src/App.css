@@ -3308,3 +3308,27 @@ button, input, textarea, select { font-kerning: normal; }
   .honeypot-fox, .fox-run, .scam-takeover-lights, .scam-table tr.is-new { animation: none; }
   .fox-run { display: none; }
 }
+.sql-egg-comic { margin: 0; animation: intro-pop 420ms cubic-bezier(.2, .9, .3, 1.2); }
+.sql-egg-comic img { display: block; width: 100%; height: auto; border: 1px solid var(--theme-line); border-radius: 10px; background: #fff; }
+.sql-egg-comic figcaption { margin-top: 6px; color: var(--theme-muted); font-size: 11px; text-align: center; }
+.sql-egg-comic a { color: var(--theme-primary-strong); }
+@keyframes intro-pop { from { opacity: 0; transform: scale(.94); } }
+
+/* Meme effects. */
+.padoru { position: fixed; z-index: 136; top: 18vh; left: 0; display: flex; align-items: center; gap: .4rem; pointer-events: none; white-space: nowrap; animation: padoru-fly 6s cubic-bezier(.4, 0, .6, 1) forwards; }
+.padoru span { font-size: 2.8rem; animation: padoru-bob .5s ease-in-out infinite alternate; }
+.padoru b { font-size: 3.2rem; transform: scaleX(-1); }
+.padoru em { padding: .35rem .8rem; border-radius: 999px; color: var(--theme-on-danger); background: var(--theme-danger); font: 800 1.1rem var(--font-ui); font-style: normal; letter-spacing: .06em; box-shadow: 0 .5rem 1.5rem rgb(var(--theme-shadow-rgb) / .25); }
+@keyframes padoru-fly { from { transform: translateX(-24rem) translateY(0); } 50% { transform: translateX(45vw) translateY(-6vh); } to { transform: translateX(calc(100vw + 4rem)) translateY(2vh); } }
+@keyframes padoru-bob { to { transform: translateY(-.4rem) rotate(-6deg); } }
+.lunar-banner { position: fixed; z-index: 126; top: 50%; left: 50%; display: grid; justify-items: center; gap: .2rem; padding: 1.4rem 2.2rem; border: 3px solid var(--theme-festive-gold); border-radius: 1.1rem; color: var(--theme-on-festive); background: var(--theme-festive-red); box-shadow: 0 1.5rem 4rem rgb(var(--theme-shadow-rgb) / .35); text-align: center; transform: translate(-50%, -50%); animation: lunar-banner 5s ease forwards; pointer-events: none; }
+.lunar-banner strong { font-size: 1.8rem; letter-spacing: .1em; }
+.lunar-banner p { margin: 0; font-size: 1.15rem; letter-spacing: .3em; }
+.lunar-banner small { opacity: .8; }
+@keyframes lunar-banner { 0% { opacity: 0; transform: translate(-50%, -40%) scale(.9); } 12%, 82% { opacity: 1; transform: translate(-50%, -50%) scale(1); } 100% { opacity: 0; transform: translate(-50%, -55%) scale(.96); } }
+body.fun-barrel-roll .app-shell { animation: barrel-roll 1.8s cubic-bezier(.45, 0, .2, 1); }
+@keyframes barrel-roll { to { transform: rotate(360deg); } }
+body.fun-askew .app-shell { transform: rotate(-2.2deg); transition: transform .6s ease; }
+body.fun-tableflip .app-shell { animation: table-flip 2.2s cubic-bezier(.5, -.4, .3, 1.4); }
+@keyframes table-flip { 25%, 75% { transform: rotate(180deg) scale(.9); } }
+@media (prefers-reduced-motion: reduce) { .padoru, .emoji-rain { display: none; } .lunar-banner { animation: none; } }

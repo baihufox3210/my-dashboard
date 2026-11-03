@@ -109,6 +109,14 @@ flag 設定（選用）放在不納入 Git 的 `data/security-flags.json`，格�
 }
 ```
 
+迷因彩蛋：
+
+- SQL 注入彩蛋最後會顯示 xkcd 327《Exploits of a Mom》（Randall Munroe，CC BY-NC 2.5，已標示出處）。
+- 原始碼註解與終端機 `prompt`：「Code is cheap. Show me your prompt.」，順便「洩漏」網站的假系統提示詞。
+- Rick Roll：終端機 `rickroll`、`/panel` 的「下载受害者名单.zip」、`/.env` 頁的「免費領取真正的 flag」（在新分頁開啟官方 MV）。
+- 每年 12 月 1–25 日首頁會有狐狸拉雪橇「PADORU PADORU!」；農曆正月初一到十五首頁會下紅包雨並送上「恭喜你發財 恭喜你精彩」（以瀏覽器的農曆計算，每個分頁工作階段一次）。終端機的 `padoru`、`newyear`／`恭喜發財` 隨時可看。
+- 終端機另有 `do a barrel roll`、`askew`、`tableflip`、`vim`（要 `:q!` 才出得來，Esc 沒用）、`make me a sandwich`／`sudo make me a sandwich`（xkcd 149）、`answer to life the universe and everything`。
+
 其他彩蛋：掃描器常探測的路徑（`/wp-admin`、`/phpmyadmin`、`/.env`、`/xmlrpc.php`、`/.git` 等）會顯示嘲諷頁面；`robots.txt` 裡有狐狸；終端機另有 `matrix`、`hack`、`coffee`；在鍵盤打出 `fox` 會有狐狸跑過畫面。
 
 ## 正式部署注意事項

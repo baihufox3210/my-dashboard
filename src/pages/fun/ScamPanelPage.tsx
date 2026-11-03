@@ -1,6 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState, type ChangeEvent } from 'react'
 import useEscapeKey from '../../components/useEscapeKey'
 import { unlock } from '../../features/fun/achievements'
+import { rickroll } from '../../features/fun/memes'
 import { navigate } from '../../routes/routes'
 
 // A satirical copy of a phishing gang's back-office. Everything is generated in the
@@ -152,6 +153,7 @@ function ScamPanelPage() {
       <button type="button" className="scam-primary" onClick={() => teach('search')}>搜索</button>
       <button type="button" onClick={() => setRows(initialRows())}>重置</button>
       <button type="button" onClick={() => uploadRef.current?.click()}>上传模板</button>
+      <button type="button" onClick={rickroll}>下载受害者名单.zip</button>
       <input ref={uploadRef} type="file" hidden accept=".php,.txt,.html" onChange={(event) => void handleUpload(event)} />
       <span className="scam-toolbar-right">
         <label><input type="checkbox" checked={sound} onChange={(event) => { setSound(event.target.checked); if (event.target.checked) playSiren() }} /> 声音提醒</label>
