@@ -3217,3 +3217,94 @@ button, input, textarea, select { font-kerning: normal; }
 @media (prefers-reduced-motion: reduce) {
   .footer-online i, .achievement-toast { animation: none; }
 }
+
+/* ===== Easter eggs ===== */
+.terminal-output .is-ok { color: var(--theme-success); }
+.webshell-window { --theme-terminal-background: #0d1310; }
+
+/* SQL injection egg on the login card. */
+.sql-egg { display: grid; gap: 14px; }
+.sql-egg-log { min-height: 15rem; padding: 12px 14px; border-radius: 10px; color: var(--theme-on-overlay); background: var(--theme-terminal-background); font: 12px/1.75 var(--font-code); }
+.sql-egg-log p { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.sql-egg-log .is-muted { color: var(--theme-on-overlay-muted); }
+.sql-egg-log .is-ok { color: var(--theme-success); }
+.sql-egg-log .is-warn { color: var(--theme-terminal-error); }
+.sql-egg-log .is-punch { margin-top: 6px; color: var(--theme-terminal-accent); font-weight: 700; }
+.sql-egg .admin-login-flag small { display: block; margin-bottom: 4px; color: var(--theme-muted); font-size: 11px; }
+
+/* Scanner honeypot. */
+.honeypot-page { display: grid; min-height: 60vh; place-items: center; padding: 2rem 1rem; }
+.honeypot-card { display: grid; max-width: 34rem; justify-items: center; gap: .6rem; padding: 2.5rem 2rem; text-align: center; }
+.honeypot-card h1 { margin: 0; color: var(--theme-card-ink); }
+.honeypot-card p { margin: 0; color: var(--theme-muted); line-height: 1.8; }
+.honeypot-fox { font-size: 4rem; animation: honeypot-peek 2.4s ease-in-out infinite; }
+@keyframes honeypot-peek { 50% { transform: translateY(-6px) rotate(-6deg); } }
+.honeypot-env { width: 100%; box-sizing: border-box; margin: .4rem 0; padding: .9rem 1rem; border-radius: .7rem; color: var(--theme-on-overlay); background: var(--theme-terminal-background); font: .8rem/1.7 var(--font-code); text-align: left; white-space: pre-wrap; }
+
+/* Matrix rain and the running fox. */
+.matrix-rain { position: fixed; z-index: 140; inset: 0; width: 100vw; height: 100vh; background: #000; cursor: pointer; }
+.fox-run { position: fixed; z-index: 135; bottom: .6rem; left: 0; font-size: 2.4rem; pointer-events: none; animation: fox-run 3.2s linear forwards; }
+.fox-run::after { content: '💨'; position: absolute; top: .2em; right: 100%; font-size: .6em; }
+@keyframes fox-run {
+  from { transform: translateX(-4rem) scaleX(-1); }
+  to { transform: translateX(calc(100vw + 4rem)) scaleX(-1); }
+}
+
+/* Parody scam back-office. */
+.scam-panel { min-height: 100vh; padding-bottom: 3.5rem; color: var(--theme-card-ink); background: var(--theme-surface-muted); font-size: 12px; }
+.scam-panel button, .scam-panel input, .scam-panel select { font: inherit; }
+.scam-topbar { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; border-bottom: 1px solid var(--theme-line); background: var(--theme-surface-white); }
+.scam-topbar > div { display: flex; align-items: center; gap: 10px; }
+.scam-topbar strong { font-size: 15px; }
+.scam-topbar nav { display: flex; gap: 14px; }
+.scam-topbar nav button, .scam-link { padding: 0; border: 0; color: var(--theme-primary-strong); background: none; cursor: pointer; }
+.scam-online { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border: 0; border-radius: 999px; color: var(--theme-muted); background: var(--theme-surface-muted); cursor: pointer; }
+.scam-online i { width: 6px; height: 6px; border-radius: 50%; background: var(--theme-success); }
+.scam-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 14px 16px; border-bottom: 1px solid var(--theme-line); background: var(--theme-surface-white); }
+.scam-toolbar > button, .scam-toolbar > input, .scam-toolbar > select { min-height: 32px; padding: 0 12px; border: 1px solid var(--theme-line); border-radius: 6px; color: var(--theme-card-ink); background: var(--theme-surface-white); cursor: pointer; }
+.scam-toolbar > input { cursor: text; }
+.scam-stat { font-weight: 700; }
+.scam-stat.is-done { border-color: color-mix(in srgb, var(--theme-success) 45%, transparent) !important; color: var(--theme-success) !important; background: var(--theme-success-soft) !important; }
+.scam-stat.is-failed { border-color: color-mix(in srgb, var(--theme-primary) 45%, transparent) !important; color: var(--theme-primary-strong) !important; background: var(--theme-selected) !important; }
+.scam-danger { border-color: var(--theme-danger) !important; color: var(--theme-on-danger) !important; background: var(--theme-danger) !important; font-weight: 700; }
+.scam-primary { min-height: 32px; padding: 0 16px; border: 0; border-radius: 6px; color: var(--theme-on-primary); background: var(--theme-primary-strong); font-weight: 700; cursor: pointer; }
+.scam-toolbar-right { display: flex; align-items: center; gap: 10px; margin-left: auto; color: var(--theme-muted); }
+.scam-toolbar-right label { display: inline-flex; align-items: center; gap: 4px; cursor: pointer; }
+.scam-table-wrap { margin: 16px; overflow-x: auto; border: 1px solid var(--theme-line); border-radius: 10px; background: var(--theme-surface-white); }
+.scam-table { width: 100%; min-width: 1100px; border-collapse: collapse; }
+.scam-table td { padding: 9px 10px; border-bottom: 1px solid var(--theme-line); color: var(--theme-muted); white-space: nowrap; }
+.scam-table tr:last-child td { border-bottom: 0; }
+.scam-table tr.is-new { animation: scam-new-row 1.6s ease; }
+@keyframes scam-new-row { from { background: var(--theme-selected); } }
+.scam-status { display: flex; gap: 4px; }
+.scam-status button, .scam-actions button { padding: 3px 8px; border: 1px solid var(--theme-line); border-radius: 4px; color: var(--theme-muted); background: var(--theme-surface-white); cursor: pointer; }
+.scam-status button.is-active.is-done { border-color: var(--theme-success); color: var(--theme-success); background: var(--theme-success-soft); font-weight: 700; }
+.scam-status button.is-active.is-failed { border-color: var(--theme-primary); color: var(--theme-primary-strong); background: var(--theme-selected); font-weight: 700; }
+.scam-status button.is-active.is-pending { border-color: var(--theme-card-ink); color: var(--theme-card-ink); font-weight: 700; }
+.scam-actions { display: flex; gap: 6px; }
+.scam-actions button.is-danger { border-color: color-mix(in srgb, var(--theme-danger) 45%, transparent); color: var(--theme-danger); }
+.scam-note { margin-left: 6px; padding: 2px 6px; border-radius: 4px; color: var(--theme-danger); background: var(--theme-danger-soft); }
+.scam-mono { color: var(--theme-card-ink) !important; font-family: var(--font-code); }
+.scam-code { color: var(--theme-primary-strong) !important; }
+.scam-ribbon { position: fixed; z-index: 20; right: 0; bottom: 0; left: 0; margin: 0; padding: 9px 16px; color: var(--theme-on-primary); background: var(--theme-primary-strong); font-size: 13px; text-align: center; }
+.scam-modal-backdrop { position: fixed; z-index: 60; inset: 0; display: grid; place-items: center; padding: 1rem; background: var(--theme-backdrop); }
+.scam-modal { display: grid; width: min(100%, 26rem); gap: 10px; padding: 22px; border-radius: 14px; background: var(--theme-surface-white); box-shadow: 0 1.5rem 4rem rgb(var(--theme-shadow-rgb) / .25); font-size: 14px; }
+.scam-modal small { color: var(--theme-danger); font-weight: 800; letter-spacing: .08em; }
+.scam-modal h2 { margin: 0; color: var(--theme-card-ink); font-size: 18px; }
+.scam-modal p { margin: 0; color: var(--theme-muted); line-height: 1.8; }
+.scam-modal .scam-primary { justify-self: end; }
+.scam-takeover { position: fixed; z-index: 70; inset: 0; display: grid; place-items: center; padding: 1rem; background: rgb(var(--theme-shadow-rgb) / .72); }
+.scam-takeover-lights { position: absolute; inset: 0; background: linear-gradient(90deg, rgb(220 40 60 / .35), transparent 40%, transparent 60%, rgb(40 90 230 / .35)); animation: police-lights .8s steps(2, jump-none) infinite; pointer-events: none; }
+@keyframes police-lights { 50% { filter: hue-rotate(180deg); transform: scaleX(-1); } }
+.scam-takeover section { position: relative; display: grid; width: min(100%, 30rem); gap: 10px; padding: 26px; border-radius: 16px; background: var(--theme-surface-white); box-shadow: 0 2rem 5rem rgb(var(--theme-shadow-rgb) / .35); font-size: 14px; text-align: center; }
+.scam-takeover section > span { font-size: 44px; }
+.scam-takeover h2 { margin: 0; color: var(--theme-danger); }
+.scam-takeover p, .scam-takeover li { color: var(--theme-muted); line-height: 1.8; }
+.scam-takeover ul { margin: 0; padding-left: 1.2rem; text-align: left; }
+.scam-takeover section > div { display: flex; justify-content: center; gap: 10px; margin-top: 6px; }
+.scam-takeover section > div > button:not(.scam-primary) { padding: 0 14px; border: 1px solid var(--theme-line); border-radius: 6px; background: var(--theme-surface-white); cursor: pointer; }
+
+@media (prefers-reduced-motion: reduce) {
+  .honeypot-fox, .fox-run, .scam-takeover-lights, .scam-table tr.is-new { animation: none; }
+  .fox-run { display: none; }
+}

@@ -3,7 +3,7 @@ import SiteHeader from '../components/SiteHeader'
 import SiteFooter from '../components/SiteFooter'
 import FloatingMusicPlayer from '../components/FloatingMusicPlayer'
 import FunLayer from '../components/FunLayer'
-import { getPublicPage, isAdminRoute, isLoginRoute, useLocationKey } from '../routes/routes'
+import { getEasterEggPage, getPublicPage, isAdminRoute, isLoginRoute, useLocationKey } from '../routes/routes'
 
 type SiteLayoutProps = {
   children: ReactNode
@@ -12,13 +12,15 @@ type SiteLayoutProps = {
 function SiteLayout({ children }: SiteLayoutProps) {
   useLocationKey()
   const isAdmin = isAdminRoute() || isLoginRoute()
+  // The parody scam panel is a full-screen page of its own: no site chrome, but easter eggs stay on.
+  const hideChrome = isAdmin || getEasterEggPage() === 'panel'
   const isHome = getPublicPage() === 'home'
   return (
     <div className={`app-shell${isAdmin ? ' admin-shell-route' : ''}`}>
-      {!isAdmin && <SiteHeader />}
+      {!hideChrome && <SiteHeader />}
       {children}
-      {!isAdmin && <FloatingMusicPlayer isHome={isHome} />}
-      {!isAdmin && <SiteFooter />}
+      {!hideChrome && <FloatingMusicPlayer isHome={isHome} />}
+      {!hideChrome && <SiteFooter />}
       {!isAdmin && <FunLayer />}
     </div>
   )

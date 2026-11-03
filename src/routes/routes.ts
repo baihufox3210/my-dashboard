@@ -24,6 +24,15 @@ export function getPublicPage(): PublicPage {
   return 'home'
 }
 
+// Hidden easter-egg routes: the parody scam back-office and the pages scanners probe.
+const scannerPaths = new Set(['wp-admin', 'wp-login.php', 'phpmyadmin', '.env', 'xmlrpc.php', 'admin.php', 'administrator', '.git', 'config.php'])
+
+export function getEasterEggPage(): 'panel' | 'honeypot' | null {
+  const first = getRouteSegments()[0]
+  if (first === 'panel') return 'panel'
+  return first && scannerPaths.has(first) ? 'honeypot' : null
+}
+
 export function isLoginRoute() {
   return getRouteSegments()[0] === 'login'
 }

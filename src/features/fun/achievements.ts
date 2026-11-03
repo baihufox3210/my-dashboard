@@ -2,6 +2,7 @@
 export type AchievementId =
   | 'first-visit' | 'reader' | 'bookworm' | 'reaction' | 'guestbook' | 'explorer'
   | 'night-owl' | 'dj' | 'avatar-fan' | 'terminal' | 'sudo' | 'konami'
+  | 'scam-buster' | 'webshell' | 'bobby-tables' | 'scanner' | 'fox-runner' | 'matrix'
 
 export type Achievement = { id: AchievementId; emoji: string; title: string; description: string }
 
@@ -18,11 +19,18 @@ export const achievements: Achievement[] = [
   { id: 'terminal', emoji: '⌨️', title: '駭客模式', description: '打開隱藏的終端機' },
   { id: 'sudo', emoji: '🛡️', title: '權限不足', description: '在終端機嘗試 sudo' },
   { id: 'konami', emoji: '🎮', title: '老玩家', description: '輸入了 Konami Code' },
+  { id: 'scam-buster', emoji: '🚓', title: '打詐英雄', description: '闖進了詐騙集團的後台' },
+  { id: 'webshell', emoji: '🐚', title: '後門專家', description: '在詐騙後台植入了（假的）後門' },
+  { id: 'bobby-tables', emoji: '💉', title: 'Bobby Tables', description: '嘗試 SQL 注入登入頁' },
+  { id: 'scanner', emoji: '🔍', title: '掃描器', description: '找了不存在的 WordPress 或 .env' },
+  { id: 'fox-runner', emoji: '🏃', title: '狐狸快跑', description: '在鍵盤上打出 fox' },
+  { id: 'matrix', emoji: '🟩', title: '紅藥丸', description: '在終端機進入 Matrix' },
 ]
 
 const storageKey = 'achievements'
 const progressKey = 'achievement-progress'
 export const achievementEvent = 'achievement-unlocked'
+export const matrixEvent = 'matrix:start'
 
 function readJson<T>(key: string, fallback: T): T {
   try { return JSON.parse(localStorage.getItem(key) ?? 'null') as T ?? fallback } catch { return fallback }

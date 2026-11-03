@@ -142,7 +142,7 @@ export function fetchAdminSession() {
 }
 
 export function loginAdmin(username: string, password: string) {
-  return mutate(request<{ authenticated: boolean; challenge?: { flag: string } }>('/api/auth/login', {
+  return mutate(request<{ authenticated: boolean; easterEgg?: 'scam-panel' | 'sql-injection'; flag?: string }>('/api/auth/login', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ username, password }),

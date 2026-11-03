@@ -4,13 +4,13 @@ import useEscapeKey from './useEscapeKey'
 import { useMusicPlayer } from './MusicPlayerContext'
 import { fetchArticles, fetchHomeProfile } from '../features/blog/api'
 import { requestGuestbook } from '../features/blog/guestbook'
-import { achievements, unlock, unlockedAchievements } from '../features/fun/achievements'
+import { achievements, matrixEvent, unlock, unlockedAchievements } from '../features/fun/achievements'
 import { getPublicPath, navigate, type PublicPage } from '../routes/routes'
 
 type Line = { text: string; tone?: 'input' | 'muted' | 'accent' | 'error' }
 
 const pages: PublicPage[] = ['home', 'about', 'projects', 'blog', 'friends']
-const commands = ['help', 'whoami', 'ls', 'cd', 'blog', 'read', 'guestbook', 'music', 'achievements', 'fortune', 'date', 'echo', 'history', 'clear', 'exit', 'sudo']
+const commands = ['help', 'whoami', 'ls', 'cd', 'blog', 'read', 'guestbook', 'music', 'achievements', 'fortune', 'matrix', 'hack', 'coffee', 'date', 'echo', 'history', 'clear', 'exit', 'sudo']
 const fortunes = [
   '今天適合寫一點 code，也適合什麼都不寫。',
   '保持好奇心，答案通常藏在下一個 commit。',
@@ -30,6 +30,7 @@ const help: Line[] = [
   { text: '  music [play|pause|next|prev]' },
   { text: '  achievements      查看你的成就' },
   { text: '  fortune           今日運勢' },
+  { text: '  matrix · hack · coffee  （試試看）' },
   { text: '  date · echo · history · clear · exit' },
 ]
 
@@ -107,6 +108,19 @@ function Terminal({ onClose }: { onClose: () => void }) {
         break
       }
       case 'fortune': print({ text: `🔮 ${fortunes[Math.floor(Math.random() * fortunes.length)]}`, tone: 'accent' }); break
+      case 'matrix':
+        print({ text: 'Wake up, Neo… 🐇', tone: 'accent' })
+        window.setTimeout(() => { window.dispatchEvent(new Event(matrixEvent)); onClose() }, 700)
+        break
+      case 'hack': {
+        const steps = ['連線到 NASA…', '繞過防火牆… ███░░░░ 42%', '下載外星人資料… ██████░ 87%', '取得 root 權限… ███████ 100%']
+        steps.forEach((step, index) => window.setTimeout(() => print({ text: `[*] ${step}`, tone: 'muted' }), index * 450))
+        window.setTimeout(() => print({ text: '開玩笑的 😏 真正的駭客會先拿到授權。', tone: 'accent' }), steps.length * 450)
+        break
+      }
+      case 'coffee': case 'brew':
+        print({ text: '418 I\'m a teapot', tone: 'error' }, { text: '       ( (\n        ) )\n     ........\n     |      |]\n     \\      /\n      `----\'', tone: 'accent' }, { text: '這台伺服器是茶壺，不泡咖啡。（RFC 2324）', tone: 'muted' })
+        break
       case 'date': print({ text: new Date().toLocaleString('zh-TW') }); break
       case 'echo': print({ text: args.join(' ') }); break
       case 'history': print(...history.map((item, index) => ({ text: `  ${index + 1}  ${item}` }))); break

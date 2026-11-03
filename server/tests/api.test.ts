@@ -69,19 +69,25 @@ describe('auth', () => {
     assert.equal(wrong.status, 401)
   })
 
-  test('solves the SQL challenge without creating a session', async () => {
-    const response = await postJson('/api/auth/login', { username: "admin' --", password: 'x' })
-    assert.deepEqual(await response.json(), { authenticated: false, challenge: { flag: 'FLAG{test}' } })
+  test('turns SQL injection attempts into an easter egg without a session', async () => {
+    for (const username of ["admin' --", "' OR 1=1 --", "x' UNION SELECT password FROM users --"]) {
+      const response = await postJson('/api/auth/login', { username, password: 'x' })
+      assert.deepEqual(await response.json(), { authenticated: false, easterEgg: 'sql-injection', flag: 'FLAG{test}' })
+      assert.equal(response.headers.get('set-cookie'), null)
+    }
+  })
+
+  test('sends admin/admin123 to the scam-panel easter egg', async () => {
+    const response = await postJson('/api/auth/login', { username: 'admin', password: 'admin123' })
+    assert.deepEqual(await response.json(), { authenticated: false, easterEgg: 'scam-panel' })
     assert.equal(response.headers.get('set-cookie'), null)
   })
 
-  test('a runaway challenge query does not block other requests', async () => {
+  test('no query runs for injection payloads, so even a runaway one answers instantly', async () => {
     const started = Date.now()
-    const slow = postJson('/api/auth/login', { username: "' OR (WITH RECURSIVE c(x) AS (SELECT 1 UNION ALL SELECT x+1 FROM c) SELECT max(x) FROM c) --", password: 'x' })
-    const quick = await api('/api/server-status')
-    assert.equal(quick.status, 200)
-    assert.ok(Date.now() - started < 500)
-    assert.equal((await slow).status, 401)
+    const response = await postJson('/api/auth/login', { username: "' OR (WITH RECURSIVE c(x) AS (SELECT 1 UNION ALL SELECT x+1 FROM c) SELECT max(x) FROM c) --", password: 'x' })
+    assert.equal(((await response.json()) as { easterEgg?: string }).easterEgg, 'sql-injection')
+    assert.ok(Date.now() - started < 300)
   })
 
   test('logs in with the configured credentials', async () => {

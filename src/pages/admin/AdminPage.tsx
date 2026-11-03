@@ -1,5 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useState } from 'react'
 import MusicManager from '../../components/MusicManager'
+import SqlInjectionEgg from '../../components/SqlInjectionEgg'
 import { fetchAdminSession, loginAdmin, logoutAdmin } from '../../features/blog/api'
 import { getAdminPath, getAdminSection, getPublicPath, navigate, useLocationKey, type AdminSection } from '../../routes/routes'
 import FriendsSection from './FriendsSection'
@@ -35,7 +36,7 @@ function AdminPage({ loginOnly = false }: AdminPageProps) {
   const [message, setMessage] = useState('')
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
-  const [challengeFlag, setChallengeFlag] = useState('')
+  const [sqlEgg, setSqlEgg] = useState<{ username: string; flag?: string } | null>(null)
   const handleMessage = useCallback((value: string) => setMessage(value), [])
 
   // Clear feedback from the previous section whenever the route changes.
@@ -64,8 +65,10 @@ function AdminPage({ loginOnly = false }: AdminPageProps) {
       if (result.authenticated) {
         setAuthenticated(true)
         navigate(getAdminPath())
-      } else if (result.challenge?.flag) {
-        setChallengeFlag(result.challenge.flag)
+      } else if (result.easterEgg === 'scam-panel') {
+        navigate('/panel')
+      } else if (result.easterEgg === 'sql-injection') {
+        setSqlEgg({ username, ...(result.flag ? { flag: result.flag } : {}) })
         setUsername('')
         setPassword('')
       } else {
@@ -81,7 +84,7 @@ function AdminPage({ loginOnly = false }: AdminPageProps) {
   if (!authenticated && !loginOnly) return <main className="admin-loading">前往登入頁…</main>
   if (!authenticated) return <main className="admin-login-screen"><form className="admin-login-card" onSubmit={handleLogin}>
     <a className="admin-brand" href={getPublicPath('home')}><span className="admin-brand-main">BAIHU</span></a>
-    {challengeFlag ? <div className="admin-login-flag" role="status"><code>{challengeFlag}</code></div> : <>
+    {sqlEgg ? <SqlInjectionEgg username={sqlEgg.username} flag={sqlEgg.flag} onBack={() => setSqlEgg(null)} /> : <>
       <p>登入以管理網站內容</p>
       <label>帳號<input autoComplete="username" value={username} onChange={(event) => setUsername(event.target.value)} required /></label>
       <label>密碼<input type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} required /></label>
