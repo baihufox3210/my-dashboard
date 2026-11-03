@@ -76,7 +76,7 @@ function MatrixRain({ onDone }: { onDone: () => void }) {
     canvas.height = window.innerHeight
     const size = 16
     const drops = Array.from({ length: Math.ceil(canvas.width / size) }, () => Math.random() * -40)
-    const glyphs = 'ｱｲｳｴｵｶｷｸｹｺ01白狐BAIHU165'
+    const glyphs = 'ｱｲｳｴｵｶｷｸｹｺ01BAIHU165'
     const matrixColor = getComputedStyle(document.body).getPropertyValue('--theme-matrix').trim() || '#3cff7a'
     let frame = 0
     const draw = () => {
@@ -316,14 +316,14 @@ function FunLayer() {
     {effect === 'zerg' && <Suspense fallback={null}><ZergRush onDone={stopEffect} /></Suspense>}
     {effect === 'sus' && <div className="sus-space" role="status" onAnimationEnd={(event) => { if (event.target === event.currentTarget) stopEffect() }}>
       <span className="sus-crewmate" aria-hidden="true">ඞ</span>
-      <p>白狐 was not The Impostor.</p>
+      <p>baihu was not The Impostor.</p>
       <small>1 Impostor remains.</small>
     </div>}
     {effect === 'nyan' && <div className="nyan-fox" aria-hidden="true" onAnimationEnd={stopEffect}><i /><span>🦊</span></div>}
     {effect === 'fireworks' && <EmojiRain onDone={stopEffect} emoji={['🎆', '🎇', '✨', '🎉', '🦊']} />}
     {complete && <div className="completion-banner" role="status">
       <strong>🏆 全成就達成！</strong>
-      <p>你找到了白狐網站的所有彩蛋。</p>
+      <p>你找到了 baihu 網站的所有彩蛋。</p>
       <div><a className="ui-button ui-button-primary ui-button-small" href="/certificate" onClick={() => setComplete(false)}>領取通關證書</a><button type="button" className="ui-button ui-button-secondary ui-button-small" onClick={() => setComplete(false)}>稍後</button></div>
     </div>}
     {idle && <DvdScreensaver onCorner={cornerHit} />}

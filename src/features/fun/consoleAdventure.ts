@@ -8,7 +8,7 @@ type Room = 'gate' | 'bamboo' | 'shrine' | 'pond'
 const rooms: Record<Room, { title: string; text: string; exits: Partial<Record<'north' | 'south' | 'east' | 'west', Room>> }> = {
   gate: { title: '鳥居前', text: '一座朱紅色的鳥居。北邊是竹林，東邊傳來水聲。', exits: { north: 'bamboo', east: 'pond' } },
   bamboo: { title: '竹林', text: '風吹過竹林沙沙作響。地上好像有什麼東西……北邊隱約可見一座小神社。', exits: { south: 'gate', north: 'shrine' } },
-  pond: { title: '池塘', text: '池水清澈，倒映著月亮。一塊石頭上刻著：「白狐喜歡油豆腐」。', exits: { west: 'gate' } },
+  pond: { title: '池塘', text: '池水清澈，倒映著月亮。一塊石頭上刻著：「baihu 喜歡油豆腐」。', exits: { west: 'gate' } },
   shrine: { title: '稻荷神社', text: '小小的神社前，一雙藍色的眼睛在暗處看著你。', exits: { south: 'bamboo' } },
 }
 
@@ -45,10 +45,10 @@ export function installConsoleAdventure() {
     inventory: () => say(hasTofu ? '背包：油豆腐 🍥' : '背包：空空如也'),
     give: () => {
       if (room !== 'shrine') return say('這裡沒有人可以給。')
-      if (!hasTofu) return say('白狐看了你一眼，又縮回暗處。也許該帶點牠喜歡的東西？')
+      if (!hasTofu) return say('baihu 看了你一眼，又縮回暗處。也許該帶點牠喜歡的東西？')
       finished = true
       unlock('console')
-      say('🦊 白狐叼走了油豆腐，蹭了蹭你的手。', style.win)
+      say('🦊 baihu 叼走了油豆腐，蹭了蹭你的手。', style.win)
       say('牠留下一句話：「Code is cheap. Show me your prompt.」然後消失在月光裡。', style.win)
       say('恭喜通關！回到網頁上按 ` 打開終端機，還有更多彩蛋。', style.hint)
     },
@@ -61,8 +61,8 @@ export function installConsoleAdventure() {
     }
     started = true
     room = 'gate'
-    say('🌙 白狐的神社 —— 一段 Console 文字冒險', style.title)
-    say('傳說月夜時，神社附近會出現一隻白狐。去找到牠吧。', style.text)
+    say('🌙 baihu 的神社 —— 一段 Console 文字冒險', style.title)
+    say('傳說月夜時，神社附近會出現一隻叫 baihu 的狐狸。去找到牠吧。', style.text)
     describe()
     return '冒險開始！'
   }

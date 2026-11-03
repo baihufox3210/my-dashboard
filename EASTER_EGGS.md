@@ -88,7 +88,7 @@
 ## 開發者工具
 
 - 頁面原始碼（`index.html`）註解：「Code is cheap. Show me your prompt.」
-- Console 有給開發者的訊息；輸入 `play()` 開始文字冒險，之後用 `look`、`north`、`south`、`east`、`west`、`take`、`give`、`inventory`、`help`（不用加括號）。在竹林撿起油豆腐，帶到神社交給白狐即可通關（成就「文字冒險家」）。
+- Console 有給開發者的訊息；輸入 `play()` 開始文字冒險，之後用 `look`、`north`、`south`、`east`、`west`、`take`、`give`、`inventory`、`help`（不用加括號）。在竹林撿起油豆腐，帶到神社交給 baihu 即可通關（成就「文字冒險家」）。
 - `robots.txt` 裡有一隻狐狸。
 
 ## 登入頁 `/login`

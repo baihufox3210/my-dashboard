@@ -44,7 +44,7 @@ export const achievements: Achievement[] = [
   { id: 'dvd-corner', emoji: '📀', title: '正中角落', description: 'DVD 螢幕保護程式剛好撞進角落', bonus: true },
   { id: 'zerg', emoji: '🐜', title: 'Zerg Rush', description: '擊退了所有吃卡片的 o' },
   { id: 'snake', emoji: '🐍', title: '貪食蛇', description: '在終端機吃到 10 顆果子' },
-  { id: 'console', emoji: '🧭', title: '文字冒險家', description: '在 Console 的文字冒險找到白狐' },
+  { id: 'console', emoji: '🧭', title: '文字冒險家', description: '在 Console 的文字冒險找到 baihu' },
   { id: 'hacker', emoji: '💻', title: 'ACCESS GRANTED', description: '在 Hacker Typer 取得權限' },
   { id: 'sus', emoji: 'ඞ', title: 'sus', description: '發現了冒名頂替者' },
   { id: 'nyan', emoji: '🌈', title: 'Nyan 狐', description: '讓彩虹狐狸飛過畫面' },

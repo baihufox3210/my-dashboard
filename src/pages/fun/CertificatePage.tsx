@@ -33,7 +33,7 @@ function drawCertificate(canvas: HTMLCanvasElement, name: string, unlockedCount:
   context.fillText('🦊', width / 2, 330)
   context.fillStyle = ink
   context.font = `800 64px ${font}`
-  context.fillText('白狐網站通關證書', width / 2, 450)
+  context.fillText('baihu 網站通關證書', width / 2, 450)
   context.font = `400 30px ${font}`
   context.fillStyle = strong
   context.fillText('茲證明', width / 2, 530)
@@ -42,7 +42,7 @@ function drawCertificate(canvas: HTMLCanvasElement, name: string, unlockedCount:
   context.fillText(name || '神秘的訪客', width / 2, 630)
   context.fillStyle = strong
   context.font = `400 30px ${font}`
-  context.fillText(`找到了白狐網站的所有彩蛋，解鎖 ${unlockedCount} / ${achievements.length} 個成就`, width / 2, 710)
+  context.fillText(`找到了 baihu 網站的所有彩蛋，解鎖 ${unlockedCount} / ${achievements.length} 個成就`, width / 2, 710)
   context.font = `400 24px ${font}`
   context.fillText(`${new Date().toLocaleDateString('zh-TW', { year: 'numeric', month: 'long', day: 'numeric' })} · baihu 🦊 簽發`, width / 2, 840)
 }
