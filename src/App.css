@@ -3242,7 +3242,7 @@ button, input, textarea, select { font-kerning: normal; }
 .honeypot-env { width: 100%; box-sizing: border-box; margin: .4rem 0; padding: .9rem 1rem; border-radius: .7rem; color: var(--theme-on-overlay); background: var(--theme-terminal-background); font: .8rem/1.7 var(--font-code); text-align: left; white-space: pre-wrap; }
 
 /* Matrix rain and the running fox. */
-.matrix-rain { position: fixed; z-index: 140; inset: 0; width: 100vw; height: 100vh; background: #000; cursor: pointer; }
+.matrix-rain { position: fixed; z-index: 140; inset: 0; width: 100vw; height: 100vh; background: var(--theme-screensaver); cursor: pointer; }
 .fox-run { position: fixed; z-index: 135; bottom: .6rem; left: 0; font-size: 2.4rem; pointer-events: none; animation: fox-run 3.2s linear forwards; }
 .fox-run::after { content: '💨'; position: absolute; top: .2em; right: 100%; font-size: .6em; }
 @keyframes fox-run {
@@ -3294,7 +3294,7 @@ button, input, textarea, select { font-kerning: normal; }
 .scam-modal p { margin: 0; color: var(--theme-muted); line-height: 1.8; }
 .scam-modal .scam-primary { justify-self: end; }
 .scam-takeover { position: fixed; z-index: 70; inset: 0; display: grid; place-items: center; padding: 1rem; background: rgb(var(--theme-shadow-rgb) / .72); }
-.scam-takeover-lights { position: absolute; inset: 0; background: linear-gradient(90deg, rgb(220 40 60 / .35), transparent 40%, transparent 60%, rgb(40 90 230 / .35)); animation: police-lights .8s steps(2, jump-none) infinite; pointer-events: none; }
+.scam-takeover-lights { position: absolute; inset: 0; background: linear-gradient(90deg, var(--theme-police-red), transparent 40%, transparent 60%, var(--theme-police-blue)); animation: police-lights .8s steps(2, jump-none) infinite; pointer-events: none; }
 @keyframes police-lights { 50% { filter: hue-rotate(180deg); transform: scaleX(-1); } }
 .scam-takeover section { position: relative; display: grid; width: min(100%, 30rem); gap: 10px; padding: 26px; border-radius: 16px; background: var(--theme-surface-white); box-shadow: 0 2rem 5rem rgb(var(--theme-shadow-rgb) / .35); font-size: 14px; text-align: center; }
 .scam-takeover section > span { font-size: 44px; }
@@ -3308,3 +3308,157 @@ button, input, textarea, select { font-kerning: normal; }
   .honeypot-fox, .fox-run, .scam-takeover-lights, .scam-table tr.is-new { animation: none; }
   .fox-run { display: none; }
 }
+.sql-egg-comic { margin: 0; animation: intro-pop 420ms cubic-bezier(.2, .9, .3, 1.2); }
+.sql-egg-comic img { display: block; width: 100%; height: auto; border: 1px solid var(--theme-line); border-radius: 10px; background: var(--theme-surface-white); }
+.sql-egg-comic figcaption { margin-top: 6px; color: var(--theme-muted); font-size: 11px; text-align: center; }
+.sql-egg-comic a { color: var(--theme-primary-strong); }
+@keyframes intro-pop { from { opacity: 0; transform: scale(.94); } }
+
+/* Meme effects. */
+.padoru { position: fixed; z-index: 136; top: 18vh; left: 0; display: flex; align-items: center; gap: .4rem; pointer-events: none; white-space: nowrap; animation: padoru-fly 6s cubic-bezier(.4, 0, .6, 1) forwards; }
+.padoru span { font-size: 2.8rem; animation: padoru-bob .5s ease-in-out infinite alternate; }
+.padoru b { font-size: 3.2rem; transform: scaleX(-1); }
+.padoru em { padding: .35rem .8rem; border-radius: 999px; color: var(--theme-on-danger); background: var(--theme-danger); font: 800 1.1rem var(--font-ui); font-style: normal; letter-spacing: .06em; box-shadow: 0 .5rem 1.5rem rgb(var(--theme-shadow-rgb) / .25); }
+@keyframes padoru-fly { from { transform: translateX(-24rem) translateY(0); } 50% { transform: translateX(45vw) translateY(-6vh); } to { transform: translateX(calc(100vw + 4rem)) translateY(2vh); } }
+@keyframes padoru-bob { to { transform: translateY(-.4rem) rotate(-6deg); } }
+.lunar-banner { position: fixed; z-index: 126; top: 50%; left: 50%; display: grid; justify-items: center; gap: .2rem; padding: 1.4rem 2.2rem; border: 3px solid var(--theme-festive-gold); border-radius: 1.1rem; color: var(--theme-on-festive); background: var(--theme-festive-red); box-shadow: 0 1.5rem 4rem rgb(var(--theme-shadow-rgb) / .35); text-align: center; transform: translate(-50%, -50%); animation: lunar-banner 5s ease forwards; pointer-events: none; }
+.lunar-banner strong { font-size: 1.8rem; letter-spacing: .1em; }
+.lunar-banner p { margin: 0; font-size: 1.15rem; letter-spacing: .3em; }
+.lunar-banner small { opacity: .8; }
+@keyframes lunar-banner { 0% { opacity: 0; transform: translate(-50%, -40%) scale(.9); } 12%, 82% { opacity: 1; transform: translate(-50%, -50%) scale(1); } 100% { opacity: 0; transform: translate(-50%, -55%) scale(.96); } }
+body.fun-barrel-roll .app-shell { animation: barrel-roll 1.8s cubic-bezier(.45, 0, .2, 1); }
+@keyframes barrel-roll { to { transform: rotate(360deg); } }
+body.fun-askew .app-shell { transform: rotate(-2.2deg); transition: transform .6s ease; }
+body.fun-tableflip .app-shell { animation: table-flip 2.2s cubic-bezier(.5, -.4, .3, 1.4); }
+@keyframes table-flip { 25%, 75% { transform: rotate(180deg) scale(.9); } }
+@media (prefers-reduced-motion: reduce) { .padoru, .emoji-rain { display: none; } .lunar-banner { animation: none; } }
+
+/* 6 7: the whole page shakes hard in every direction, like Google's mobile search for "67". */
+body.fun-six-seven .app-shell { animation: six-seven-shake 2.6s cubic-bezier(.36, .07, .19, .97) both; }
+@keyframes six-seven-shake {
+  0% { transform: translate(0, 0) rotate(0); }
+  5% { transform: translate(-18px, 14px) rotate(-1.6deg); }
+  10% { transform: translate(22px, -20px) rotate(1.8deg); }
+  15% { transform: translate(-26px, -12px) rotate(-1.2deg); }
+  20% { transform: translate(20px, 24px) rotate(2deg); }
+  25% { transform: translate(-14px, -26px) rotate(-2deg); }
+  30% { transform: translate(28px, 10px) rotate(1.4deg); }
+  35% { transform: translate(-24px, 22px) rotate(-1.8deg); }
+  40% { transform: translate(16px, -24px) rotate(1.6deg); }
+  45% { transform: translate(-28px, -8px) rotate(-1.4deg); }
+  50% { transform: translate(24px, 20px) rotate(2deg); }
+  55% { transform: translate(-20px, -22px) rotate(-1.6deg); }
+  60% { transform: translate(18px, 16px) rotate(1.2deg); }
+  65% { transform: translate(-16px, -14px) rotate(-1deg); }
+  70% { transform: translate(12px, 12px) rotate(.8deg); }
+  78% { transform: translate(-8px, -8px) rotate(-.5deg); }
+  86% { transform: translate(5px, 4px) rotate(.3deg); }
+  94% { transform: translate(-2px, -2px) rotate(-.1deg); }
+  100% { transform: translate(0, 0) rotate(0); }
+}
+.six-seven { position: fixed; z-index: 137; top: 50%; left: 50%; display: flex; align-items: center; gap: .4rem; pointer-events: none; transform: translate(-50%, -50%); animation: six-seven-pop 2.6s ease forwards; }
+.six-seven span { font-size: 3rem; }
+.six-seven span:first-child { animation: six-seven-hands .26s ease-in-out infinite alternate; }
+.six-seven span:last-child { animation: six-seven-hands .26s ease-in-out infinite alternate-reverse; }
+.six-seven b { display: grid; width: 4.2rem; height: 4.2rem; place-items: center; border-radius: 1rem; color: var(--theme-on-primary); background: var(--theme-primary-strong); font: 900 2.8rem var(--font-ui); box-shadow: 0 1rem 2.5rem rgb(var(--theme-shadow-rgb) / .3); }
+@keyframes six-seven-hands { from { transform: translateY(-.7rem) rotate(-8deg); } to { transform: translateY(.7rem) rotate(8deg); } }
+@keyframes six-seven-pop { 0% { opacity: 0; transform: translate(-50%, -50%) scale(.6); } 10%, 85% { opacity: 1; transform: translate(-50%, -50%) scale(1); } 100% { opacity: 0; transform: translate(-50%, -50%) scale(1.15); } }
+
+/* Thanos snap: cards blow away as dust, then reassemble. */
+.thanos-dust { animation: thanos-dust 1.6s ease-in forwards; pointer-events: none; }
+.thanos-return { animation: thanos-return 1.2s ease-out both; }
+@keyframes thanos-dust { to { opacity: 0; filter: blur(8px) grayscale(1); transform: translate(3rem, -2rem) rotate(4deg) scale(.96); } }
+@keyframes thanos-return { from { opacity: 0; filter: blur(8px) grayscale(1); transform: translate(3rem, -2rem) rotate(4deg) scale(.96); } }
+
+/* <blink>, as the web intended. */
+body.fun-blink :is(h1, h2, h3, strong) { animation: fun-blink 1s steps(2, start) infinite; }
+@keyframes fun-blink { to { visibility: hidden; } }
+
+/* Fox runner (offline game) and Game of Life. */
+.fox-runner-backdrop { position: fixed; z-index: 140; inset: 0; display: grid; place-items: center; padding: 1rem; background: var(--theme-backdrop); }
+.fox-runner { width: min(100%, 42rem); padding: 1rem 1.1rem 1.2rem; border-radius: 1rem; color: var(--theme-card-ink); background: var(--theme-surface-white); box-shadow: 0 1.5rem 4rem rgb(var(--theme-shadow-rgb) / .3); }
+.fox-runner header { display: flex; align-items: center; gap: .8rem; margin-bottom: .6rem; }
+.fox-runner header div { display: grid; flex: 1; }
+.fox-runner header small { color: var(--theme-muted); font-size: .76rem; }
+.fox-runner header span { color: var(--theme-muted); font: 700 .8rem var(--font-code); }
+.fox-runner header button { width: 1.8rem; height: 1.8rem; border: 0; border-radius: .5rem; color: var(--theme-muted); background: var(--theme-surface-muted); font-size: 1.1rem; cursor: pointer; }
+.fox-runner canvas { display: block; width: 100%; height: auto; border-radius: .6rem; background: var(--theme-surface-muted); touch-action: manipulation; cursor: pointer; }
+.fox-runner-over { margin: .6rem 0 0; color: var(--theme-primary-strong); font: 700 .8rem var(--font-code); text-align: center; }
+.game-of-life { position: fixed; z-index: 138; inset: 0; width: 100vw; height: 100vh; opacity: .55; cursor: pointer; mix-blend-mode: multiply; }
+
+/* Guestbook replies can span several lines (e.g. the 特選 / 你好 answer). */
+.guestbook-form-footer { flex-wrap: wrap; }
+.guestbook-feedback.is-error { order: 3; flex-basis: 100%; line-height: 1.7; white-space: pre-line; }
+
+@media (prefers-reduced-motion: reduce) {
+  body.fun-six-seven .app-shell, .six-seven span, body.fun-blink :is(h1, h2, h3, strong) { animation: none; }
+  .thanos-dust, .thanos-return { animation-duration: 1ms; }
+}
+
+/* Android-style toast. */
+.android-toast { position: fixed; z-index: 150; bottom: 5.5rem; left: 50%; padding: .6rem 1.1rem; border-radius: 999px; color: var(--theme-on-overlay); background: rgb(var(--theme-shadow-rgb) / .88); font-size: .85rem; transform: translateX(-50%); animation: toast-in 260ms ease; pointer-events: none; }
+.brand-block { cursor: default; user-select: none; }
+
+/* DVD screensaver. */
+.dvd-screensaver { position: fixed; z-index: 145; inset: 0; background: var(--theme-screensaver); cursor: none; }
+.dvd-logo { position: absolute; top: 0; left: 0; display: grid; justify-items: center; padding: .5rem 1.1rem; border-radius: 50% / 40%; color: var(--theme-screensaver); background: var(--theme-terminal-accent); font: 900 1.6rem/1.1 var(--font-ui); letter-spacing: .08em; will-change: transform; }
+.dvd-logo small { font-size: .7rem; letter-spacing: .5em; }
+
+/* April Fools. */
+body.fun-april-fools .app-shell, body.fun-april-fools .app-shell :is(h1, h2, h3, p, a, button, strong, small, span) { font-family: 'Comic Sans MS', 'Comic Sans', 'Chalkboard SE', cursive !important; }
+body.fun-april-fools .app-shell :is(h1, h2) { display: inline-block; transform: rotate(180deg); }
+
+/* Zerg Rush. */
+.zerg-layer { position: fixed; z-index: 142; inset: 0; pointer-events: none; }
+.zerg-score { position: fixed; top: 4.6rem; left: 50%; margin: 0; padding: .35rem .9rem; border-radius: 999px; color: var(--theme-on-primary); background: var(--theme-primary-strong); font: 700 .8rem var(--font-code); transform: translateX(-50%); }
+.zergling { position: absolute; top: 0; left: 0; width: 28px; height: 28px; padding: 0; border: 0; border-radius: 50%; color: var(--theme-danger); background: transparent; font: 900 26px/26px var(--font-code); cursor: crosshair; pointer-events: auto; }
+.zergling.hp-2 { opacity: .75; }
+.zergling.hp-1 { opacity: .45; }
+
+/* sus. */
+.sus-space { position: fixed; z-index: 141; inset: 0; display: grid; place-content: center; justify-items: center; gap: .4rem; overflow: hidden; color: var(--theme-star); background: radial-gradient(circle at 20% 30%, var(--theme-star) 0 1px, transparent 2px) 0 0 / 160px 160px, radial-gradient(circle at 70% 60%, var(--theme-star) 0 1px, transparent 2px) 0 0 / 220px 220px, var(--theme-space); font-family: var(--font-ui); animation: sus-fade 6s ease forwards; }
+.sus-crewmate { position: absolute; top: 40%; left: -10%; font-size: 4rem; color: var(--theme-terminal-error); animation: sus-drift 6s linear forwards; }
+.sus-space p { margin: 0; font-size: 1.4rem; letter-spacing: .04em; opacity: 0; animation: sus-text 6s ease forwards; }
+.sus-space small { color: var(--theme-impostor); opacity: 0; animation: sus-text 6s ease .4s forwards; }
+@keyframes sus-drift { to { left: 110%; transform: rotate(720deg); } }
+@keyframes sus-text { 0%, 30% { opacity: 0; } 45%, 90% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes sus-fade { 0% { opacity: 0; } 8%, 92% { opacity: 1; } 100% { opacity: 0; } }
+
+/* Nyan fox. */
+.nyan-fox { position: fixed; z-index: 136; top: 30vh; left: 0; display: flex; align-items: center; pointer-events: none; animation: nyan-fly 4.5s linear forwards; }
+.nyan-fox i { width: 40vw; height: 2.4rem; background: linear-gradient(var(--theme-rainbow)); animation: nyan-wave .3s steps(2) infinite; }
+.nyan-fox span { font-size: 3rem; transform: scaleX(-1); }
+@keyframes nyan-fly { from { transform: translateX(-45vw); } to { transform: translateX(110vw); } }
+@keyframes nyan-wave { 50% { transform: translateY(4px); } }
+
+/* Completion banner. */
+.completion-banner { position: fixed; z-index: 146; top: 50%; left: 50%; display: grid; justify-items: center; gap: .5rem; padding: 1.6rem 2rem; border: 1px solid var(--theme-surface-border); border-radius: 1.2rem; color: var(--theme-card-ink); background: var(--theme-surface-solid); box-shadow: 0 2rem 5rem rgb(var(--theme-shadow-rgb) / .3); text-align: center; transform: translate(-50%, -50%); animation: intro-pop 420ms cubic-bezier(.2, .9, .3, 1.2); }
+.completion-banner strong { font-size: 1.5rem; }
+.completion-banner p { margin: 0; color: var(--theme-muted); }
+.completion-banner div { display: flex; gap: .5rem; margin-top: .4rem; }
+
+/* 404 and certificate pages. */
+.not-found-fox { position: relative; font-size: 4rem; animation: honeypot-peek 2.4s ease-in-out infinite; }
+.not-found-fox i { position: absolute; right: -1.6rem; bottom: -.2rem; font-size: 2rem; font-style: normal; }
+.not-found-links { display: flex; flex-wrap: wrap; justify-content: center; gap: .4rem; margin-top: .4rem; }
+.certificate-card { max-width: 46rem; }
+.certificate-name { box-sizing: border-box; width: min(100%, 18rem); padding: .6rem .8rem; border: 1px solid var(--theme-line); border-radius: .6rem; color: var(--theme-card-ink); background: var(--theme-surface-white); font: inherit; text-align: center; }
+.certificate-canvas { width: 100%; height: auto; border-radius: .6rem; box-shadow: 0 .8rem 2rem rgb(var(--theme-shadow-rgb) / .15); }
+.certificate-progress { width: min(100%, 22rem); height: .6rem; overflow: hidden; border-radius: 999px; background: var(--theme-control-background); }
+.certificate-progress i { display: block; height: 100%; border-radius: inherit; background: var(--theme-primary); }
+
+/* Terminal games. */
+.terminal-game pre { margin: .4rem 0 0; color: var(--theme-on-overlay); font: .8rem/1.25 var(--font-code); white-space: pre; }
+.terminal-game .is-accent { color: var(--theme-terminal-accent); }
+.terminal-game .is-muted { color: var(--theme-on-overlay-muted); }
+.hacker-typer { max-height: 20rem; overflow-y: auto; color: var(--theme-success) !important; white-space: pre-wrap !important; }
+.hacker-cursor { display: inline-block; width: .55em; height: 1em; background: var(--theme-success); vertical-align: -.15em; animation: intro-blink 1s steps(2, start) infinite; }
+@keyframes intro-blink { to { visibility: hidden; } }
+.hacker-granted { position: absolute; top: 50%; left: 50%; margin: 0; padding: .8rem 1.6rem; border: 2px solid var(--theme-success); color: var(--theme-success); background: var(--theme-screensaver); font: 900 1.8rem var(--font-code); letter-spacing: .2em; transform: translate(-50%, -50%); animation: intro-blink .6s steps(2, start) 4; }
+.terminal-window { position: relative; }
+
+@media (prefers-reduced-motion: reduce) {
+  .sus-crewmate, .nyan-fox, .nyan-fox i, .not-found-fox { animation: none; }
+  .nyan-fox { display: none; }
+}
+.honeypot-card p a { color: var(--theme-primary-strong); font-weight: 700; }

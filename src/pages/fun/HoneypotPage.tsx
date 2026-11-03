@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { unlock } from '../../features/fun/achievements'
+import { rickroll } from '../../features/fun/memes'
 import { getPublicPath, getRouteSegments } from '../../routes/routes'
 
 const fakeEnv = `DB_HOST=localhost
@@ -21,6 +22,7 @@ function HoneypotPage() {
       <h1>你在找 {target} 嗎？</h1>
       <p>這裡沒有 WordPress、沒有 phpMyAdmin，也沒有外洩的 <code>.env</code>。<br />只有一隻狐狸，正在看著你的掃描器。</p>
       {path === '.env' && <pre className="honeypot-env">{fakeEnv}</pre>}
+      <button type="button" className="ui-button ui-button-secondary" onClick={rickroll}>🎁 免費領取真正的 flag</button>
       <a className="ui-button ui-button-primary" href={getPublicPath('home')}>回到首頁</a>
     </section>
   </main>

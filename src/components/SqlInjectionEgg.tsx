@@ -33,6 +33,10 @@ function SqlInjectionEgg({ username, flag, onBack }: { username: string; flag?: 
       {script.slice(0, shown).map((line, index) => <p key={index} className={line.tone ? `is-${line.tone}` : undefined}>{line.text}</p>)}
     </div>
     {shown >= script.length && <>
+      <figure className="sql-egg-comic">
+        <img src="/eggs/xkcd-327-bobby-tables.jpg" alt="xkcd 327：學校打電話問家長，是不是真的把兒子取名為 Robert'); DROP TABLE Students;--，家長回答：對，我們叫他小 Bobby Tables。" width="700" height="700" />
+        <figcaption><a href="https://xkcd.com/327/" target="_blank" rel="noreferrer">xkcd 327 · Exploits of a Mom</a> · Randall Munroe · CC BY-NC 2.5</figcaption>
+      </figure>
       {flag && <div className="admin-login-flag"><small>但你還是值得一面旗子</small><code>{flag}</code></div>}
       <button type="button" className="ui-button ui-button-secondary" onClick={onBack}>回到登入</button>
     </>}

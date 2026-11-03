@@ -27,10 +27,14 @@ export function getPublicPage(): PublicPage {
 // Hidden easter-egg routes: the parody scam back-office and the pages scanners probe.
 const scannerPaths = new Set(['wp-admin', 'wp-login.php', 'phpmyadmin', '.env', 'xmlrpc.php', 'admin.php', 'administrator', '.git', 'config.php'])
 
-export function getEasterEggPage(): 'panel' | 'honeypot' | null {
+export const knownTopLevelPaths = ['about', 'projects', 'blog', 'friends', 'login', 'admin', 'panel', 'certificate']
+
+export function getEasterEggPage(): 'panel' | 'honeypot' | 'certificate' | 'notfound' | null {
   const first = getRouteSegments()[0]
-  if (first === 'panel') return 'panel'
-  return first && scannerPaths.has(first) ? 'honeypot' : null
+  if (first === 'panel' || first === 'certificate') return first
+  if (first && scannerPaths.has(first)) return 'honeypot'
+  // Anything else unknown gets the lost-fox 404 instead of silently showing home.
+  return first && !knownTopLevelPaths.includes(first) && !publicPages.has(first as PublicPage) ? 'notfound' : null
 }
 
 export function isLoginRoute() {

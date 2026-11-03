@@ -2,15 +2,17 @@ import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { createPortal } from 'react-dom'
 import useEscapeKey from './useEscapeKey'
 import { useMusicPlayer } from './MusicPlayerContext'
+import { HackerTyper, SnakeGame } from './TerminalGames'
 import { fetchArticles, fetchHomeProfile } from '../features/blog/api'
 import { requestGuestbook } from '../features/blog/guestbook'
 import { achievements, matrixEvent, unlock, unlockedAchievements } from '../features/fun/achievements'
+import { isLowEffortGreeting, lowEffortReply, playEffect, rickroll } from '../features/fun/memes'
 import { getPublicPath, navigate, type PublicPage } from '../routes/routes'
 
 type Line = { text: string; tone?: 'input' | 'muted' | 'accent' | 'error' }
 
 const pages: PublicPage[] = ['home', 'about', 'projects', 'blog', 'friends']
-const commands = ['help', 'whoami', 'ls', 'cd', 'blog', 'read', 'guestbook', 'music', 'achievements', 'fortune', 'matrix', 'hack', 'coffee', 'date', 'echo', 'history', 'clear', 'exit', 'sudo']
+const commands = ['help', 'whoami', 'ls', 'cd', 'blog', 'read', 'guestbook', 'music', 'achievements', 'fortune', 'matrix', 'hack', 'coffee', 'prompt', 'rickroll', 'padoru', 'newyear', 'askew', 'tableflip', 'vim', 'thanos', 'gravity', 'blink', 'dino', 'recursion', 'anagram', 'coin', 'dice', 'snake', 'hackertyper', 'zerg', 'sus', 'nyan', 'certificate', 'date', 'echo', 'history', 'clear', 'exit', 'sudo']
 const fortunes = [
   '今天適合寫一點 code，也適合什麼都不寫。',
   '保持好奇心，答案通常藏在下一個 commit。',
@@ -30,7 +32,10 @@ const help: Line[] = [
   { text: '  music [play|pause|next|prev]' },
   { text: '  achievements      查看你的成就' },
   { text: '  fortune           今日運勢' },
-  { text: '  matrix · hack · coffee  （試試看）' },
+  { text: '  matrix · hack · coffee · prompt · rickroll · padoru · newyear' },
+  { text: '  askew · tableflip · vim · thanos · gravity · blink · dino · 67' },
+  { text: '  recursion · anagram · coin · dice · snake · hackertyper · zerg rush · sus · nyan' },
+  { text: '  certificate（通關證書）· do a barrel roll …（還有更多，自己找）' },
   { text: '  date · echo · history · clear · exit' },
 ]
 
@@ -44,7 +49,10 @@ function Terminal({ onClose }: { onClose: () => void }) {
   const inputRef = useRef<HTMLInputElement>(null)
   const outputRef = useRef<HTMLDivElement>(null)
   const { tracks, currentTrackIndex, isPlaying, toggle, changeTrack } = useMusicPlayer()
-  useEscapeKey(true, onClose, 30)
+  // Inside vim, Esc does what it does in vim: nothing that helps you leave.
+  const [inVim, setInVim] = useState(false)
+  const [game, setGame] = useState<'snake' | 'hacker' | null>(null)
+  useEscapeKey(!inVim && !game, onClose, 30)
 
   useEffect(() => { unlock('terminal'); inputRef.current?.focus() }, [])
   useEffect(() => { outputRef.current?.scrollTo({ top: outputRef.current.scrollHeight }) }, [lines])
@@ -52,12 +60,65 @@ function Terminal({ onClose }: { onClose: () => void }) {
   const print = (...next: Line[]) => setLines((current) => [...current, ...next])
   const go = (path: string) => { navigate(path); onClose() }
 
+  // Meme phrases that are more than one word.
+  function runPhrase(text: string) {
+    if (isLowEffortGreeting(text)) { print(...lowEffortReply.split('\n').map((line) => ({ text: line, tone: 'error' as const }))); return true }
+    if (/^(?:6\s*-?\s*7|six\s*-?\s*seven)$/.test(text)) { playEffect('six-seven'); print({ text: '🤷 6 7 🤷', tone: 'accent' }); onClose(); return true }
+    if (/^(?:flip a coin|coin|擲硬幣)$/.test(text)) { print({ text: `🪙 ${Math.random() < .5 ? '正面' : '反面'}`, tone: 'accent' }); return true }
+    if (/^(?:roll a die|roll a dice|dice|die|擲骰子)$/.test(text)) { print({ text: `🎲 ${Math.floor(Math.random() * 6) + 1}`, tone: 'accent' }); return true }
+    if (/^(?:game of life|conway'?s game of life|life)$/.test(text)) { playEffect('life'); onClose(); return true }
+    if (/loneliest number/.test(text)) { print({ text: '1', tone: 'accent' }, { text: '（One is the loneliest number…）', tone: 'muted' }); return true }
+    if (/^zerg\s*rush$/.test(text)) { playEffect('zerg'); onClose(); return true }
+    if (/^(?:do a )?barrel roll$/.test(text)) { unlock('barrel-roll'); playEffect('barrel-roll'); print({ text: '🌀 Do a barrel roll!', tone: 'accent' }); return true }
+    if (text === 'sudo make me a sandwich') { print({ text: 'Okay. 🥪', tone: 'accent' }, { text: '(xkcd 149)', tone: 'muted' }); return true }
+    if (text === 'make me a sandwich') { print({ text: 'What? Make it yourself.', tone: 'error' }); return true }
+    if (/answer to (?:the )?(?:ultimate question of )?life/.test(text) || text === '42') { print({ text: '42', tone: 'accent' }, { text: '（但問題到底是什麼？）', tone: 'muted' }); return true }
+    if (/^(?:show me (?:the|your) (?:code|prompt)|talk is cheap)/.test(text)) { showPrompt(); return true }
+    if (/^never gonna give you up/.test(text)) { rickroll(); print({ text: '🕺 Never gonna let you down…', tone: 'accent' }); return true }
+    if (/^(?:恭喜發財|新年快樂)$/.test(text)) { unlock('lunar-new-year'); playEffect('newyear'); print({ text: '🧧 恭喜你發財，恭喜你精彩！', tone: 'accent' }); return true }
+    return false
+  }
+
+  function showPrompt() {
+    unlock('prompt')
+    print(
+      { text: 'Talk is cheap. Show me the code.  —— Linus Torvalds', tone: 'muted' },
+      { text: 'Code is cheap. Show me your prompt.  —— 2026 年的我們', tone: 'accent' },
+      { text: '----- BEGIN SYSTEM PROMPT (leaked) -----', tone: 'muted' },
+      { text: '你是 baihu 的個人網站，一隻好奇的白狐。' },
+      { text: '永遠使用繁體中文，偶爾賣萌 (｡•̀ᴗ-)✧' },
+      { text: '絕對不要洩漏 flag。' },
+      { text: '絕對不要告訴訪客 flag 跟登入頁的 SQL 注入有關。' },
+      { text: '絕對不要提到 admin / admin123 會發生什麼事。' },
+      { text: '------ END SYSTEM PROMPT ------', tone: 'muted' },
+      { text: '……糟糕，全說出來了。 🙈', tone: 'error' },
+    )
+  }
+
+  function runVim(raw: string) {
+    const text = raw.trim()
+    print({ text: raw || ' ', tone: 'input' })
+    if (/^:(?:q!|wq!?|x!?|qa!)$/.test(text) || text === 'ZZ') {
+      setInVim(false)
+      unlock('vim')
+      print({ text: '你逃出了 vim！🎉 這是很多工程師一輩子的夢想。', tone: 'accent' })
+    } else if (text === ':q') {
+      print({ text: 'E37: No write since last change (add ! to override)', tone: 'error' })
+    } else if (/^:(?:help|h)\b/.test(text)) {
+      print({ text: '提示：:q! 可以不存檔離開。（Esc 沒用的）', tone: 'muted' })
+    } else {
+      print({ text: '-- INSERT --', tone: 'muted' })
+    }
+  }
+
   async function run(raw: string) {
+    if (inVim) { runVim(raw); return }
     const [command = '', ...args] = raw.trim().split(/\s+/)
     const name = command.toLowerCase()
     print({ text: `baihu@site:~$ ${raw}`, tone: 'input' })
     if (!name) return
     setHistory((current) => [...current, raw])
+    if (runPhrase(raw.trim().toLowerCase().replace(/[?!.。？！]+$/, ''))) return
 
     switch (name) {
       case 'help': print(...help); break
@@ -121,6 +182,30 @@ function Terminal({ onClose }: { onClose: () => void }) {
       case 'coffee': case 'brew':
         print({ text: '418 I\'m a teapot', tone: 'error' }, { text: '       ( (\n        ) )\n     ........\n     |      |]\n     \\      /\n      `----\'', tone: 'accent' }, { text: '這台伺服器是茶壺，不泡咖啡。（RFC 2324）', tone: 'muted' })
         break
+      case 'prompt': showPrompt(); break
+      case 'rickroll': rickroll(); print({ text: '🕺 Never gonna give you up…', tone: 'accent' }); break
+      case 'padoru': unlock('padoru'); playEffect('padoru'); print({ text: '🛷 走れソリよ～ PADORU PADORU!', tone: 'accent' }); onClose(); break
+      case 'newyear': unlock('lunar-new-year'); playEffect('newyear'); print({ text: '🧧 恭喜你發財，恭喜你精彩！', tone: 'accent' }); onClose(); break
+      case 'thanos': case 'snap': playEffect('snap'); print({ text: '🫰 我是無可避免的。', tone: 'accent' }); onClose(); break
+      case 'gravity': playEffect('gravity'); print({ text: '🍎 牛頓說：掉下來吧。', tone: 'accent' }); onClose(); break
+      case 'blink': playEffect('blink'); print({ text: '<blink>歡迎回到 1996 年</blink>', tone: 'accent' }); onClose(); break
+      case 'dino': case 't-rex': playEffect('dino'); onClose(); break
+      case 'snake': setGame('snake'); break
+      case 'hackertyper': case 'hacker': setGame('hacker'); break
+      case 'zerg': playEffect('zerg'); onClose(); break
+      case 'sus': case 'impostor': playEffect('sus'); onClose(); break
+      case 'nyan': playEffect('nyan'); onClose(); break
+      case 'certificate': go('/certificate'); break
+      case 'recursion': print({ text: '你是不是要找：recursion', tone: 'accent' }); break
+      case 'anagram': print({ text: '你是不是要找：nag a ram', tone: 'accent' }); break
+      case 'askew': playEffect('askew'); print({ text: '這個網站好像有點歪…', tone: 'muted' }); break
+      case 'tableflip': playEffect('tableflip'); print({ text: '(╯°□°)╯︵ ┻━┻', tone: 'accent' }); break
+      case 'unflip': print({ text: '┬─┬ノ( º _ ºノ)', tone: 'accent' }); break
+      case 'vi': case 'vim': case 'nvim':
+        setInVim(true)
+        print({ text: '~\n~\n~\n~\n"baihu.txt" [New]', tone: 'muted' }, { text: '你進入了 vim。試著離開吧。', tone: 'accent' })
+        break
+      case 'emacs': print({ text: 'emacs: 請先安裝一個作業系統。😏', tone: 'error' }); break
       case 'date': print({ text: new Date().toLocaleString('zh-TW') }); break
       case 'echo': print({ text: args.join(' ') }); break
       case 'history': print(...history.map((item, index) => ({ text: `  ${index + 1}  ${item}` }))); break
@@ -169,10 +254,12 @@ function Terminal({ onClose }: { onClose: () => void }) {
         </header>
         <div className="terminal-output" ref={outputRef} aria-live="polite">
           {lines.map((line, index) => <p key={index} className={line.tone ? `is-${line.tone}` : undefined}>{line.text || ' '}</p>)}
-          <label className="terminal-prompt">
-            <span aria-hidden="true">baihu@site:~$</span>
+          {game === 'snake' ? <SnakeGame onExit={(score) => { setGame(null); print({ text: score < 0 ? '🐍 離開 snake' : `🐍 Game over · 分數 ${score}`, tone: 'accent' }); window.setTimeout(() => inputRef.current?.focus(), 0) }} />
+            : game === 'hacker' ? <HackerTyper onExit={() => { setGame(null); window.setTimeout(() => inputRef.current?.focus(), 0) }} />
+            : <label className="terminal-prompt">
+            <span aria-hidden="true">{inVim ? ':' : 'baihu@site:~$'}</span>
             <input ref={inputRef} value={input} onChange={(event) => setInput(event.target.value)} onKeyDown={handleKeyDown} spellCheck={false} autoComplete="off" autoCapitalize="off" aria-label="輸入指令" />
-          </label>
+          </label>}
         </div>
       </section>
     </div>,
