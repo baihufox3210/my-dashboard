@@ -12,7 +12,7 @@
 - 文章閱讀：顯示閱讀時間與進度條、表情回應（每位訪客每種一次，可取消），每篇文章有可分享的網址 `/blog/post/:id`。
 - RSS 訂閱：`/api/rss.xml`（最新 20 篇）。若網站有固定網址，可設定 `SITE_URL`（例如 `https://example.com`），RSS 連結就不必依請求推算。
 - 頁尾顯示今日與累計瀏覽次數，以及即時線上人數（每個分頁每 30 秒回報一次，只存在伺服器記憶體）。
-- 彩蛋：按 `` ` `` 或 `Ctrl/⌘ + K`（或頁尾的 `>_`）打開終端機，可用 `help`、`whoami`、`ls`、`cd`、`blog`／`read`、`guestbook`、`music`、`achievements`、`fortune` 等指令；輸入 Konami Code（↑↑↓↓←→←→BA）會下狐狸櫻花雨。
+- 彩蛋：按 `` ` `` 或 `Ctrl/⌘ + K`（或頁尾的 `>_`）打開終端機，可用 `help`、`whoami`、`ls`、`cd`、`blog`／`read`、`guestbook`、`music`、`achievements`、`fortune` 等指令；完整彩蛋清單見 [EASTER_EGGS.md](EASTER_EGGS.md)。
 - 成就系統：瀏覽文章、留言、逛遍所有頁面、深夜造訪、找到彩蛋等會解鎖成就並跳出通知；成就只存在訪客自己的瀏覽器，不會上傳。
 - 桌面與手機背景可分別調整。
 - 流量統計：每次瀏覽（包含重複瀏覽）都會計入。每日彙總保存 120 天；逐筆紀錄（訪客 IP、時間、頁面與路徑、工作階段、來源網站、瀏覽器／作業系統、地區）預設保存 90 天，後台可依 IP 查詢每一筆瀏覽。
@@ -88,49 +88,11 @@ Vite 開發伺服器提供前端，並將 `/api` 與 `/uploads` 請求代理至 
 
 在文章、About 經歷或支援 Markdown 的內容中，用 `||暴雷內容||` 包住要先遮住的文字。預覽會以點狀圖樣遮住內容；點一下或以鍵盤 Enter／空白鍵即可顯示，再操作一次可重新遮住。這只是閱讀呈現效果，文字仍會存在公開文章資料中，請勿用它隱藏密碼或真正的機密。
 
-## 登入頁彩蛋
+## 彩蛋
 
-登入表單後面沒有任何 SQL，也不會執行使用者輸入；伺服器先以固定時間比對正式管理員帳密，不符合時才比對下列彩蛋。彩蛋不建立 session、不算登入失敗，並有獨立的限流（每 IP 每分鐘 20 次）。
+所有彩蛋（終端機指令、Google 經典彩蛋、登入頁與詐騙後台、特殊網址、季節效果、成就與通關證書）都整理在 [EASTER_EGGS.md](EASTER_EGGS.md)。
 
-- **SQL 注入**：輸入常見的注入字串（如 `' OR 1=1 --`、`admin' --`、`UNION SELECT`）會播放一段假的「資料庫傾印」，最後揭曉這裡根本沒有資料庫。若設定了 flag，會一併顯示。
-- **`admin` / `admin123`**：進入諷刺詐騙集團後台的彩蛋頁 `/panel`。所有資料都在瀏覽器隨機產生（手機號碼皆遮罩、非真實），每個按鈕都會跳出反詐騙說明，一段時間後畫面會被「165」接管。
-- **模擬 PHP 後門**：在 `/panel` 的「上传模板」上傳含 `<?php` 的檔案，會開啟模擬的 webshell（可 `ls`、`cat`、`rm -rf` 等）。檔案只在瀏覽器內讀取顯示，**不會上傳、儲存或執行**，伺服器端也沒有任何 PHP。
-
-flag 設定（選用）放在不納入 Git 的 `data/security-flags.json`，格式見 `server/security-flags.example.json`：
-
-```json
-{
-  "challenges": {
-    "sqlLogin": {
-      "enabled": true,
-      "flag": "FLAG{replace_with_your_own_flag}"
-    }
-  }
-}
-```
-
-迷因彩蛋：
-
-- SQL 注入彩蛋最後會顯示 xkcd 327《Exploits of a Mom》（Randall Munroe，CC BY-NC 2.5，已標示出處）。
-- 原始碼註解與終端機 `prompt`：「Code is cheap. Show me your prompt.」，順便「洩漏」網站的假系統提示詞。
-- Rick Roll：終端機 `rickroll`、`/panel` 的「下载受害者名单.zip」、`/.env` 頁的「免費領取真正的 flag」（在新分頁開啟官方 MV）。
-- 每年 12 月 1–25 日首頁會有狐狸拉雪橇「PADORU PADORU!」；農曆正月初一到十五首頁會下紅包雨並送上「恭喜你發財 恭喜你精彩」（以瀏覽器的農曆計算，每個分頁工作階段一次）。終端機的 `padoru`、`newyear`／`恭喜發財` 隨時可看。
-- 終端機另有 `do a barrel roll`、`askew`、`tableflip`、`vim`（要 `:q!` 才出得來，Esc 沒用）、`make me a sandwich`／`sudo make me a sandwich`（xkcd 149）、`answer to life the universe and everything`。
-
-Google 經典彩蛋：在網頁上打 `67`（或終端機 `67`、`six seven`）整個頁面會上下左右劇烈搖晃；終端機另有 `thanos`（一半卡片化為灰燼後復原）、`gravity`（卡片掉到底部）、`blink`、`recursion`、`anagram`、`flip a coin`、`roll a die`、`game of life`、`loneliest number`、`dino`（狐狸跑酷，斷線時也會自動出現）。
-
-更多彩蛋：
-
-- 切到別的分頁時標題會喊你回來；閒置 90 秒會出現 DVD 螢幕保護程式（撞到角落有煙火）；4 月 1 日全站變 Comic Sans、標題倒過來。
-- 不存在的網址會顯示迷路狐狸的 404 頁，並猜你想去哪裡。
-- 終端機：`zerg rush`（點掉吃卡片的 o）、`snake`、`hackertyper`（連按 3 次 Alt）、`sus`、`nyan`；在網頁上直接打 `sus`、`nyan` 也可以。
-- 開發者工具 Console 輸入 `play()` 開始文字冒險。
-- 連點網站名稱 7 次會進入「開發人員模式」。
-- 解鎖全部成就（「夜貓子」「正中角落」為加分成就，不需要）後可到 `/certificate` 下載寫上自己名字的通關證書。
-
-留言板與終端機只輸入「特選」「你好」這類單純的招呼語（含 hi、安安、在嗎、請問、學長好等）會被擋下並回覆一段提醒；加上實際內容即可正常留言。
-
-其他彩蛋：掃描器常探測的路徑（`/wp-admin`、`/phpmyadmin`、`/.env`、`/xmlrpc.php`、`/.git` 等）會顯示嘲諷頁面；`robots.txt` 裡有狐狸；終端機另有 `matrix`、`hack`、`coffee`；在鍵盤打出 `fox` 會有狐狸跑過畫面。
+登入表單後面沒有任何 SQL，也不會執行使用者輸入；彩蛋不建立 session、不算登入失敗。詐騙後台 `/panel` 的「PHP 後門」純屬瀏覽器內模擬，檔案不會上傳、儲存或執行，伺服器端也沒有 PHP。選用的 flag 設定放在不納入 Git 的 `data/security-flags.json`（格式見 `server/security-flags.example.json`）。
 
 ## 正式部署注意事項
 
