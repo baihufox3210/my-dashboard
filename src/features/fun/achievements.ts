@@ -4,6 +4,7 @@ export type AchievementId =
   | 'night-owl' | 'dj' | 'avatar-fan' | 'terminal' | 'sudo' | 'konami'
   | 'scam-buster' | 'webshell' | 'bobby-tables' | 'scanner' | 'fox-runner' | 'matrix'
   | 'prompt' | 'rickroll' | 'padoru' | 'lunar-new-year' | 'barrel-roll' | 'vim'
+  | 'six-seven' | 'thanos' | 'gravity' | 'dino' | 'life'
 
 export type Achievement = { id: AchievementId; emoji: string; title: string; description: string }
 
@@ -32,6 +33,11 @@ export const achievements: Achievement[] = [
   { id: 'lunar-new-year', emoji: '🧧', title: '恭喜你發財', description: '在新年期間收到紅包雨' },
   { id: 'barrel-roll', emoji: '🌀', title: 'Do a barrel roll', description: '讓網站轉了一圈' },
   { id: 'vim', emoji: '🚪', title: '逃出 vim', description: '成功離開 vim（真的不容易）' },
+  { id: 'six-seven', emoji: '🤷', title: '6 7', description: 'six seven～（手要晃）' },
+  { id: 'thanos', emoji: '🫰', title: '無可避免', description: '彈指讓一半的卡片消失' },
+  { id: 'gravity', emoji: '🍎', title: '牛頓', description: '讓整個網站掉下來' },
+  { id: 'dino', emoji: '🦖', title: '離線也要玩', description: '玩了狐狸跑酷' },
+  { id: 'life', emoji: '🧬', title: '生命遊戲', description: '看了 Conway 的生命遊戲' },
 ]
 
 const storageKey = 'achievements'

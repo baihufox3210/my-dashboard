@@ -3332,3 +3332,65 @@ body.fun-askew .app-shell { transform: rotate(-2.2deg); transition: transform .6
 body.fun-tableflip .app-shell { animation: table-flip 2.2s cubic-bezier(.5, -.4, .3, 1.4); }
 @keyframes table-flip { 25%, 75% { transform: rotate(180deg) scale(.9); } }
 @media (prefers-reduced-motion: reduce) { .padoru, .emoji-rain { display: none; } .lunar-banner { animation: none; } }
+
+/* 6 7: the whole page shakes hard in every direction, like Google's mobile search for "67". */
+body.fun-six-seven .app-shell { animation: six-seven-shake 2.6s cubic-bezier(.36, .07, .19, .97) both; }
+@keyframes six-seven-shake {
+  0% { transform: translate(0, 0) rotate(0); }
+  5% { transform: translate(-18px, 14px) rotate(-1.6deg); }
+  10% { transform: translate(22px, -20px) rotate(1.8deg); }
+  15% { transform: translate(-26px, -12px) rotate(-1.2deg); }
+  20% { transform: translate(20px, 24px) rotate(2deg); }
+  25% { transform: translate(-14px, -26px) rotate(-2deg); }
+  30% { transform: translate(28px, 10px) rotate(1.4deg); }
+  35% { transform: translate(-24px, 22px) rotate(-1.8deg); }
+  40% { transform: translate(16px, -24px) rotate(1.6deg); }
+  45% { transform: translate(-28px, -8px) rotate(-1.4deg); }
+  50% { transform: translate(24px, 20px) rotate(2deg); }
+  55% { transform: translate(-20px, -22px) rotate(-1.6deg); }
+  60% { transform: translate(18px, 16px) rotate(1.2deg); }
+  65% { transform: translate(-16px, -14px) rotate(-1deg); }
+  70% { transform: translate(12px, 12px) rotate(.8deg); }
+  78% { transform: translate(-8px, -8px) rotate(-.5deg); }
+  86% { transform: translate(5px, 4px) rotate(.3deg); }
+  94% { transform: translate(-2px, -2px) rotate(-.1deg); }
+  100% { transform: translate(0, 0) rotate(0); }
+}
+.six-seven { position: fixed; z-index: 137; top: 50%; left: 50%; display: flex; align-items: center; gap: .4rem; pointer-events: none; transform: translate(-50%, -50%); animation: six-seven-pop 2.6s ease forwards; }
+.six-seven span { font-size: 3rem; }
+.six-seven span:first-child { animation: six-seven-hands .26s ease-in-out infinite alternate; }
+.six-seven span:last-child { animation: six-seven-hands .26s ease-in-out infinite alternate-reverse; }
+.six-seven b { display: grid; width: 4.2rem; height: 4.2rem; place-items: center; border-radius: 1rem; color: var(--theme-on-primary); background: var(--theme-primary-strong); font: 900 2.8rem var(--font-ui); box-shadow: 0 1rem 2.5rem rgb(var(--theme-shadow-rgb) / .3); }
+@keyframes six-seven-hands { from { transform: translateY(-.7rem) rotate(-8deg); } to { transform: translateY(.7rem) rotate(8deg); } }
+@keyframes six-seven-pop { 0% { opacity: 0; transform: translate(-50%, -50%) scale(.6); } 10%, 85% { opacity: 1; transform: translate(-50%, -50%) scale(1); } 100% { opacity: 0; transform: translate(-50%, -50%) scale(1.15); } }
+
+/* Thanos snap: cards blow away as dust, then reassemble. */
+.thanos-dust { animation: thanos-dust 1.6s ease-in forwards; pointer-events: none; }
+.thanos-return { animation: thanos-return 1.2s ease-out both; }
+@keyframes thanos-dust { to { opacity: 0; filter: blur(8px) grayscale(1); transform: translate(3rem, -2rem) rotate(4deg) scale(.96); } }
+@keyframes thanos-return { from { opacity: 0; filter: blur(8px) grayscale(1); transform: translate(3rem, -2rem) rotate(4deg) scale(.96); } }
+
+/* <blink>, as the web intended. */
+body.fun-blink :is(h1, h2, h3, strong) { animation: fun-blink 1s steps(2, start) infinite; }
+@keyframes fun-blink { to { visibility: hidden; } }
+
+/* Fox runner (offline game) and Game of Life. */
+.fox-runner-backdrop { position: fixed; z-index: 140; inset: 0; display: grid; place-items: center; padding: 1rem; background: var(--theme-backdrop); }
+.fox-runner { width: min(100%, 42rem); padding: 1rem 1.1rem 1.2rem; border-radius: 1rem; color: var(--theme-card-ink); background: var(--theme-surface-white); box-shadow: 0 1.5rem 4rem rgb(var(--theme-shadow-rgb) / .3); }
+.fox-runner header { display: flex; align-items: center; gap: .8rem; margin-bottom: .6rem; }
+.fox-runner header div { display: grid; flex: 1; }
+.fox-runner header small { color: var(--theme-muted); font-size: .76rem; }
+.fox-runner header span { color: var(--theme-muted); font: 700 .8rem var(--font-code); }
+.fox-runner header button { width: 1.8rem; height: 1.8rem; border: 0; border-radius: .5rem; color: var(--theme-muted); background: var(--theme-surface-muted); font-size: 1.1rem; cursor: pointer; }
+.fox-runner canvas { display: block; width: 100%; height: auto; border-radius: .6rem; background: var(--theme-surface-muted); touch-action: manipulation; cursor: pointer; }
+.fox-runner-over { margin: .6rem 0 0; color: var(--theme-primary-strong); font: 700 .8rem var(--font-code); text-align: center; }
+.game-of-life { position: fixed; z-index: 138; inset: 0; width: 100vw; height: 100vh; opacity: .55; cursor: pointer; mix-blend-mode: multiply; }
+
+/* Guestbook replies can span several lines (e.g. the 特選 / 你好 answer). */
+.guestbook-form-footer { flex-wrap: wrap; }
+.guestbook-feedback.is-error { order: 3; flex-basis: 100%; line-height: 1.7; white-space: pre-line; }
+
+@media (prefers-reduced-motion: reduce) {
+  body.fun-six-seven .app-shell, .six-seven span, body.fun-blink :is(h1, h2, h3, strong) { animation: none; }
+  .thanos-dust, .thanos-return { animation-duration: 1ms; }
+}

@@ -117,6 +117,10 @@ flag 設定（選用）放在不納入 Git 的 `data/security-flags.json`，格�
 - 每年 12 月 1–25 日首頁會有狐狸拉雪橇「PADORU PADORU!」；農曆正月初一到十五首頁會下紅包雨並送上「恭喜你發財 恭喜你精彩」（以瀏覽器的農曆計算，每個分頁工作階段一次）。終端機的 `padoru`、`newyear`／`恭喜發財` 隨時可看。
 - 終端機另有 `do a barrel roll`、`askew`、`tableflip`、`vim`（要 `:q!` 才出得來，Esc 沒用）、`make me a sandwich`／`sudo make me a sandwich`（xkcd 149）、`answer to life the universe and everything`。
 
+Google 經典彩蛋：在網頁上打 `67`（或終端機 `67`、`six seven`）整個頁面會上下左右劇烈搖晃；終端機另有 `thanos`（一半卡片化為灰燼後復原）、`gravity`（卡片掉到底部）、`blink`、`recursion`、`anagram`、`flip a coin`、`roll a die`、`game of life`、`loneliest number`、`dino`（狐狸跑酷，斷線時也會自動出現）。
+
+留言板與終端機只輸入「特選」「你好」這類單純的招呼語（含 hi、安安、在嗎、請問、學長好等）會被擋下並回覆一段提醒；加上實際內容即可正常留言。
+
 其他彩蛋：掃描器常探測的路徑（`/wp-admin`、`/phpmyadmin`、`/.env`、`/xmlrpc.php`、`/.git` 等）會顯示嘲諷頁面；`robots.txt` 裡有狐狸；終端機另有 `matrix`、`hack`、`coffee`；在鍵盤打出 `fox` 會有狐狸跑過畫面。
 
 ## 正式部署注意事項

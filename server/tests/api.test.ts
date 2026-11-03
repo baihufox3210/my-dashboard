@@ -240,6 +240,11 @@ describe('guestbook', () => {
     assert.equal((await postJson('/api/guestbook', { name: '', message: 'hi' })).status, 400)
     assert.equal((await postJson('/api/guestbook', { name: 'a', message: 'x'.repeat(301) })).status, 400)
     assert.equal((await postJson('/api/guestbook', { name: 'a', message: 'http://a http://b http://c' })).status, 400)
+    for (const message of ['特選', '你好～', '請問特選?', 'hi 👋']) {
+      const response = await postJson('/api/guestbook', { name: 'a', message })
+      assert.equal(response.status, 400)
+      assert.match(((await response.json()) as { message: string }).message, /不要私訊我只傳個「特選」、「你好」/)
+    }
     assert.equal((await postJson('/api/guestbook', { name: 'bot', message: 'spam', website: 'http://spam' })).status, 201)
     assert.equal(((await (await fetch(`${base}/api/guestbook`)).json()) as { total: number }).total, 0)
     // The first test used one of the three posts allowed per 10 minutes.

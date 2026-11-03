@@ -4,6 +4,39 @@ import { funEffectEvent, isLunarNewYear, isPadoruSeason, lunarYearAnimal, playEf
 import { getEasterEggPage, getPublicPage } from '../routes/routes'
 
 const Terminal = lazy(() => import('./Terminal'))
+const FoxRunner = lazy(() => import('./FoxRunner'))
+const GameOfLife = lazy(() => import('./GameOfLife'))
+
+const cardSelector = '.home-panel, .public-article-card, .recent-articles, .site-stats, .popular-tags-card, .project-card, .friend-card, .home-article'
+
+function visibleCards() {
+  return [...document.querySelectorAll<HTMLElement>(cardSelector)].filter((card) => {
+    const box = card.getBoundingClientRect()
+    return box.width > 0 && box.bottom > 0 && box.top < window.innerHeight
+  })
+}
+
+// Thanos: half of the visible cards turn to dust, then come back.
+function snap() {
+  const cards = visibleCards().filter((card) => !card.parentElement?.closest(cardSelector))
+  const doomed = cards.filter(() => Math.random() < .5)
+  if (!doomed.length && cards[0]) doomed.push(cards[0])
+  doomed.forEach((card, index) => { card.style.animationDelay = `${index * 120}ms`; card.classList.add('thanos-dust') })
+  window.setTimeout(() => doomed.forEach((card) => { card.classList.remove('thanos-dust'); card.classList.add('thanos-return') }), 4200)
+  window.setTimeout(() => doomed.forEach((card) => { card.classList.remove('thanos-return'); card.style.animationDelay = '' }), 5600)
+}
+
+// Google Gravity: every visible card drops to the bottom of the screen, then floats back.
+function gravity() {
+  const cards = visibleCards().filter((card) => !card.parentElement?.closest(cardSelector))
+  cards.forEach((card) => {
+    const box = card.getBoundingClientRect()
+    card.style.transition = `transform ${900 + Math.random() * 500}ms cubic-bezier(.5, 0, .75, 1.4)`
+    card.style.transform = `translateY(${Math.max(0, window.innerHeight - box.bottom - 6)}px) rotate(${(Math.random() - .5) * 24}deg)`
+  })
+  window.setTimeout(() => cards.forEach((card) => { card.style.transition = 'transform 900ms cubic-bezier(.2, .8, .2, 1)'; card.style.transform = '' }), 3800)
+  window.setTimeout(() => cards.forEach((card) => { card.style.transition = '' }), 4800)
+}
 
 export const terminalOpenEvent = 'terminal:open'
 const konami = ['ArrowUp', 'ArrowUp', 'ArrowDown', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ArrowLeft', 'ArrowRight', 'b', 'a']
@@ -70,6 +103,7 @@ function FunLayer() {
   const [foxRun, setFoxRun] = useState(0)
   const [effect, setEffect] = useState<FunEffect | null>(null)
   const stopEffect = useCallback(() => setEffect(null), [])
+  const [offlineGame, setOfflineGame] = useState(false)
   const stopRain = useCallback(() => setRaining(false), [])
   const stopMatrix = useCallback(() => setMatrix(false), [])
 
@@ -96,6 +130,7 @@ function FunLayer() {
       // Typing "fox" sends a fox running across the bottom of the screen.
       typed = `${typed}${key.length === 1 ? key : ' '}`.slice(-3)
       if (typed === 'fox') { typed = ''; unlock('fox-runner'); setFoxRun((count) => count + 1) }
+      if (typed.endsWith('67')) { typed = ''; playEffect('six-seven') }
       progress = key === konami[progress] ? progress + 1 : key === konami[0] ? 1 : 0
       if (progress === konami.length) {
         progress = 0
@@ -123,17 +158,24 @@ function FunLayer() {
     const play = (event: Event) => {
       const next = (event as CustomEvent<FunEffect>).detail
       if (window.matchMedia('(prefers-reduced-motion: reduce)').matches && next !== 'newyear') return
-      if (['barrel-roll', 'askew', 'tableflip'].includes(next)) {
+      if (next === 'snap') { unlock('thanos'); snap(); return }
+      if (next === 'gravity') { unlock('gravity'); gravity(); return }
+      if (next === 'six-seven') unlock('six-seven')
+      if (['barrel-roll', 'askew', 'tableflip', 'six-seven', 'blink'].includes(next)) {
+        if (next === 'six-seven') setEffect('six-seven')
         const className = `fun-${next}`
         document.body.classList.remove(className)
         void document.body.offsetWidth
         document.body.classList.add(className)
-        window.setTimeout(() => document.body.classList.remove(className), next === 'askew' ? 6000 : 2200)
+        window.setTimeout(() => document.body.classList.remove(className), next === 'askew' || next === 'blink' ? 6000 : next === 'six-seven' ? 2600 : 2200)
         return
       }
       setEffect(next)
     }
     window.addEventListener(funEffectEvent, play)
+    // Like Chrome's dinosaur: losing the connection offers a game.
+    const goneOffline = () => setOfflineGame(true)
+    window.addEventListener('offline', goneOffline)
     // Seasonal surprises: once per browser session, on the home page only.
     const seasonal = isLunarNewYear() ? 'newyear' : isPadoruSeason() ? 'padoru' : null
     let timer = 0
@@ -148,7 +190,7 @@ function FunLayer() {
         playEffect(seasonal)
       }, 2500)
     }
-    return () => { window.removeEventListener(funEffectEvent, play); window.clearTimeout(timer) }
+    return () => { window.removeEventListener(funEffectEvent, play); window.removeEventListener('offline', goneOffline); window.clearTimeout(timer) }
   }, [])
 
   useEffect(() => {
@@ -171,10 +213,13 @@ function FunLayer() {
     {terminalOpen && <Suspense fallback={null}><Terminal onClose={() => setTerminalOpen(false)} /></Suspense>}
     {raining && <EmojiRain onDone={stopRain} />}
     {matrix && <MatrixRain onDone={stopMatrix} />}
+    {effect === 'six-seven' && <div className="six-seven" aria-hidden="true" onAnimationEnd={stopEffect}><span>🤷</span><b>6</b><b>7</b><span>🤷</span></div>}
+    {(effect === 'dino' || offlineGame) && <Suspense fallback={null}><FoxRunner offline={offlineGame && effect !== 'dino'} onClose={() => { setOfflineGame(false); stopEffect() }} /></Suspense>}
+    {effect === 'life' && <Suspense fallback={null}><GameOfLife onDone={stopEffect} /></Suspense>}
     {effect === 'padoru' && <div className="padoru" aria-hidden="true" onAnimationEnd={stopEffect}><span>🦊🎅</span><b>🛷</b><em>PADORU PADORU!</em></div>}
     {effect === 'newyear' && <>
       <EmojiRain onDone={stopEffect} emoji={['🧧', '🧧', '🧨', '🍊', '✨', lunarYearAnimal()]} />
-      <div className="lunar-banner" role="status"><strong>新年快樂 {lunarYearAnimal()}</strong><p>恭喜你發財　恭喜你精彩</p><small>—— 劉德華（大概）</small></div>
+      <div className="lunar-banner" role="status"><strong>新年快樂 {lunarYearAnimal()}</strong><p>恭喜你發財{'\u3000'}恭喜你精彩</p><small>—— 劉德華（大概）</small></div>
     </>}
     {foxRun > 0 && <span key={foxRun} className="fox-run" aria-hidden="true" onAnimationEnd={() => setFoxRun(0)}>🦊</span>}
     {toast && <div className="achievement-toast" role="status" key={toast.id}>

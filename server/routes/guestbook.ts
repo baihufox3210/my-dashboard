@@ -1,5 +1,6 @@
 import crypto from 'node:crypto'
 import { Router } from 'express'
+import { isLowEffortGreeting, lowEffortReply } from '../easterEggs.js'
 import { createRateLimiter } from '../rateLimit.js'
 import { getClientIp, requireAuthentication, requireSameOrigin } from '../security.js'
 import { readGuestbook, updateGuestbook } from '../storage.js'
@@ -47,6 +48,10 @@ publicGuestbook.post('/', requireSameOrigin, async (request, response) => {
   const mood = moods.includes(body.mood as GuestbookMood) ? body.mood as GuestbookMood : 'wave'
   if (!name || !message) {
     response.status(400).json({ message: '請填寫暱稱（24 字內）與留言（300 字內）。' })
+    return
+  }
+  if (isLowEffortGreeting(message)) {
+    response.status(400).json({ message: lowEffortReply })
     return
   }
   if ((message.match(/https?:\/\//gi)?.length ?? 0) > 2) {

@@ -5,6 +5,7 @@ import { fetchGuestbook, postGuestbookEntry } from '../features/blog/api'
 import type { GuestbookEntry, GuestbookMood } from '../features/blog/article'
 import { formatRelativeTime, guestbookMoods, guestbookOpenEvent, nameTint, takeGuestbookRequest } from '../features/blog/guestbook'
 import { unlock } from '../features/fun/achievements'
+import { isLowEffortGreeting, lowEffortReply } from '../features/fun/memes'
 
 const nameStorageKey = 'guestbook-name'
 
@@ -67,6 +68,8 @@ function GuestbookDialog({ onClose, onCountChange }: { onClose: () => void; onCo
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    // The server says the same; answering here saves a round trip.
+    if (isLowEffortGreeting(message)) { setFeedback({ tone: 'error', text: lowEffortReply }); return }
     setBusy(true)
     setFeedback(null)
     try {

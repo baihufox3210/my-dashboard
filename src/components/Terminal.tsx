@@ -5,13 +5,13 @@ import { useMusicPlayer } from './MusicPlayerContext'
 import { fetchArticles, fetchHomeProfile } from '../features/blog/api'
 import { requestGuestbook } from '../features/blog/guestbook'
 import { achievements, matrixEvent, unlock, unlockedAchievements } from '../features/fun/achievements'
-import { playEffect, rickroll } from '../features/fun/memes'
+import { isLowEffortGreeting, lowEffortReply, playEffect, rickroll } from '../features/fun/memes'
 import { getPublicPath, navigate, type PublicPage } from '../routes/routes'
 
 type Line = { text: string; tone?: 'input' | 'muted' | 'accent' | 'error' }
 
 const pages: PublicPage[] = ['home', 'about', 'projects', 'blog', 'friends']
-const commands = ['help', 'whoami', 'ls', 'cd', 'blog', 'read', 'guestbook', 'music', 'achievements', 'fortune', 'matrix', 'hack', 'coffee', 'prompt', 'rickroll', 'padoru', 'newyear', 'askew', 'tableflip', 'vim', 'date', 'echo', 'history', 'clear', 'exit', 'sudo']
+const commands = ['help', 'whoami', 'ls', 'cd', 'blog', 'read', 'guestbook', 'music', 'achievements', 'fortune', 'matrix', 'hack', 'coffee', 'prompt', 'rickroll', 'padoru', 'newyear', 'askew', 'tableflip', 'vim', 'thanos', 'gravity', 'blink', 'dino', 'recursion', 'anagram', 'coin', 'dice', 'date', 'echo', 'history', 'clear', 'exit', 'sudo']
 const fortunes = [
   '今天適合寫一點 code，也適合什麼都不寫。',
   '保持好奇心，答案通常藏在下一個 commit。',
@@ -32,7 +32,8 @@ const help: Line[] = [
   { text: '  achievements      查看你的成就' },
   { text: '  fortune           今日運勢' },
   { text: '  matrix · hack · coffee · prompt · rickroll · padoru · newyear' },
-  { text: '  askew · tableflip · vim · do a barrel roll …（還有更多，自己找）' },
+  { text: '  askew · tableflip · vim · thanos · gravity · blink · dino · 67' },
+  { text: '  recursion · anagram · coin · dice · do a barrel roll …（還有更多，自己找）' },
   { text: '  date · echo · history · clear · exit' },
 ]
 
@@ -58,6 +59,12 @@ function Terminal({ onClose }: { onClose: () => void }) {
 
   // Meme phrases that are more than one word.
   function runPhrase(text: string) {
+    if (isLowEffortGreeting(text)) { print(...lowEffortReply.split('\n').map((line) => ({ text: line, tone: 'error' as const }))); return true }
+    if (/^(?:6\s*-?\s*7|six\s*-?\s*seven)$/.test(text)) { playEffect('six-seven'); print({ text: '🤷 6 7 🤷', tone: 'accent' }); onClose(); return true }
+    if (/^(?:flip a coin|coin|擲硬幣)$/.test(text)) { print({ text: `🪙 ${Math.random() < .5 ? '正面' : '反面'}`, tone: 'accent' }); return true }
+    if (/^(?:roll a die|roll a dice|dice|die|擲骰子)$/.test(text)) { print({ text: `🎲 ${Math.floor(Math.random() * 6) + 1}`, tone: 'accent' }); return true }
+    if (/^(?:game of life|conway'?s game of life|life)$/.test(text)) { playEffect('life'); onClose(); return true }
+    if (/loneliest number/.test(text)) { print({ text: '1', tone: 'accent' }, { text: '（One is the loneliest number…）', tone: 'muted' }); return true }
     if (/^(?:do a )?barrel roll$/.test(text)) { unlock('barrel-roll'); playEffect('barrel-roll'); print({ text: '🌀 Do a barrel roll!', tone: 'accent' }); return true }
     if (text === 'sudo make me a sandwich') { print({ text: 'Okay. 🥪', tone: 'accent' }, { text: '(xkcd 149)', tone: 'muted' }); return true }
     if (text === 'make me a sandwich') { print({ text: 'What? Make it yourself.', tone: 'error' }); return true }
@@ -175,6 +182,12 @@ function Terminal({ onClose }: { onClose: () => void }) {
       case 'rickroll': rickroll(); print({ text: '🕺 Never gonna give you up…', tone: 'accent' }); break
       case 'padoru': unlock('padoru'); playEffect('padoru'); print({ text: '🛷 走れソリよ～ PADORU PADORU!', tone: 'accent' }); onClose(); break
       case 'newyear': unlock('lunar-new-year'); playEffect('newyear'); print({ text: '🧧 恭喜你發財，恭喜你精彩！', tone: 'accent' }); onClose(); break
+      case 'thanos': case 'snap': playEffect('snap'); print({ text: '🫰 我是無可避免的。', tone: 'accent' }); onClose(); break
+      case 'gravity': playEffect('gravity'); print({ text: '🍎 牛頓說：掉下來吧。', tone: 'accent' }); onClose(); break
+      case 'blink': playEffect('blink'); print({ text: '<blink>歡迎回到 1996 年</blink>', tone: 'accent' }); onClose(); break
+      case 'dino': case 't-rex': playEffect('dino'); onClose(); break
+      case 'recursion': print({ text: '你是不是要找：recursion', tone: 'accent' }); break
+      case 'anagram': print({ text: '你是不是要找：nag a ram', tone: 'accent' }); break
       case 'askew': playEffect('askew'); print({ text: '這個網站好像有點歪…', tone: 'muted' }); break
       case 'tableflip': playEffect('tableflip'); print({ text: '(╯°□°)╯︵ ┻━┻', tone: 'accent' }); break
       case 'unflip': print({ text: '┬─┬ノ( º _ ºノ)', tone: 'accent' }); break
