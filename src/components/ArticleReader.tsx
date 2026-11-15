@@ -5,6 +5,7 @@ import useEscapeKey from './useEscapeKey'
 import { fetchArticle, fetchArticleReactions, toggleArticleReaction, type ArticleReaction, type ArticleReactions } from '../features/blog/api'
 import type { ArticleSummary } from '../features/blog/article'
 import CoverImage from './CoverImage'
+import { shareUrl, type ShareKind } from '../features/blog/shareLinks'
 import { trackProgress, unlock } from '../features/fun/achievements'
 
 type ArticleReaderProps = {
@@ -20,9 +21,6 @@ const reactions: { id: ArticleReaction; emoji: string; label: string }[] = [
   { id: 'wow', emoji: '😮', label: '驚訝' },
 ]
 
-function articleUrl(id: string) {
-  return `${window.location.origin}/blog/post/${encodeURIComponent(id)}`
-}
 
 function Reactions({ articleId }: { articleId: string }) {
   const [state, setState] = useState<ArticleReactions | null>(null)
@@ -54,7 +52,8 @@ function Reactions({ articleId }: { articleId: string }) {
   </div>
 }
 
-export function ShareButton({ url, label }: { url: string; label: string }) {
+// Copies a fresh short link on every click (see shareLinks.ts).
+export function ShareButton({ kind, id, label }: { kind: ShareKind; id: string; label: string }) {
   const [copied, setCopied] = useState(false)
   useEffect(() => {
     if (!copied) return
@@ -63,6 +62,7 @@ export function ShareButton({ url, label }: { url: string; label: string }) {
   }, [copied])
 
   async function copy() {
+    const url = shareUrl(kind, id)
     try {
       await navigator.clipboard.writeText(url)
       setCopied(true)
@@ -134,7 +134,7 @@ function ArticleReader({ article, onClose, children }: ArticleReaderProps) {
         </div>
         <footer className="article-reader-footer">
           <Reactions articleId={article.id} />
-          <ShareButton url={articleUrl(article.id)} label="複製文章連結" />
+          <ShareButton kind="b" id={article.id} label="複製文章連結" />
         </footer>
         {children}
       </article>

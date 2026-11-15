@@ -179,6 +179,11 @@ describe('articles', () => {
     assert.match(html, /<meta name="twitter:card" content="summary_large_image" \/>/)
     assert.match(html, /<div id="root"><\/div>/)
 
+    // Short links: 8 characters of the id plus any random tail.
+    const short = `${created.id.replace(/-/g, '').slice(0, 8)}x7q`
+    assert.match(await (await fetch(`${base}/b/${short}`)).text(), /<meta property="og:title" content="Share &lt;me&gt;/)
+    assert.equal((await (await fetch(`${base}/b/zzzzzzzzzz`)).text()).includes('og:title'), false)
+
     // An unknown id still gets the app (which shows its own not-found state), without tags.
     const missing = await (await fetch(`${base}/blog/post/nope`)).text()
     assert.equal(missing.includes('og:title'), false)

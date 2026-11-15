@@ -86,6 +86,25 @@ router.get('/blog/post/:id', async (request, response) => {
   await sendPage(request, response, article && { type: 'article', title: article.title, description: describeArticle(article), image: article.coverImage })
 })
 
+// Short links from the share buttons: the first 8 characters of the id pick the item,
+// the rest is random so every shared link is new to chat apps' preview caches.
+function findByCode<T extends { id: string }>(items: T[], code: string) {
+  if (!/^[0-9a-f]{8}[0-9a-z]{0,8}$/i.test(code)) return undefined
+  const key = code.slice(0, 8).toLowerCase()
+  const matches = items.filter((item) => item.id.replace(/-/g, '').slice(0, 8).toLowerCase() === key)
+  return matches.length === 1 ? matches[0] : undefined
+}
+
+router.get('/b/:code', async (request, response) => {
+  const article = findByCode(await readArticleSummaries(), String(request.params.code))
+  await sendPage(request, response, article && { type: 'article', title: article.title, description: describeArticle(article), image: article.coverImage })
+})
+
+router.get('/p/:code', async (request, response) => {
+  const project = findByCode(await readProjects(), String(request.params.code))
+  await sendPage(request, response, project && { type: 'website', title: project.title, description: project.summary, image: project.coverImage })
+})
+
 router.get('/projects/:id', async (request, response) => {
   const project = (await readProjects()).find((item) => item.id === request.params.id)
   await sendPage(request, response, project && { type: 'website', title: project.title, description: project.summary, image: project.coverImage })
