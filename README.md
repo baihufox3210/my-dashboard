@@ -122,6 +122,19 @@ Blog 文章（`/blog/new`、`/blog/edit/:id`）與 Projects 專案用同一套�
 
 登入表單後面沒有任何 SQL，也不會執行使用者輸入；彩蛋不建立 session、不算登入失敗。詐騙後台 `/panel` 的「PHP 後門」純屬瀏覽器內模擬，檔案不會上傳、儲存或執行，伺服器端也沒有 PHP。選用的 flag 設定放在不納入 Git 的 `data/security-flags.json`（格式見 `server/security-flags.example.json`）。
 
+## 一鍵更新（正式主機）
+
+在專案目錄下執行：
+
+```bash
+npm run deploy               # 拉最新程式、npm install、build、重啟 API、更新 nginx 設定並檢查預覽
+npm run deploy -- --restart  # 只重啟 API 並更新 nginx 設定（不 pull、不 build）
+```
+
+腳本是 `deploy/update.sh`，預設服務名稱為 `baihu-blog-api`、nginx 容器為 `my-dashboard`，可用環境變數 `SERVICE`、`CONTAINER` 覆寫。重啟 systemd 服務需要 sudo。最後會用第一篇文章的短網址檢查 API 與 `SITE_URL` 是否回傳預覽標籤；API 在 30 秒內沒有起來會中止並提示看 `journalctl`。
+
+nginx 設定是用 `docker cp` 放進容器的，容器被重新建立（更新映像檔、`docker run`）後就會消失，再跑一次 `npm run deploy -- --restart` 即可還原。
+
 ## 正式部署注意事項
 
 `npm run build` 只建置前端。正式環境需另外執行 Express API（`npm run server`），並透過 HTTPS 反向代理將 `/api` 與 `/uploads` 路徑轉發至 API；前端路由需設定回退至 `index.html`。預設 API 綁定 `127.0.0.1:3001`，可透過 `PORT` 與 `API_HOST` 調整。
