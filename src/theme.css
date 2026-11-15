@@ -448,8 +448,7 @@ body.site-background-dark .admin-nav-item {
 
 .admin-field input:focus,
 .admin-field textarea:focus,
-.admin-login-card input:focus,
-.blog-editor-meta input:focus {
+.admin-login-card input:focus {
   border-color: var(--theme-primary);
   box-shadow: 0 0 0 3px var(--theme-primary-soft);
 }
@@ -569,68 +568,6 @@ body.site-background-dark .admin-nav-item {
 }
 
 /* Blog editor sits on white glass, so it must never inherit the on-background ink. */
-.blog-editor-form {
-  border-color: var(--theme-surface-border);
-  color: var(--theme-card-ink);
-  background: var(--theme-surface);
-  box-shadow: var(--theme-shadow);
-}
-.blog-editor-form header h1,
-.blog-editor-toolbar strong,
-.blog-editor-preview,
-.blog-editor-preview p {
-  color: var(--theme-card-ink);
-}
-.blog-editor-form header small,
-.blog-editor-form header p,
-.blog-editor-toolbar strong span,
-.blog-editor-meta > label,
-.blog-upload-field,
-.blog-upload-field > span {
-  color: var(--theme-muted);
-}
-.blog-editor-form header,
-.blog-editor-toolbar {
-  border-color: var(--theme-line);
-}
-.blog-editor-meta,
-.blog-editor-writing {
-  border-color: var(--theme-surface-border);
-  background: var(--theme-surface-raised);
-}
-.blog-editor-toolbar button {
-  color: var(--theme-muted);
-}
-.blog-editor-toolbar button.active {
-  color: var(--theme-primary-strong);
-  background: var(--theme-control-background);
-}
-.blog-editor-meta input,
-.blog-editor-writing > textarea {
-  color: var(--theme-card-ink);
-  caret-color: var(--theme-primary-strong);
-}
-.blog-editor-writing > textarea {
-  background: transparent;
-}
-.blog-editor-meta input::placeholder,
-.blog-editor-writing > textarea::placeholder {
-  color: var(--theme-muted);
-  opacity: .8;
-}
-.blog-editor-meta .file-dropzone,
-.blog-editor-meta .file-dropzone-copy strong,
-.blog-editor-meta .file-dropzone-copy small {
-  color: var(--theme-muted);
-}
-.blog-editor-meta .file-dropzone:hover,
-.blog-editor-meta .file-dropzone:focus-within,
-.blog-editor-meta .file-dropzone.is-dragging {
-  background: var(--theme-control-background);
-}
-.blog-editor-form .error-message {
-  color: var(--theme-danger);
-}
 
 /* Projects use the same semantic surface system as every other route. */
 .projects-feedback,
@@ -899,8 +836,7 @@ body.site-background-dark .admin-nav-item {
 /* Readers, project dialogs, and the Blog editor share one surface language. */
 .article-reader,
 .project-detail-modal,
-.project-editor-modal,
-.blog-editor-form {
+.project-editor-modal {
   border-color: var(--theme-surface-border);
   border-radius: .85rem;
   color: var(--theme-card-ink);

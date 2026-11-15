@@ -4,7 +4,7 @@ import type { Article } from '../types.js'
 import { createRateLimiter } from '../rateLimit.js'
 import { articleReactions, deleteArticleReactions, readArticleReactions, recordActivity, readArticleSummaries, readArticles, summarizeArticle, toggleArticleReaction, writeArticles, type ArticleReaction } from '../storage.js'
 import { getClientIp, requireAuthentication, requireSameOrigin } from '../security.js'
-import { upload, validateUploadedImages, discardUploadedFiles, removeUnusedUploads } from '../uploads.js'
+import { contentUploads, upload, validateUploadedImages, discardUploadedFiles, removeUnusedUploads } from '../uploads.js'
 import { parseCoverSettings, type CoverSettings } from '../validation.js'
 
 const router = Router()
@@ -64,6 +64,12 @@ router.post('/:id/reactions', requireSameOrigin, async (request, response) => {
   const ip = getClientIp(request)
   if (takeReaction(ip) !== 'allowed') { response.status(429).json({ message: 'Too many reactions.' }); return }
   response.json(toggleArticleReaction(id, reaction as ArticleReaction, ip))
+})
+
+// Images placed inside an article body. The editor inserts the returned URL as Markdown.
+router.post('/images', requireSameOrigin, requireAuthentication, upload.single('image'), validateUploadedImages, (request, response) => {
+  if (!request.file) { response.status(400).json({ message: '請選擇要插入的圖片。' }); return }
+  response.status(201).json({ url: `/uploads/${request.file.filename}` })
 })
 
 router.post('/', requireSameOrigin, requireAuthentication, upload.single('coverImage'), validateUploadedImages, async (request, response) => {
@@ -131,7 +137,9 @@ router.put('/:id', requireSameOrigin, requireAuthentication, upload.single('cove
 
   articles[articleIndex] = updatedArticle
   await writeArticles(articles)
-  if (request.file) await removeUnusedUploads(existingArticle.coverImage)
+  // Drop the replaced cover and any inline images that were taken out of the body.
+  const removedImages = contentUploads(existingArticle.content).filter((url) => !updatedArticle.content.includes(url))
+  await removeUnusedUploads(...(request.file ? [existingArticle.coverImage] : []), ...removedImages)
   await recordActivity({ at: now, type: 'article', action: 'updated', title: updatedArticle.title })
   response.json({ ...summarizeArticle(updatedArticle), content: updatedArticle.content })
 })
@@ -145,7 +153,7 @@ router.delete('/:id', requireSameOrigin, requireAuthentication, async (request, 
   }
 
   await writeArticles(articles.filter((entry) => entry.id !== request.params.id))
-  await removeUnusedUploads(article.coverImage)
+  await removeUnusedUploads(article.coverImage, ...contentUploads(article.content))
   deleteArticleReactions(article.id)
   await recordActivity({ at: new Date().toISOString(), type: 'article', action: 'deleted', title: article.title })
   response.status(204).end()

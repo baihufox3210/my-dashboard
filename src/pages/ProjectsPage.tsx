@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from 'react'
 import MarkdownPreview from '../components/MarkdownPreview'
+import MarkdownEditor from '../components/MarkdownEditor'
 import FileDropzone from '../components/FileDropzone'
 import ConfirmDialog from '../components/ConfirmDialog'
 import UiIcon from '../components/UiIcon'
 import useEscapeKey from '../components/useEscapeKey'
-import { createProject, deleteProject, fetchAdminSession, fetchProjects, updateProject } from '../features/blog/api'
+import { createProject, deleteProject, fetchAdminSession, fetchProjects, updateProject, uploadArticleImage } from '../features/blog/api'
 import type { Project } from '../features/blog/article'
 import { getPublicPath } from '../routes/routes'
 import { coverImageStyle } from '../features/blog/media'
@@ -56,6 +57,7 @@ function ProjectsPage({ embedded = false }: { embedded?: boolean }) {
   const [document, setDocument] = useState<File | null>(null)
   const [removeDocument, setRemoveDocument] = useState(false)
   const [busy, setBusy] = useState(false)
+  const [uploading, setUploading] = useState(0)
   const [message, setMessage] = useState('')
 
   const loadProjects = useCallback(async () => {
@@ -103,6 +105,7 @@ function ProjectsPage({ embedded = false }: { embedded?: boolean }) {
 
   async function saveProject(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    if (uploading > 0) { setMessage('圖片還在上傳，請稍候再儲存。'); return }
     setBusy(true); setMessage('')
     const form = new FormData()
     Object.entries(draft).forEach(([key, value]) => form.set(key, value))
@@ -199,7 +202,7 @@ function ProjectsPage({ embedded = false }: { embedded?: boolean }) {
               <label className="project-form-field">簡短介紹 <small>最多 500 字</small><textarea required rows={3} maxLength={500} value={draft.summary} onChange={(event) => setDraft({ ...draft, summary: event.target.value })} placeholder="用幾句話說明這個專案的目的與特色" /></label>
               <label className="project-form-field">標籤 <small>以逗號分隔</small><input value={draft.tags} onChange={(event) => setDraft({ ...draft, tags: event.target.value })} placeholder="React, Design, Open Source" /></label>
             </div>
-            <label className="project-form-field project-notes-field">詳細內容 <small>支援 Markdown</small><textarea rows={6} maxLength={100000} value={draft.description} onChange={(event) => setDraft({ ...draft, description: event.target.value })} placeholder="記錄專案背景、特色與製作過程…" /></label>
+            <MarkdownEditor label="詳細內容" value={draft.description} onChange={(description) => setDraft((current) => ({ ...current, description }))} onUploadImage={async (file) => (await uploadArticleImage(file)).url} onUploadingChange={setUploading} onError={setMessage} maxLength={100000} placeholder="記錄專案背景、特色與製作過程…" />
           </section>
           <section className="project-editor-section project-editor-assets" aria-labelledby="project-assets-heading">
             <div className="project-editor-section-heading"><h3 id="project-assets-heading">媒體與文件</h3><span>封面裁切比例與專案卡片一致</span></div>

@@ -267,7 +267,11 @@ const cjkCharacter = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Sc
 
 // Each CJK character counts as one word (Chinese has no spaces between words);
 // everything else is split on whitespace.
-export function countWords(content: string) {
+// Inline images (![caption](/uploads/x.webp)) are not words; their captions are.
+const markdownImage = /!\[([^\]]*)\]\([^)]*\)/g
+
+export function countWords(rawContent: string) {
+  const content = rawContent.replace(markdownImage, ' $1 ')
   const cjk = content.match(cjkCharacter)?.length ?? 0
   const other = content.replace(cjkCharacter, ' ').match(/[\p{L}\p{N}][\p{L}\p{N}'’-]*/gu)?.length ?? 0
   return { cjk, other, total: cjk + other }
@@ -280,6 +284,8 @@ function readingMinutes({ cjk, other }: { cjk: number; other: number }) {
 
 function articleExcerpt(content: string) {
   return content
+    .replace(markdownImage, ' ')
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
     .replace(/\|\|[\s\S]+?\|\|/g, '▒▒▒')
     .replace(/[#*`>_[\]!~]/g, '')
     .replace(/\s+/g, ' ')

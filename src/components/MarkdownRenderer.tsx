@@ -102,13 +102,24 @@ function SpoilerText({ children, className }: { children?: ReactNode; className?
   >{children}</span>
 }
 
+// Inline article images: full column width, with the alt text shown as a caption.
+// `uploading-…` is the editor's placeholder while an image is still on its way up.
+function ArticleImage({ src, alt }: { src?: string | Blob; alt?: string }) {
+  const url = typeof src === 'string' ? src : ''
+  if (url.startsWith('uploading-')) return <span className="markdown-figure is-uploading" role="img" aria-label="圖片上傳中"><span className="markdown-figure-placeholder">上傳中…</span></span>
+  return <span className="markdown-figure">
+    <img src={url} alt={alt ?? ''} loading="lazy" decoding="async" />
+    {alt && <span className="markdown-caption">{alt}</span>}
+  </span>
+}
+
 function MarkdownRenderer({ content }: MarkdownPreviewProps) {
   return (
     <div className="markdown-preview">
       <ReactMarkdown
         rehypePlugins={[[rehypeSanitize, spoilerSchema]]}
         remarkPlugins={[remarkGfm, remarkBreaks, remarkSpoilers]}
-        components={{ span: SpoilerText }}
+        components={{ span: SpoilerText, img: ArticleImage }}
       >
         {content || '*Start writing to see the preview here.*'}
       </ReactMarkdown>

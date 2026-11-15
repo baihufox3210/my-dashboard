@@ -44,13 +44,18 @@ async function unlinkIfPresent(file: string) {
   })
 }
 
+// Uploads used as images inside Markdown article bodies.
+export function contentUploads(content: string | undefined) {
+  return [...new Set((content ?? '').match(/\/uploads\/[\w-]+\.(?:jpg|png|webp|gif)/g) ?? [])]
+}
+
 async function readReferencedUploads() {
   const [articles, projects, friends, music, settings, profile] = await Promise.all([
     readArticles(), readProjects(), readFriends(), readMusicTracks(), readSiteSettings(), readHomeProfile(),
   ])
   return new Set([
-    ...articles.map((article) => article.coverImage),
-    ...projects.flatMap((project) => [project.coverImage, project.documentUrl]),
+    ...articles.flatMap((article) => [article.coverImage, ...contentUploads(article.content)]),
+    ...projects.flatMap((project) => [project.coverImage, project.documentUrl, ...contentUploads(project.description)]),
     ...friends.map((friend) => friend.avatarUrl),
     ...music.map((track) => track.fileUrl),
     settings.avatarUrl, settings.backgroundUrl, profile.avatarUrl,
