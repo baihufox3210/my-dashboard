@@ -7,6 +7,8 @@ const currentDirectory = path.dirname(currentFile)
 const projectDirectory = path.resolve(currentDirectory, '..')
 // DATA_DIR and UPLOADS_DIR let tests and deployments keep runtime data elsewhere.
 export const dataDirectory = path.resolve(process.env.DATA_DIR ?? path.join(projectDirectory, 'data'))
+// The built front end (npm run build); used to serve pages with link-preview tags.
+export const distDirectory = path.resolve(process.env.DIST_DIR ?? path.join(projectDirectory, 'dist'))
 export const securityFlagsFile = path.join(dataDirectory, 'security-flags.json')
 export const articlesFile = path.join(dataDirectory, 'articles.json')
 export const siteSettingsFile = path.join(dataDirectory, 'site-settings.json')

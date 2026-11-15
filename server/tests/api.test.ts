@@ -9,9 +9,12 @@ import { after, before, describe, test } from 'node:test'
 const root = await fs.mkdtemp(path.join(os.tmpdir(), 'dashboard-test-'))
 process.env.DATA_DIR = path.join(root, 'data')
 process.env.UPLOADS_DIR = path.join(root, 'uploads')
+process.env.DIST_DIR = path.join(root, 'dist')
 process.env.ADMIN_USERNAME = 'tester'
 process.env.ADMIN_PASSWORD = 'correct-horse-battery'
 await fs.mkdir(process.env.DATA_DIR, { recursive: true })
+await fs.mkdir(process.env.DIST_DIR, { recursive: true })
+await fs.writeFile(path.join(process.env.DIST_DIR, 'index.html'), '<!doctype html><html><head><meta name="description" content="site" /><title>Site</title></head><body><div id="root"></div></body></html>')
 await fs.writeFile(path.join(process.env.DATA_DIR, 'security-flags.json'), JSON.stringify({ challenges: { sqlLogin: { enabled: true, flag: 'FLAG{test}' } } }))
 
 const { createApp } = await import('../app.js')
@@ -160,6 +163,31 @@ describe('articles', () => {
 
     const anonymous = await fetch(`${base}/api/articles/images`, { method: 'POST', body: image, headers: { Origin: base } })
     assert.equal(anonymous.status, 401)
+  })
+
+  test('article and project links carry link-preview tags', async () => {
+    const created = await (await api('/api/articles', { method: 'POST', body: form({ title: 'Share <me> & "you"', content: 'First line of the body.' }, { coverImage: png }) })).json() as { id: string; coverImage: string }
+    const page = await fetch(`${base}/blog/post/${created.id}`)
+    assert.equal(page.status, 200)
+    assert.match(page.headers.get('content-security-policy') ?? '', /script-src 'self'/)
+    const html = await page.text()
+    assert.match(html, /<meta property="og:title" content="Share &lt;me&gt; &amp; &quot;you&quot;" \/>/)
+    assert.match(html, /<meta property="og:description" content="First line of the body\." \/>/)
+    assert.ok(html.includes(`<meta property="og:image" content="${base}${created.coverImage}" />`))
+    assert.match(html, /<meta name="twitter:card" content="summary_large_image" \/>/)
+    assert.match(html, /<div id="root"><\/div>/)
+
+    // An unknown id still gets the app (which shows its own not-found state), without tags.
+    const missing = await (await fetch(`${base}/blog/post/nope`)).text()
+    assert.equal(missing.includes('og:title'), false)
+    assert.match(missing, /<title>Site<\/title>/)
+
+    const project = await (await api('/api/admin/projects', { method: 'POST', body: form({ title: 'Robot', summary: 'A walking robot.' }) })).json() as { id: string }
+    const projectHtml = await (await fetch(`${base}/projects/${project.id}`)).text()
+    assert.match(projectHtml, /<meta property="og:title" content="Robot" \/>/)
+    assert.match(projectHtml, /<meta name="twitter:card" content="summary" \/>/)
+    await api(`/api/articles/${created.id}`, { method: 'DELETE' })
+    await api(`/api/admin/projects/${project.id}`, { method: 'DELETE' })
   })
 
   test('concurrent writes are all kept', async () => {
