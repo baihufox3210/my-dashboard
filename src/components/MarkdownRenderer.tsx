@@ -1,4 +1,4 @@
-import { useState, type KeyboardEvent, type ReactNode } from 'react'
+import { memo, useState, type KeyboardEvent, type ReactNode } from 'react'
 import ReactMarkdown from 'react-markdown'
 import rehypeSanitize, { defaultSchema } from 'rehype-sanitize'
 import remarkBreaks from 'remark-breaks'
@@ -127,4 +127,4 @@ function MarkdownRenderer({ content }: MarkdownPreviewProps) {
   )
 }
 
-export default MarkdownRenderer
+export default memo(MarkdownRenderer)

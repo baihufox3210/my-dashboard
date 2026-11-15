@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { memo, useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import MarkdownPreview from './MarkdownPreview'
 import useEscapeKey from './useEscapeKey'
 import { prepareImageUpload } from '../features/blog/media'
@@ -61,6 +61,11 @@ function lineKind(line: string, inCode: boolean) {
   return ''
 }
 
+// Memoised per line: typing re-renders only the line that changed, not the whole file.
+const Line = memo(function Line({ number, text, kind }: { number: number; text: string; kind: string }) {
+  return <div className={`md-line${kind ? ` is-${kind}` : ''}`}><span className="md-ln" aria-hidden="true">{number}</span><span className="md-ghost">{text || '\u200b'}</span></div>
+})
+
 function MarkdownEditor({ label, value, onChange, onUploadImage, onUploadingChange, onError, placeholder, maxLength, disabled, size = 'normal', previewHeader }: MarkdownEditorProps) {
   const [mode, setMode] = useState<Mode>('edit')
   const [roomy, setRoomy] = useState(false)
@@ -86,13 +91,15 @@ function MarkdownEditor({ label, value, onChange, onUploadImage, onUploadingChan
   useEffect(() => { valueRef.current = value })
 
   const lines = useMemo(() => value.split('\n'), [value])
+  // Rendering Markdown is the slow part; it follows the typing instead of blocking it.
+  const previewValue = useDeferredValue(value)
   const rows = useMemo(() => {
     const result: ReactNode[] = []
     let inCode = false
     for (const [index, line] of lines.entries()) {
       const kind = lineKind(line, inCode)
       if (line.startsWith('```')) inCode = !inCode
-      result.push(<div key={index} className={`md-line${kind ? ` is-${kind}` : ''}`}><span className="md-ln" aria-hidden="true">{index + 1}</span><span className="md-ghost">{line || '\u200b'}</span></div>)
+      result.push(<Line key={index} number={index + 1} text={line} kind={kind} />)
     }
     return result
   }, [lines])
@@ -417,9 +424,12 @@ function MarkdownEditor({ label, value, onChange, onUploadImage, onUploadingChan
             onSelect={readSelection}
             onFocus={readSelection}
             onBlur={() => { lastSelection.current = { ...lastSelection.current, focused: false }; setSelection(lastSelection.current) }}
-            onMouseDown={() => {
+            onPointerDown={() => {
               setDragging(true)
-              window.addEventListener('mouseup', () => { setDragging(false); readSelection() }, { once: true })
+              const done = () => { window.removeEventListener('pointerup', done); window.removeEventListener('pointercancel', done); window.removeEventListener('blur', done); setDragging(false); readSelection() }
+              window.addEventListener('pointerup', done)
+              window.addEventListener('pointercancel', done)
+              window.addEventListener('blur', done)
             }}
             onKeyDown={handleKeyDown}
             onPaste={(event) => {
@@ -451,7 +461,7 @@ function MarkdownEditor({ label, value, onChange, onUploadImage, onUploadingChan
       </div>}
       {shownMode !== 'edit' && <div ref={previewRef} className="md-preview">
         {previewHeader}
-        {value.trim() ? <MarkdownPreview content={value} /> : <p className="md-preview-empty">內容會在這裡預覽。</p>}
+        {previewValue.trim() ? <MarkdownPreview content={previewValue} /> : <p className="md-preview-empty">內容會在這裡預覽。</p>}
       </div>}
     </div>
     {onUploadImage && <input ref={fileRef} type="file" accept="image/*,.heic,.heif,.avif" multiple hidden onChange={(event) => { void insertImages([...(event.target.files ?? [])]); event.currentTarget.value = '' }} />}

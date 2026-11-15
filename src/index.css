@@ -1,7 +1,12 @@
 :root {
-  --font-ui: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang TC', 'Noto Sans TC', 'Microsoft JhengHei UI', 'Microsoft JhengHei', sans-serif;
+  /* No 'Microsoft JhengHei UI': that variant squeezes full-width punctuation (，。「」) for
+     interface labels, which made Chinese text on Windows look half-width. */
+  --font-ui: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang TC', 'Noto Sans TC', 'Noto Sans CJK TC', 'Microsoft JhengHei', sans-serif;
   --font-code: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
   font-family: var(--font-ui);
+  /* Keep every full-width punctuation mark a full character wide; browsers otherwise
+     trim the blank half at line starts and between adjacent marks. */
+  text-spacing-trim: space-all;
   font-size: 16px;
   line-height: 1.6;
   font-weight: 400;

@@ -54,7 +54,7 @@ function Reactions({ articleId }: { articleId: string }) {
   </div>
 }
 
-function ShareButton({ articleId }: { articleId: string }) {
+export function ShareButton({ url, label }: { url: string; label: string }) {
   const [copied, setCopied] = useState(false)
   useEffect(() => {
     if (!copied) return
@@ -64,14 +64,14 @@ function ShareButton({ articleId }: { articleId: string }) {
 
   async function copy() {
     try {
-      await navigator.clipboard.writeText(articleUrl(articleId))
+      await navigator.clipboard.writeText(url)
       setCopied(true)
     } catch {
-      window.prompt('複製文章連結', articleUrl(articleId))
+      window.prompt(label, url)
     }
   }
 
-  return <button type="button" className="ui-button ui-button-secondary ui-button-small article-share" onClick={() => void copy()}>{copied ? '已複製連結 ✓' : '複製文章連結'}</button>
+  return <button type="button" className="ui-button ui-button-secondary ui-button-small article-share" onClick={() => void copy()}>{copied ? '已複製連結 ✓' : label}</button>
 }
 
 function ArticleReader({ article, onClose, children }: ArticleReaderProps) {
@@ -134,7 +134,7 @@ function ArticleReader({ article, onClose, children }: ArticleReaderProps) {
         </div>
         <footer className="article-reader-footer">
           <Reactions articleId={article.id} />
-          <ShareButton articleId={article.id} />
+          <ShareButton url={articleUrl(article.id)} label="複製文章連結" />
         </footer>
         {children}
       </article>

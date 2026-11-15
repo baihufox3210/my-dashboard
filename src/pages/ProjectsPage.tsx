@@ -7,7 +7,8 @@ import UiIcon from '../components/UiIcon'
 import useEscapeKey from '../components/useEscapeKey'
 import { createProject, deleteProject, fetchAdminSession, fetchProjects, updateProject, uploadArticleImage } from '../features/blog/api'
 import type { Project } from '../features/blog/article'
-import { getPublicPath } from '../routes/routes'
+import { ShareButton } from '../components/ArticleReader'
+import { getPublicPath, getRouteSegments, navigate, useLocationKey } from '../routes/routes'
 import CoverImage from '../components/CoverImage'
 
 type ProjectDraft = { title: string; summary: string; description: string; category: string; tags: string; projectUrl: string }
@@ -19,7 +20,17 @@ function ProjectsPage({ embedded = false }: { embedded?: boolean }) {
   const [loadError, setLoadError] = useState('')
   const [isAdmin, setIsAdmin] = useState(embedded)
   const [editor, setEditor] = useState<Project | 'new' | null>(null)
-  const [selected, setSelected] = useState<Project | null>(null)
+  const [embeddedSelection, setEmbeddedSelection] = useState<Project | null>(null)
+  const locationKey = useLocationKey()
+  // On the public page the open project lives in the URL (/projects/:id), so it can be
+  // shared and Back closes it. Inside the admin it is plain state.
+  const routeProjectId = embedded || !locationKey ? '' : decodeURIComponent(getRouteSegments()[1] ?? '')
+  const selected = embedded ? embeddedSelection : projects.find((project) => project.id === routeProjectId) ?? null
+  const setSelected = (project: Project | null) => {
+    if (embedded) setEmbeddedSelection(project)
+    else if (project) navigate(`${getPublicPath('projects')}/${encodeURIComponent(project.id)}`)
+    else if (routeProjectId) navigate(getPublicPath('projects'))
+  }
   const [projectToDelete, setProjectToDelete] = useState<Project | null>(null)
   const [confirmPdfRemoval, setConfirmPdfRemoval] = useState(false)
   const [draft, setDraft] = useState(blankDraft)
@@ -144,7 +155,7 @@ function ProjectsPage({ embedded = false }: { embedded?: boolean }) {
         <h2 id="project-detail-title">{selected.title}</h2><p className="project-detail-summary">{selected.summary}</p>
         {selected.tags.length > 0 && <div className="project-tags">{selected.tags.map((tag) => <span key={tag}>{tag}</span>)}</div>}
         {selected.description && <div className="project-detail-content"><MarkdownPreview content={selected.description} /></div>}
-        <footer className="project-detail-actions">{selected.projectUrl && <a className="ui-button ui-button-secondary ui-button-small" href={selected.projectUrl} target="_blank" rel="noreferrer">OPEN LIVE PROJECT<UiIcon name="external" /></a>}{selected.documentUrl && <a className="ui-button ui-button-secondary ui-button-small" href={selected.documentUrl} target="_blank" rel="noreferrer">VIEW PROJECT PDF<UiIcon name="external" /></a>}{isAdmin && <div className="project-detail-admin-actions"><button type="button" className="ui-button ui-button-secondary" disabled={busy} onClick={() => openEditor(selected)}><UiIcon name="edit" />編輯</button><button type="button" className="ui-button ui-button-danger" disabled={busy} onClick={() => setProjectToDelete(selected)}><UiIcon name="trash" />刪除</button></div>}</footer>
+        <footer className="project-detail-actions">{selected.projectUrl && <a className="ui-button ui-button-secondary ui-button-small" href={selected.projectUrl} target="_blank" rel="noreferrer">OPEN LIVE PROJECT<UiIcon name="external" /></a>}{selected.documentUrl && <a className="ui-button ui-button-secondary ui-button-small" href={selected.documentUrl} target="_blank" rel="noreferrer">VIEW PROJECT PDF<UiIcon name="external" /></a>}{!embedded && <ShareButton url={`${window.location.origin}${getPublicPath('projects')}/${encodeURIComponent(selected.id)}`} label="複製專案連結" />}{isAdmin && <div className="project-detail-admin-actions"><button type="button" className="ui-button ui-button-secondary" disabled={busy} onClick={() => openEditor(selected)}><UiIcon name="edit" />編輯</button><button type="button" className="ui-button ui-button-danger" disabled={busy} onClick={() => setProjectToDelete(selected)}><UiIcon name="trash" />刪除</button></div>}</footer>
       </article>
     </div>}
 

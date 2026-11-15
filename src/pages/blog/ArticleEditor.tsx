@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import FileDropzone from '../../components/FileDropzone'
 import MarkdownEditor from '../../components/MarkdownEditor'
@@ -70,7 +70,8 @@ function ArticleEditor({ article, onSaved, onClose }: ArticleEditorProps) {
   const articleId = article?.id
   const loaded = baseline !== null
   const dirty = loaded && (!sameDraft(draft, baseline) || cover !== null || coverPosition !== (article?.coverImagePosition ?? '50% 50%') || coverScale !== (article?.coverImageScale ?? 1))
-  const { words, minutes } = useMemo(() => countWords(draft.content), [draft.content])
+  const countedContent = useDeferredValue(draft.content)
+  const { words, minutes } = useMemo(() => countWords(countedContent), [countedContent])
   const tags = useMemo(() => draft.tags.split(',').map((tag) => tag.trim()).filter(Boolean), [draft.tags])
   const update = (field: keyof Draft, value: string) => setDraft((current) => ({ ...current, [field]: value }))
   const close = () => { if (!busy) onClose() }
