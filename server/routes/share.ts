@@ -70,9 +70,39 @@ async function sendPage(request: Request, response: Response, preview: Preview |
   response.set({ 'Content-Security-Policy': pageSecurityPolicy, 'Cache-Control': 'no-cache' }).type('html').send(html)
 }
 
+// The preview describes the article instead of quoting it, so the body is not given away
+// in a chat embed: "隨筆 · 約 5 分鐘閱讀 · 2026/11/15 · #特選 #成大".
+function describeArticle(article: { category: string; readingMinutes: number; publishedAt: string; tags: string[] }) {
+  return [
+    article.category && article.category !== 'Uncategorized' ? article.category : '',
+    `約 ${article.readingMinutes} 分鐘閱讀`,
+    new Date(article.publishedAt).toLocaleDateString('zh-TW', { timeZone: 'Asia/Taipei' }),
+    article.tags.slice(0, 5).map((tag) => `#${tag}`).join(' '),
+  ].filter(Boolean).join(' · ')
+}
+
 router.get('/blog/post/:id', async (request, response) => {
   const article = (await readArticleSummaries()).find((item) => item.id === request.params.id)
-  await sendPage(request, response, article && { type: 'article', title: article.title, description: article.excerpt, image: article.coverImage })
+  await sendPage(request, response, article && { type: 'article', title: article.title, description: describeArticle(article), image: article.coverImage })
+})
+
+// Short links from the share buttons: the first 8 characters of the id pick the item,
+// the rest is random so every shared link is new to chat apps' preview caches.
+function findByCode<T extends { id: string }>(items: T[], code: string) {
+  if (!/^[0-9a-f]{8}[0-9a-z]{0,8}$/i.test(code)) return undefined
+  const key = code.slice(0, 8).toLowerCase()
+  const matches = items.filter((item) => item.id.replace(/-/g, '').slice(0, 8).toLowerCase() === key)
+  return matches.length === 1 ? matches[0] : undefined
+}
+
+router.get('/b/:code', async (request, response) => {
+  const article = findByCode(await readArticleSummaries(), String(request.params.code))
+  await sendPage(request, response, article && { type: 'article', title: article.title, description: describeArticle(article), image: article.coverImage })
+})
+
+router.get('/p/:code', async (request, response) => {
+  const project = findByCode(await readProjects(), String(request.params.code))
+  await sendPage(request, response, project && { type: 'website', title: project.title, description: project.summary, image: project.coverImage })
 })
 
 router.get('/projects/:id', async (request, response) => {

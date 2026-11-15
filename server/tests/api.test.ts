@@ -166,16 +166,23 @@ describe('articles', () => {
   })
 
   test('article and project links carry link-preview tags', async () => {
-    const created = await (await api('/api/articles', { method: 'POST', body: form({ title: 'Share <me> & "you"', content: 'First line of the body.' }, { coverImage: png }) })).json() as { id: string; coverImage: string }
+    const created = await (await api('/api/articles', { method: 'POST', body: form({ title: 'Share <me> & "you"', content: 'First line of the body.', category: '隨筆', tags: '特選, 成大' }, { coverImage: png }) })).json() as { id: string; coverImage: string }
     const page = await fetch(`${base}/blog/post/${created.id}`)
     assert.equal(page.status, 200)
     assert.match(page.headers.get('content-security-policy') ?? '', /script-src 'self'/)
     const html = await page.text()
     assert.match(html, /<meta property="og:title" content="Share &lt;me&gt; &amp; &quot;you&quot;" \/>/)
-    assert.match(html, /<meta property="og:description" content="First line of the body\." \/>/)
+    // The preview describes the article; it does not quote the body.
+    assert.match(html, /<meta property="og:description" content="隨筆 · 約 1 分鐘閱讀 · \d{4}\/\d{1,2}\/\d{1,2} · #特選 #成大" \/>/)
+    assert.equal(html.includes('First line of the body'), false)
     assert.ok(html.includes(`<meta property="og:image" content="${base}${created.coverImage}" />`))
     assert.match(html, /<meta name="twitter:card" content="summary_large_image" \/>/)
     assert.match(html, /<div id="root"><\/div>/)
+
+    // Short links: 8 characters of the id plus any random tail.
+    const short = `${created.id.replace(/-/g, '').slice(0, 8)}x7q`
+    assert.match(await (await fetch(`${base}/b/${short}`)).text(), /<meta property="og:title" content="Share &lt;me&gt;/)
+    assert.equal((await (await fetch(`${base}/b/zzzzzzzzzz`)).text()).includes('og:title'), false)
 
     // An unknown id still gets the app (which shows its own not-found state), without tags.
     const missing = await (await fetch(`${base}/blog/post/nope`)).text()

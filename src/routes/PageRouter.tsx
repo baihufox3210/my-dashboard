@@ -1,6 +1,6 @@
 import { lazy, Suspense } from 'react'
 import HomePage from '../pages/HomePage'
-import { getEasterEggPage, getPublicPage, isAdminRoute, isLoginRoute, useLocationKey } from './routes'
+import { getEasterEggPage, getPublicPage, getShortLinkKind, isAdminRoute, isLoginRoute, useLocationKey } from './routes'
 
 // Only the landing page ships in the main bundle; other pages load on first visit.
 const AboutPage = lazy(() => import('../pages/AboutPage'))
@@ -12,6 +12,7 @@ const ScamPanelPage = lazy(() => import('../pages/fun/ScamPanelPage'))
 const HoneypotPage = lazy(() => import('../pages/fun/HoneypotPage'))
 const NotFoundPage = lazy(() => import('../pages/fun/NotFoundPage'))
 const CertificatePage = lazy(() => import('../pages/fun/CertificatePage'))
+const ShortLinkPage = lazy(() => import('../pages/fun/ShortLinkPage'))
 
 function currentPage() {
   if (isLoginRoute()) return 'login'
@@ -24,10 +25,12 @@ function currentPage() {
 function PageRouter() {
   useLocationKey()
   const page = currentPage()
+  const shortLink = getShortLinkKind()
 
   return (
     <Suspense fallback={null}>
-      {page === 'admin' || page === 'login' ? <AdminPage loginOnly={page === 'login'} />
+      {shortLink ? <ShortLinkPage key={shortLink} kind={shortLink} />
+        : page === 'admin' || page === 'login' ? <AdminPage loginOnly={page === 'login'} />
         : page === 'panel' ? <ScamPanelPage />
         : page === 'honeypot' ? <HoneypotPage />
         : page === 'notfound' ? <NotFoundPage />
