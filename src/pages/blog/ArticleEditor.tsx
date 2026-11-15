@@ -196,7 +196,7 @@ function ArticleEditor({ article, onSaved, onClose }: ArticleEditorProps) {
           />
         </section>
         <section className="project-editor-section project-editor-assets" aria-labelledby="article-assets-heading">
-          <div className="project-editor-section-heading"><h3 id="article-assets-heading">封面</h3><span>固定寬幅比例（7:2），文章卡片與內文顯示相同的裁切</span></div>
+          <div className="project-editor-section-heading"><h3 id="article-assets-heading">封面</h3><span>固定寬幅比例（4:1），文章卡片與內文顯示相同的裁切</span></div>
           <div className="project-form-field">
             <span>封面圖片 <small>JPG / PNG / WebP / GIF，其他格式會自動轉檔</small></span>
             <FileDropzone title="上傳文章封面" hint="點擊選取圖片" file={cover} previewUrl={article?.coverImage} imagePosition={coverPosition} imageScale={coverScale} onImagePositionChange={setCoverPosition} onImageScaleChange={setCoverScale} onFile={setCover} />

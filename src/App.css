@@ -3289,7 +3289,7 @@ html.fun-crashed body { display: none !important; }
 /* The sticky action row must hide what scrolls beneath it. */
 .project-editor-actions { background: color-mix(in srgb, var(--theme-surface-white) 92%, var(--theme-page-base)); }
 /* The one cover shape. Change it here and every card, reader and the crop dialog follow. */
-:root { --cover-ratio: 7 / 2; }
+:root { --cover-ratio: 4 / 1; }
 .cover-frame { position: relative; display: block; width: 100%; aspect-ratio: var(--cover-ratio); overflow: hidden; border-radius: .6rem; background: var(--theme-surface-muted); }
 /* Absolute, so the image always fills the frame (a percentage height would not resolve against aspect-ratio). */
 .cover-frame > img.cover-image { position: absolute; inset: 0; display: block; width: 100%; height: 100%; max-height: none; margin: 0; border: 0; border-radius: 0; object-fit: cover; user-select: none; -webkit-user-drag: none; }

@@ -176,7 +176,7 @@ function ProjectsPage({ embedded = false }: { embedded?: boolean }) {
             <MarkdownEditor label="詳細內容" value={draft.description} onChange={(description) => setDraft((current) => ({ ...current, description }))} onUploadImage={async (file) => (await uploadArticleImage(file)).url} onUploadingChange={setUploading} onError={setMessage} maxLength={100000} placeholder="記錄專案背景、特色與製作過程…" />
           </section>
           <section className="project-editor-section project-editor-assets" aria-labelledby="project-assets-heading">
-            <div className="project-editor-section-heading"><h3 id="project-assets-heading">媒體與文件</h3><span>封面固定寬幅比例（7:2），專案卡片與內頁顯示相同的裁切</span></div>
+            <div className="project-editor-section-heading"><h3 id="project-assets-heading">媒體與文件</h3><span>封面固定寬幅比例（4:1），專案卡片與內頁顯示相同的裁切</span></div>
             <div className="project-form-field">
               <span>封面圖片 <small>JPG / PNG / WebP / GIF，最多 8 MB</small></span>
               <FileDropzone title="上傳專案封面" hint="點擊選取圖片" file={cover} previewUrl={editor === 'new' ? undefined : editor.coverImage} imagePosition={coverPosition} imageScale={coverScale} onImagePositionChange={setCoverPosition} onImageScaleChange={setCoverScale} onFile={setCover} />

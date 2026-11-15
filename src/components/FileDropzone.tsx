@@ -257,7 +257,7 @@ function FileDropzone({
     {adjustOpen && imageSrc && createPortal(
       <div className="image-adjust-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) finishAdjustment() }}>
         <section className="image-adjust-modal" role="dialog" aria-modal="true" aria-label="調整封面圖片">
-          <header><div><strong>調整封面圖片</strong><small>固定寬幅比例（7:2），與卡片顯示完全相同 · 滑鼠拖曳／手機長按 · 滾輪或雙指縮放</small></div><button type="button" aria-label="關閉調整視窗" onClick={finishAdjustment}>×</button></header>
+          <header><div><strong>調整封面圖片</strong><small>固定寬幅比例（4:1），與卡片顯示完全相同 · 滑鼠拖曳／手機長按 · 滾輪或雙指縮放</small></div><button type="button" aria-label="關閉調整視窗" onClick={finishAdjustment}>×</button></header>
           <div
             className="image-adjust-viewport"
             ref={editorFrameRef}
