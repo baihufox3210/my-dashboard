@@ -122,6 +122,23 @@ describe('articles', () => {
     assert.equal(await uploadExists(updated.coverImage), false)
   })
 
+  test('accepts long CJK articles and explains rejected uploads', async () => {
+    // 400,000 CJK characters are 1.2 MB of UTF-8: over the old 1 MB field limit.
+    const long = await api('/api/articles', { method: 'POST', body: form({ title: '長文', content: '中'.repeat(400_000) }) })
+    assert.equal(long.status, 201)
+    await api(`/api/articles/${(await long.json() as { id: string }).id}`, { method: 'DELETE' })
+
+    const heic = form({ title: 'Photo', content: 'x' })
+    heic.set('coverImage', new Blob([Buffer.from('ftypheic')], { type: 'image/heic' }), 'photo.heic')
+    const rejected = await api('/api/articles', { method: 'POST', body: heic })
+    assert.equal(rejected.status, 400)
+    assert.match((await rejected.json() as { message: string }).message, /HEIC/)
+
+    const untitled = await api('/api/articles', { method: 'POST', body: form({ title: ' ', content: 'x' }) })
+    assert.equal(untitled.status, 400)
+    assert.equal((await untitled.json() as { message: string }).message, '請輸入文章標題。')
+  })
+
   test('concurrent writes are all kept', async () => {
     const titles = ['one', 'two', 'three', 'four']
     const responses = await Promise.all(titles.map((title) => api('/api/articles', { method: 'POST', body: form({ title, content: title }) })))

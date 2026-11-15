@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import useEscapeKey from './useEscapeKey'
+import { prepareImageUpload } from '../features/blog/media'
 
 type FileDropzoneProps = {
   title: string
@@ -244,9 +245,11 @@ function FileDropzone({
     setAdjustOpen(false)
   }
 
-  function acceptFiles(files: FileList | null) {
+  async function acceptFiles(files: FileList | null) {
     const selected = files?.[0]
-    if (selected?.type.startsWith('image/')) onFile(selected)
+    // Some browsers report HEIC/HEIF photos with an empty type.
+    if (!selected || !(selected.type.startsWith('image/') || /\.(heic|heif|avif)$/i.test(selected.name))) return
+    onFile(await prepareImageUpload(selected))
   }
 
   return <>
@@ -256,10 +259,10 @@ function FileDropzone({
       onDragEnter={(event) => { event.preventDefault(); setDragging(true) }}
       onDragOver={(event) => event.preventDefault()}
       onDragLeave={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDragging(false) }}
-      onDrop={(event) => { event.preventDefault(); setDragging(false); acceptFiles(event.dataTransfer.files) }}
+      onDrop={(event) => { event.preventDefault(); setDragging(false); void acceptFiles(event.dataTransfer.files) }}
       onContextMenu={(event) => event.preventDefault()}
     >
-      <input id={inputId} type="file" accept="image/*" onChange={(event) => { acceptFiles(event.target.files); event.currentTarget.value = '' }} />
+      <input id={inputId} type="file" accept="image/*,.heic,.heif,.avif" onChange={(event) => { void acceptFiles(event.target.files); event.currentTarget.value = '' }} />
       {imageSrc ? <span className="file-dropzone-preview" style={{ aspectRatio: canAdjust ? (Number.isFinite(aspectRatio) && aspectRatio > 0 ? aspectRatio : 16 / 9) : undefined, height: canAdjust ? 'auto' : undefined }}><img src={imageSrc} alt="" draggable={false} style={{ objectPosition: imagePosition, transform: `scale(${imageScale})`, transformOrigin: 'center' }} onClick={(event) => { event.preventDefault(); event.stopPropagation() }} /></span> : null}
       <span className="file-dropzone-copy"><strong>{file?.name || title}</strong><small>{canAdjust ? '開啟調整視窗後拖曳；手機請長按 · ' : ''}{hint}</small></span>
       {canAdjust && <button type="button" className="ui-button ui-button-secondary ui-button-small file-position-toggle" onClick={(event) => { event.preventDefault(); event.stopPropagation(); setAdjustOpen(true) }}>調整圖片位置</button>}
