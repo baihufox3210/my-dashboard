@@ -2,8 +2,6 @@
 
 export type LoginEasterEgg = 'scam-panel' | 'sql-injection'
 
-// Classic payloads people try on login forms: quote tricks, tautologies, comments,
-// UNION/stacked queries and time-based probes.
 const sqlInjectionPatterns = [
   /['"`]\s*(?:or|and|\|\||&&)\s*['"`]?\w*['"`]?\s*(?:=|like|>|<)/i,
   /\b(?:or|and)\s+\d+\s*(?:=|>|<)\s*\d+/i,

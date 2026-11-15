@@ -44,7 +44,6 @@ async function unlinkIfPresent(file: string) {
   })
 }
 
-// Uploads used as images inside Markdown article bodies.
 export function contentUploads(content: string | undefined) {
   return [...new Set((content ?? '').match(/\/uploads\/[\w-]+\.(?:jpg|png|webp|gif)/g) ?? [])]
 }
@@ -62,7 +61,6 @@ async function readReferencedUploads() {
   ].filter((url): url is string => Boolean(url)))
 }
 
-// Deletes uploaded files that are no longer referenced by any stored content.
 export async function removeUnusedUploads(...urls: (string | undefined)[]) {
   const candidates = urls.filter((url): url is string => Boolean(uploadPath(url)))
   if (!candidates.length) return

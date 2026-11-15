@@ -5,33 +5,9 @@ import UiIcon from '../components/UiIcon'
 import { deleteArticle, fetchAdminSession, fetchArticleStats, fetchArticles, recordPageView } from '../features/blog/api'
 import type { ArticleStats, ArticleSummary } from '../features/blog/article'
 import { getPublicPath, getRouteSegments, navigate, useLocationKey } from '../routes/routes'
-import { coverImageStyle } from '../features/blog/media'
+import CoverImage from '../components/CoverImage'
 
 const ArticleEditor = lazy(() => import('./blog/ArticleEditor'))
-
-function measureArticleCoverAspectRatio(articleId?: string) {
-  const cards = [...document.querySelectorAll<HTMLButtonElement>('.public-article-card')]
-  const card = cards.find((item) => item.dataset.articleId === articleId) ?? cards[0]
-  if (card) {
-    const frame = card.querySelector<HTMLElement>('.public-article-cover-frame')
-    if (frame?.offsetWidth && frame.offsetHeight) return frame.offsetWidth / frame.offsetHeight
-
-    const probe = document.createElement('span')
-    probe.className = 'public-article-cover-frame'
-    const cardStyle = getComputedStyle(card)
-    const horizontalPadding = Number.parseFloat(cardStyle.paddingLeft) + Number.parseFloat(cardStyle.paddingRight)
-    probe.style.cssText = `position:absolute;visibility:hidden;pointer-events:none;width:${Math.max(0, card.clientWidth - horizontalPadding)}px`
-    card.append(probe)
-    const ratio = probe.offsetWidth / probe.offsetHeight
-    probe.remove()
-    if (Number.isFinite(ratio) && ratio > 0) return ratio
-  }
-
-  const viewport = document.querySelector<HTMLElement>('.blog-article-viewport')
-  const rem = Number.parseFloat(getComputedStyle(document.documentElement).fontSize) || 16
-  const availableWidth = viewport?.clientWidth || window.innerWidth - rem * 2
-  return Math.max(1, (availableWidth - rem * 2) / (rem * 9.45))
-}
 
 const emptyStats: ArticleStats = {
   articleCount: 0,
@@ -87,7 +63,6 @@ function BlogPage() {
       .catch(() => undefined)
   }, [])
 
-  // /blog/new and /blog/edit/:id open the editor.
   const editor = useMemo(() => {
     void locationKey
     const [, action, rawId] = getRouteSegments()
@@ -210,7 +185,7 @@ function BlogPage() {
             articles.map((article) => (
               <div key={article.id} className="article-card-wrap">
               <button className="public-article-card" data-article-id={article.id} type="button" onClick={() => openArticle(article)}>
-                {article.coverImage && <span className="public-article-cover-frame"><img className="public-article-cover" src={article.coverImage} alt="" style={coverImageStyle(article)} /></span>}
+                {article.coverImage && <CoverImage src={article.coverImage} position={article.coverImagePosition} scale={article.coverImageScale} />}
                 <span>
                   <small>{article.category} · {new Date(article.publishedAt).toLocaleDateString()}</small>
                   <strong>{article.title}</strong>
@@ -282,7 +257,7 @@ function BlogPage() {
       )}
       {isAdmin && <a className="ui-button ui-button-primary ui-button-floating" href={`${getPublicPath('blog')}/new`}><UiIcon name="plus" />撰寫文章</a>}
       {editorReady && <Suspense fallback={null}>
-        <ArticleEditor key={editing?.id ?? 'new'} article={editing} measureCoverAspectRatio={() => measureArticleCoverAspectRatio(editing?.id)} onSaved={articleSaved} onClose={() => navigate(getPublicPath('blog'))} />
+        <ArticleEditor key={editing?.id ?? 'new'} article={editing} onSaved={articleSaved} onClose={() => navigate(getPublicPath('blog'))} />
       </Suspense>}
       <ConfirmDialog
         open={Boolean(articleToDelete)}

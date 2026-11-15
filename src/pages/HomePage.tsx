@@ -6,7 +6,7 @@ import SocialLinks from '../components/SocialLinks'
 import { fetchArticles, fetchHomeProfile, fetchServerStatus, recordPageView } from '../features/blog/api'
 import type { ArticleSummary, HomeProfile, ServerStatus } from '../features/blog/article'
 import { formatMusicTime, useMusicPlayer, useMusicProgress } from '../components/MusicPlayerContext'
-import { coverImageStyle } from '../features/blog/media'
+import CoverImage from '../components/CoverImage'
 
 const fallback: HomeProfile = {
   name: 'baihu',
@@ -173,7 +173,7 @@ function HomePage() {
       <section className="home-blog home-panel">
         <div className="home-section-heading"><div><p className="home-eyebrow">FROM THE BLOG</p><h2>最新文章</h2></div><span className="home-post-count">{articles.length} 篇文章</span></div>
         {articles.length ? <div className={`home-article-list${articles.length > 2 ? ' is-scrollable' : ''}`} ref={articleListRef} style={articleListHeight ? { height: `${articleListHeight}px`, maxHeight: `${articleListHeight}px`, flex: '0 0 auto' } : undefined}>{articles.map((article) => <button className="home-article" type="button" onClick={() => setSelectedArticle(article)} key={article.id}>
-          {article.coverImage && <img loading="lazy" decoding="async" className="home-article-cover" src={article.coverImage} alt="" style={coverImageStyle(article)} />}
+          {article.coverImage && <CoverImage className="home-article-cover" src={article.coverImage} position={article.coverImagePosition} scale={article.coverImageScale} />}
           <span className="home-article-copy"><small>{article.category}</small><strong>{article.title}</strong><span>{article.excerpt.slice(0, 140)}{article.excerpt.length > 140 ? '…' : ''}</span><time className="home-article-date">{new Date(article.publishedAt).toLocaleDateString()}</time></span></button>)}</div> : <div className="home-blog-empty"><span>✳</span><strong>新文章正在路上</strong><p>最近的想法與作品會出現在這裡。</p></div>}
       </section>
 

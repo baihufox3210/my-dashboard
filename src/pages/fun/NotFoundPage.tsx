@@ -24,7 +24,6 @@ function editDistance(a: string, b: string) {
   return row[b.length] ?? 0
 }
 
-// The lost fox: shown for any path the site does not have, with a guess at what was meant.
 function NotFoundPage() {
   const [first = ''] = getRouteSegments()
   useEffect(() => { unlock('lost') }, [])

@@ -12,7 +12,6 @@ function randomFood(snake: Point[]): Point {
   }
 }
 
-// Text-mode snake inside the terminal: arrow keys (or WASD) to steer, Esc / q to quit.
 export function SnakeGame({ onExit }: { onExit: (score: number) => void }) {
   const start = [{ x: 6, y: 6 }, { x: 5, y: 6 }, { x: 4, y: 6 }]
   const [view, setView] = useState({ snake: start, food: { x: 14, y: 6 }, score: 0 })
@@ -28,7 +27,6 @@ export function SnakeGame({ onExit }: { onExit: (score: number) => void }) {
       if (!next) return
       event.preventDefault()
       const { direction } = game.current
-      // No reversing straight into yourself.
       if (next.x !== -direction.x || next.y !== -direction.y) game.current.queued = next
     }
     window.addEventListener('keydown', onKey, true)
@@ -93,7 +91,6 @@ int main(void)
 }
 `
 
-// Any key "types" plausible hacker code; press Alt three times for ACCESS GRANTED.
 export function HackerTyper({ onExit }: { onExit: () => void }) {
   const [length, setLength] = useState(0)
   const [granted, setGranted] = useState(false)

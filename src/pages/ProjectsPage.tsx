@@ -8,37 +8,10 @@ import useEscapeKey from '../components/useEscapeKey'
 import { createProject, deleteProject, fetchAdminSession, fetchProjects, updateProject, uploadArticleImage } from '../features/blog/api'
 import type { Project } from '../features/blog/article'
 import { getPublicPath } from '../routes/routes'
-import { coverImageStyle } from '../features/blog/media'
+import CoverImage from '../components/CoverImage'
 
 type ProjectDraft = { title: string; summary: string; description: string; category: string; tags: string; projectUrl: string }
 const blankDraft: ProjectDraft = { title: '', summary: '', description: '', category: '', tags: '', projectUrl: '' }
-
-function measureProjectCoverAspectRatio(projectId?: string) {
-  const cards = [...document.querySelectorAll<HTMLElement>('.project-card[data-project-id]')]
-  const card = cards.find((item) => item.dataset.projectId === projectId) ?? cards[0]
-  const frame = card?.querySelector<HTMLElement>('.project-card-art')
-  if (frame?.offsetWidth && frame.offsetHeight) return frame.offsetWidth / frame.offsetHeight
-
-  const page = document.querySelector<HTMLElement>('.projects-page')
-  const rem = Number.parseFloat(getComputedStyle(document.documentElement).fontSize) || 16
-  const pageWidth = page?.clientWidth || window.innerWidth
-  const frameWidth = pageWidth * 0.9 - rem * 2
-  const frameHeight = rem * 12
-  return Math.max(1, frameWidth / frameHeight)
-}
-
-function getProjectCardCoverStyle(position = '50% 50%', scale = 1) {
-  return {
-    display: 'block',
-    width: '100%',
-    height: '100%',
-    objectFit: 'cover' as const,
-    objectPosition: position,
-    transform: `scale(${scale})`,
-    transformOrigin: 'center center',
-    willChange: 'transform',
-  }
-}
 
 function ProjectsPage({ embedded = false }: { embedded?: boolean }) {
   const [projects, setProjects] = useState<Project[]>([])
@@ -53,7 +26,6 @@ function ProjectsPage({ embedded = false }: { embedded?: boolean }) {
   const [cover, setCover] = useState<File | null>(null)
   const [coverPosition, setCoverPosition] = useState('50% 50%')
   const [coverScale, setCoverScale] = useState(1)
-  const [coverAspectRatio, setCoverAspectRatio] = useState(16 / 9)
   const [document, setDocument] = useState<File | null>(null)
   const [removeDocument, setRemoveDocument] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -83,7 +55,6 @@ function ProjectsPage({ embedded = false }: { embedded?: boolean }) {
   }, 10)
 
   function openEditor(project: Project | 'new') {
-    setCoverAspectRatio(measureProjectCoverAspectRatio(project === 'new' ? undefined : project.id))
     setEditor(project)
     setSelected(null)
     setDraft(project === 'new' ? blankDraft : {
@@ -159,7 +130,7 @@ function ProjectsPage({ embedded = false }: { embedded?: boolean }) {
       {orderedProjects.map((project, index) => <article className={`project-card${index === 0 ? ' project-card-featured' : ''}`} data-project-id={project.id} key={project.id}>
         <button type="button" className="project-card-main" onClick={() => setSelected(project)} aria-label={`查看專案：${project.title}`}>
           <span className="project-card-top"><span>{project.category || 'UNCLASSIFIED'}</span><span>PRJ-{String(index + 1).padStart(3, '0')}</span></span>
-          <span className={`project-card-art${project.coverImage ? ' has-cover public-article-cover-frame' : ''}`} aria-hidden="true">{project.coverImage ? <img className="public-article-cover" src={project.coverImage} alt="" style={getProjectCardCoverStyle(project.coverImagePosition, project.coverImageScale)} /> : <span className="project-art-placeholder"><span>PROJECT FILE</span><b>{String(index + 1).padStart(2, '0')}</b></span>}</span>
+          {project.coverImage ? <CoverImage className="project-card-thumb" src={project.coverImage} position={project.coverImagePosition} scale={project.coverImageScale} /> : <span className="project-card-thumb" aria-hidden="true"><span className="project-art-placeholder"><span>PROJECT FILE</span><b>{String(index + 1).padStart(2, '0')}</b></span></span>}
           <span className="project-card-copy"><strong>{project.title}</strong><span className="project-description">{project.summary}</span><span className="project-tags">{project.tags.slice(0, 4).map((tag) => <span key={tag}>{tag}</span>)}</span><span className="project-action">OPEN PROJECT FILE <span aria-hidden="true">↗</span></span></span>
         </button>
       </article>)}
@@ -169,7 +140,7 @@ function ProjectsPage({ embedded = false }: { embedded?: boolean }) {
     {selected && <div className="project-modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setSelected(null) }}>
       <article className="project-detail-modal" role="dialog" aria-modal="true" aria-labelledby="project-detail-title">
         <header className="project-detail-header"><p>{selected.category || 'PROJECT FILE'} <span>///</span> {new Date(selected.publishedAt).toLocaleDateString()}</p><button type="button" className="modal-close-button" aria-label="關閉" onClick={() => setSelected(null)}>×</button></header>
-        {selected.coverImage && <img className="project-detail-cover" src={selected.coverImage} alt="" style={coverImageStyle(selected)} />}
+        {selected.coverImage && <CoverImage className="detail-cover" src={selected.coverImage} position={selected.coverImagePosition} scale={selected.coverImageScale} lazy={false} />}
         <h2 id="project-detail-title">{selected.title}</h2><p className="project-detail-summary">{selected.summary}</p>
         {selected.tags.length > 0 && <div className="project-tags">{selected.tags.map((tag) => <span key={tag}>{tag}</span>)}</div>}
         {selected.description && <div className="project-detail-content"><MarkdownPreview content={selected.description} /></div>}
@@ -205,10 +176,10 @@ function ProjectsPage({ embedded = false }: { embedded?: boolean }) {
             <MarkdownEditor label="詳細內容" value={draft.description} onChange={(description) => setDraft((current) => ({ ...current, description }))} onUploadImage={async (file) => (await uploadArticleImage(file)).url} onUploadingChange={setUploading} onError={setMessage} maxLength={100000} placeholder="記錄專案背景、特色與製作過程…" />
           </section>
           <section className="project-editor-section project-editor-assets" aria-labelledby="project-assets-heading">
-            <div className="project-editor-section-heading"><h3 id="project-assets-heading">媒體與文件</h3><span>封面裁切比例與專案卡片一致</span></div>
+            <div className="project-editor-section-heading"><h3 id="project-assets-heading">媒體與文件</h3><span>封面固定寬幅比例（7:2），專案卡片與內頁顯示相同的裁切</span></div>
             <div className="project-form-field">
               <span>封面圖片 <small>JPG / PNG / WebP / GIF，最多 8 MB</small></span>
-              <FileDropzone title="上傳專案封面" hint="點擊選取圖片" file={cover} previewUrl={editor === 'new' ? undefined : editor.coverImage} imagePosition={coverPosition} imageScale={coverScale} aspectRatio={coverAspectRatio} onImagePositionChange={setCoverPosition} onImageScaleChange={setCoverScale} onFile={setCover} />
+              <FileDropzone title="上傳專案封面" hint="點擊選取圖片" file={cover} previewUrl={editor === 'new' ? undefined : editor.coverImage} imagePosition={coverPosition} imageScale={coverScale} onImagePositionChange={setCoverPosition} onImageScaleChange={setCoverScale} onFile={setCover} />
             </div>
             <div className="project-form-field">
               <span>專案 PDF <small>最多 25 MB</small></span>

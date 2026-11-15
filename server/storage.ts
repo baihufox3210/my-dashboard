@@ -403,7 +403,6 @@ export async function writeHomeProfile(profile: HomeProfile) {
   await writeJsonAtomically(homeProfileFile, profile, { pretty: true })
 }
 
-// Every view updates the long-lived daily aggregates and appends one detailed event row.
 export async function queuePageView(view: PageViewInput) {
   const { page, device, articleId, source, region } = view
   const at = new Date().toISOString()
@@ -516,7 +515,6 @@ export type AnalyticsVisit = {
   source: string; referrer: string; device: AnalyticsDevice; browser: string; os: string; country: string; region: string; city: string; userAgent: string
 }
 
-// Visitor-level breakdowns for [startDay, endDay], computed from the per-view event log.
 export async function readAnalyticsDetails(startDay: string, endDay: string) {
   const database = getAnalyticsDatabase()
   const range = [startDay, endDay] as const
@@ -554,7 +552,6 @@ export async function readAnalyticsDetails(startDay: string, endDay: string) {
     LIMIT 50
   `).all(...range) as Array<{ ip: string; views: number; sessions: number; days: number; firstSeen: string; lastSeen: string; country: string; region: string; city: string; device: string; browser: string; os: string }>
   const since = database.prepare('SELECT MIN(at) AS at FROM analytics_events').get() as { at: string | null }
-  // Two levels of location detail: county/state, then township/city within it.
   const locations = (columns: string) => database.prepare(`
     SELECT ${columns}, COUNT(*) AS views, COUNT(DISTINCT ip) AS visitors
     FROM analytics_events
@@ -624,7 +621,6 @@ export function readArticleReactions(articleId: string, voter: string) {
   return { counts, mine }
 }
 
-// Adds the voter's reaction, or removes it when they had already reacted the same way.
 export function toggleArticleReaction(articleId: string, reaction: ArticleReaction, voter: string) {
   const database = getAnalyticsDatabase()
   const removed = database.prepare('DELETE FROM article_reactions WHERE article_id = ? AND reaction = ? AND voter = ?').run(articleId, reaction, voter)

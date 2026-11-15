@@ -24,7 +24,6 @@ export function getPublicPage(): PublicPage {
   return 'home'
 }
 
-// Hidden easter-egg routes: the parody scam back-office and the pages scanners probe.
 const scannerPaths = new Set(['wp-admin', 'wp-login.php', 'phpmyadmin', '.env', 'xmlrpc.php', 'admin.php', 'administrator', '.git', 'config.php'])
 
 export const knownTopLevelPaths = ['about', 'projects', 'blog', 'friends', 'login', 'admin', 'panel', 'certificate']
@@ -86,7 +85,6 @@ export function navigate(to: string, { replace = false }: { replace?: boolean } 
   notifyLocationChange()
 }
 
-// Re-renders the caller whenever the URL changes and returns the current path+search+hash.
 export function useLocationKey() {
   return useSyncExternalStore(subscribeToLocation, getLocationKey)
 }

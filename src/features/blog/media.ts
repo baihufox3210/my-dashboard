@@ -10,9 +10,13 @@ export function resolveSameOriginMediaUrl(value: string) {
   }
 }
 
-// Inline style that applies an item's saved cover crop (position and zoom).
+// Inline style for a saved cover crop. The image covers a wide 7:2 frame, is zoomed by
+// `scale`, and `position` says where along the hidden overflow the frame sits (0% = left
+// or top edge, 100% = right or bottom edge). Zooming around the same point as the
+// position keeps that meaning at every zoom level, so every part of the image is reachable.
 export function coverImageStyle(item: { coverImagePosition?: string; coverImageScale?: number }) {
-  return { objectPosition: item.coverImagePosition ?? '50% 50%', transform: `scale(${item.coverImageScale ?? 1})` }
+  const position = item.coverImagePosition ?? '50% 50%'
+  return { objectPosition: position, transformOrigin: position, transform: `scale(${item.coverImageScale ?? 1})` }
 }
 
 const uploadableImageTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']

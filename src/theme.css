@@ -94,8 +94,6 @@ body {
 .projects-scanline {
   display: none;
 }
-
-/* The same white glass treatment is shared by every page's cards and panels. */
 :is(
   .home-panel,
   .public-article-card,
@@ -163,8 +161,6 @@ body {
   .nav-item,
   .admin-nav-item { border-bottom-color: var(--theme-line); }
 }
-
-/* Text roles use dark ink on glass and the sampled dark hue for labels/actions. */
 :is(
   .home-profile h1,
   .home-profile blockquote,
@@ -297,8 +293,6 @@ body {
 .home-blog .home-article-copy small {
   color: var(--theme-primary-strong);
 }
-
-/* Interests pills and social icons are one control role with one exact tint. */
 body .home-profile-column .home-tags-card .home-tags > span,
 body .home-profile-column .home-contact-card .home-socials > a {
   border: 0;
@@ -316,8 +310,6 @@ body .home-profile-column .home-contact-card .home-socials > a:hover {
   color: var(--theme-control-foreground);
   background: var(--theme-control-background);
 }
-
-/* Accent actions, links, range controls, and status marks all use theme tokens. */
 :is(
   .project-detail-content a,
   .project-action > span,
@@ -452,8 +444,6 @@ body.site-background-dark .admin-nav-item {
   border-color: var(--theme-primary);
   box-shadow: 0 0 0 3px var(--theme-primary-soft);
 }
-
-/* Shared outlines, overlays, icons, and file/error feedback. */
 :is(
   .projects-toolbar,
   .projects-footer,
@@ -532,25 +522,18 @@ body.site-background-dark .admin-nav-item {
 }
 .projects-heading h1 span,
 .projects-footer > span:nth-child(2),
-.project-card-art > b,
 .project-art-placeholder > b {
   color: var(--theme-primary-strong);
   text-shadow: none;
 }
 .projects-orbit::before,
-.projects-orbit::after,
-.project-card-art::before,
-.project-card-art::after {
+.projects-orbit::after {
   border-color: var(--theme-line);
   box-shadow: none;
 }
 .markdown-preview a,
 .article-reader-content a {
   color: var(--theme-primary-strong);
-}
-.project-detail-cover,
-.project-card-art.has-cover {
-  border-color: var(--theme-surface-border);
 }
 .project-load-error,
 .music-delete,
@@ -566,10 +549,6 @@ body.site-background-dark .admin-nav-item {
   }
   .music-preview-progress span { text-align: right; }
 }
-
-/* Blog editor sits on white glass, so it must never inherit the on-background ink. */
-
-/* Projects use the same semantic surface system as every other route. */
 .projects-feedback,
 .projects-empty {
   border-color: var(--theme-line);
@@ -638,27 +617,19 @@ body.site-background-dark .admin-nav-item {
   color: var(--theme-control-foreground);
   background: var(--theme-control-background);
 }
-.project-card-art:not(.has-cover),
 .project-art-placeholder {
   color: var(--theme-primary-strong);
   background: var(--theme-control-background);
 }
-.project-card-art > b,
 .project-art-placeholder > b,
 .projects-footer > span:nth-child(2) {
   color: var(--theme-primary-strong);
   text-shadow: none;
 }
-.project-card-art::before,
-.project-card-art::after,
 .projects-orbit::before,
 .projects-orbit::after {
   border-color: var(--theme-line);
   box-shadow: none;
-}
-.project-card-art.has-cover,
-.project-detail-cover {
-  border-color: var(--theme-surface-border);
 }
 .project-load-error {
   border-color: color-mix(in srgb, var(--theme-danger) 35%, var(--theme-line));
@@ -730,8 +701,6 @@ body.site-background-dark .admin-nav-item {
 .project-pdf-remove:hover {
   background: var(--theme-surface-raised);
 }
-
-/* Projects use readable high-contrast glass panels. */
 .projects-page .projects-toolbar,
 .projects-page .projects-feedback,
 .projects-page .projects-empty,
@@ -763,8 +732,7 @@ body.site-background-dark .admin-nav-item {
   background: var(--theme-surface-raised);
   box-shadow: var(--theme-shadow);
 }
-.projects-page .project-art-placeholder,
-.projects-page .project-card-art:not(.has-cover) {
+.projects-page .project-art-placeholder {
   background: color-mix(in srgb, var(--theme-primary) 12%, var(--theme-surface-white));
 }
 .projects-page .project-detail-modal,
@@ -782,8 +750,6 @@ body.site-background-dark .admin-nav-item {
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
 }
-
-/* Admin navigation is opaque and keeps its controls anchored to the rail and topbar edges. */
 .admin-app > .admin-rail {
   border-right: 1px solid var(--theme-line);
   background: var(--theme-surface-white);
@@ -794,7 +760,6 @@ body.site-background-dark .admin-nav-item {
 }
 .admin-topbar { justify-content: flex-start; }
 .admin-logout { margin-left: auto; }
-
 
 /* Admin is a solid workspace; no route should expose the site background below short content. */
 .admin-shell-route,
@@ -832,8 +797,6 @@ body.site-background-dark .admin-nav-item {
   color: var(--theme-primary-strong);
   background: transparent;
 }
-
-/* Readers, project dialogs, and the Blog editor share one surface language. */
 .article-reader,
 .project-detail-modal,
 .project-editor-modal {
@@ -916,8 +879,6 @@ body.site-background-dark .admin-nav-item {
   color: var(--theme-danger);
   background: var(--theme-surface-error);
 }
-
-/* Admin overview uses the same solid form surface as /admin/home. */
 .admin-overview-page .admin-welcome,
 .admin-overview-page .admin-metrics article,
 .admin-overview-page .admin-overview-card {
@@ -938,8 +899,6 @@ body.site-background-dark .admin-nav-item {
 .admin-overview-page .admin-activity-list time {
   color: var(--theme-muted);
 }
-
-/* Admin form routes use one readable, solid workspace surface. */
 .admin-app .admin-content > .admin-form-card,
 .admin-app .admin-content > .admin-site-settings-form {
   border-color: var(--theme-line);
@@ -1002,8 +961,6 @@ body.site-background-dark .admin-nav-item {
 .admin-app .admin-content > .admin-site-settings-form .file-dropzone-copy small {
   color: var(--theme-muted);
 }
-
-/* Embedded Projects keeps the same solid, high-contrast Admin workspace. */
 .admin-app .admin-content .projects-page-embedded {
   color: var(--theme-card-ink);
   background: var(--theme-surface-white);
@@ -1055,7 +1012,6 @@ body.site-background-dark .admin-nav-item {
 }
 .admin-app .admin-content .projects-page-embedded .project-tags > span,
 .admin-app .admin-content .projects-page-embedded .project-card-featured .project-tags > span,
-.admin-app .admin-content .projects-page-embedded .project-card-art:not(.has-cover),
 .admin-app .admin-content .projects-page-embedded .project-art-placeholder {
   border-color: var(--theme-line);
   color: var(--theme-primary-strong);

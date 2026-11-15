@@ -1,7 +1,8 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import useEscapeKey from './useEscapeKey'
-import { prepareImageUpload } from '../features/blog/media'
+import CoverImage from './CoverImage'
+import { coverImageStyle, prepareImageUpload } from '../features/blog/media'
 
 type FileDropzoneProps = {
   title: string
@@ -10,7 +11,6 @@ type FileDropzoneProps = {
   previewUrl?: string
   imagePosition?: string
   imageScale?: number
-  aspectRatio?: number
   onImagePositionChange?: (position: string) => void
   onImageScaleChange?: (scale: number) => void
   onFile: (file: File | null) => void
@@ -27,11 +27,6 @@ type DragState = {
   overflowY: number
 }
 
-type ImageMetrics = {
-  overflowX: number
-  overflowY: number
-}
-
 function parsePosition(position: string) {
   const [x, y] = position.split(' ').map((value) => Number.parseFloat(value))
   return {
@@ -40,18 +35,13 @@ function parsePosition(position: string) {
   }
 }
 
-function getRenderedMetrics(image: HTMLImageElement, frame: HTMLElement): ImageMetrics | null {
-  const frameRect = frame.getBoundingClientRect()
-  const naturalWidth = image.naturalWidth
-  const naturalHeight = image.naturalHeight
-  if (!frameRect.width || !frameRect.height || !naturalWidth || !naturalHeight) return null
-
-  // Match object-fit: cover in the card preview, without measuring a transformed image.
-  const coverScale = Math.max(frameRect.width / naturalWidth, frameRect.height / naturalHeight)
-  return {
-    overflowX: Math.max(0, naturalWidth * coverScale - frameRect.width),
-    overflowY: Math.max(0, naturalHeight * coverScale - frameRect.height),
-  }
+// How far the zoomed image extends past the frame, in screen pixels. Dragging by this
+// many pixels moves the position from 0% to 100%, so the image follows the pointer exactly.
+function getOverflow(image: HTMLImageElement, frame: HTMLElement, scale: number) {
+  const { width, height } = frame.getBoundingClientRect()
+  if (!width || !height || !image.naturalWidth || !image.naturalHeight) return null
+  const cover = Math.max(width / image.naturalWidth, height / image.naturalHeight) * scale
+  return { overflowX: Math.max(0, image.naturalWidth * cover - width), overflowY: Math.max(0, image.naturalHeight * cover - height) }
 }
 
 function FileDropzone({
@@ -61,7 +51,6 @@ function FileDropzone({
   previewUrl,
   imagePosition = '50% 50%',
   imageScale = 1,
-  aspectRatio = 16 / 9,
   onImagePositionChange,
   onImageScaleChange,
   onFile,
@@ -87,12 +76,12 @@ function FileDropzone({
 
   useEffect(() => {
     positionRef.current = imagePosition
-    if (editorImageRef.current) editorImageRef.current.style.objectPosition = imagePosition
+    applyEditorImage()
   }, [imagePosition])
 
   useEffect(() => {
     scaleRef.current = imageScale
-    if (editorImageRef.current) editorImageRef.current.style.transform = `scale(${imageScale})`
+    applyEditorImage()
     if (scaleLabelRef.current) scaleLabelRef.current.textContent = `縮放 ${Math.round(imageScale * 100)}%`
   }, [imageScale])
 
@@ -121,8 +110,7 @@ function FileDropzone({
   function applyEditorImage(position = positionRef.current, scale = scaleRef.current) {
     const image = editorImageRef.current
     if (!image) return
-    image.style.objectPosition = position
-    image.style.transform = `scale(${scale})`
+    Object.assign(image.style, coverImageStyle({ coverImagePosition: position, coverImageScale: scale }))
   }
 
   function commitPosition() {
@@ -174,18 +162,17 @@ function FileDropzone({
     const frame = editorFrameRef.current
     const image = editorImageRef.current
     if (!frame || !image) return
-    const metrics = getRenderedMetrics(image, frame)
+    const metrics = getOverflow(image, frame, scaleRef.current)
     if (!metrics) return
     const { x, y } = parsePosition(positionRef.current)
-    const scale = scaleRef.current
     dragRef.current = {
       pointerId: event.pointerId,
       x: event.clientX,
       y: event.clientY,
       positionX: x,
       positionY: y,
-      overflowX: metrics.overflowX * scale,
-      overflowY: metrics.overflowY * scale,
+      overflowX: metrics.overflowX,
+      overflowY: metrics.overflowY,
     }
     frame.setPointerCapture(event.pointerId)
   }
@@ -263,18 +250,17 @@ function FileDropzone({
       onContextMenu={(event) => event.preventDefault()}
     >
       <input id={inputId} type="file" accept="image/*,.heic,.heif,.avif" onChange={(event) => { void acceptFiles(event.target.files); event.currentTarget.value = '' }} />
-      {imageSrc ? <span className="file-dropzone-preview" style={{ aspectRatio: canAdjust ? (Number.isFinite(aspectRatio) && aspectRatio > 0 ? aspectRatio : 16 / 9) : undefined, height: canAdjust ? 'auto' : undefined }}><img src={imageSrc} alt="" draggable={false} style={{ objectPosition: imagePosition, transform: `scale(${imageScale})`, transformOrigin: 'center' }} onClick={(event) => { event.preventDefault(); event.stopPropagation() }} /></span> : null}
+      {imageSrc && <CoverImage className="file-dropzone-preview" src={imageSrc} position={imagePosition} scale={imageScale} lazy={false} />}
       <span className="file-dropzone-copy"><strong>{file?.name || title}</strong><small>{canAdjust ? '開啟調整視窗後拖曳；手機請長按 · ' : ''}{hint}</small></span>
       {canAdjust && <button type="button" className="ui-button ui-button-secondary ui-button-small file-position-toggle" onClick={(event) => { event.preventDefault(); event.stopPropagation(); setAdjustOpen(true) }}>調整圖片位置</button>}
     </label>
     {adjustOpen && imageSrc && createPortal(
       <div className="image-adjust-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) finishAdjustment() }}>
         <section className="image-adjust-modal" role="dialog" aria-modal="true" aria-label="調整封面圖片">
-          <header><div><strong>調整封面圖片</strong><small>比例同卡片封面 · 滑鼠拖曳／手機長按 · 滾輪或雙指縮放</small></div><button type="button" aria-label="關閉調整視窗" onClick={finishAdjustment}>×</button></header>
+          <header><div><strong>調整封面圖片</strong><small>固定寬幅比例（7:2），與卡片顯示完全相同 · 滑鼠拖曳／手機長按 · 滾輪或雙指縮放</small></div><button type="button" aria-label="關閉調整視窗" onClick={finishAdjustment}>×</button></header>
           <div
             className="image-adjust-viewport"
             ref={editorFrameRef}
-            style={{ aspectRatio: Number.isFinite(aspectRatio) && aspectRatio > 0 ? aspectRatio : 16 / 9 }}
             onWheel={(event) => {
               event.preventDefault()
               updateEditorScale(Math.max(1, Math.min(3, Number((scaleRef.current - event.deltaY * 0.002).toFixed(2)))))
@@ -285,7 +271,7 @@ function FileDropzone({
             onPointerUp={handlePointerEnd}
             onPointerCancel={handlePointerEnd}
           >
-            <img ref={editorImageRef} src={imageSrc} alt="封面預覽" draggable={false} style={{ objectPosition: imagePosition, transform: `scale(${imageScale})`, transformOrigin: 'center', pointerEvents: 'none' }} />
+            <img ref={editorImageRef} src={imageSrc} alt="封面預覽" draggable={false} style={{ ...coverImageStyle({ coverImagePosition: imagePosition, coverImageScale: imageScale }), pointerEvents: 'none' }} />
           </div>
           <footer><span ref={scaleLabelRef}>縮放 {Math.round(imageScale * 100)}%</span><button type="button" className="ui-button ui-button-secondary ui-button-small" onClick={() => { updateEditorScale(1); commitScale() }}>重設縮放</button><button type="button" className="ui-button ui-button-primary ui-button-small" onClick={finishAdjustment}>完成</button></footer>
         </section>

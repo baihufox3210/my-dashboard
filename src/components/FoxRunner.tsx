@@ -11,7 +11,6 @@ const ground = 150
 const gravity = .9
 const jumpVelocity = -14
 
-// Chrome's offline dinosaur game, starring the fox. Space, ↑ or a tap jumps.
 function FoxRunner({ offline, onClose }: { offline: boolean; onClose: () => void }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const jumpRef = useRef<() => void>(() => undefined)

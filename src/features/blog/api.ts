@@ -159,7 +159,6 @@ export function publishArticle(formData: FormData) {
   return mutate(request<SavedArticle>('/api/articles', { method: 'POST', body: formData }), 'articles', 'stats')
 }
 
-// An image placed inside an article body; returns its /uploads/ URL.
 export function uploadArticleImage(file: File) {
   const form = new FormData()
   form.set('image', file)

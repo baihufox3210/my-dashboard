@@ -18,7 +18,6 @@ function visibleCards() {
   })
 }
 
-// Thanos: half of the visible cards turn to dust, then come back.
 function snap() {
   const cards = visibleCards().filter((card) => !card.parentElement?.closest(cardSelector))
   const doomed = cards.filter(() => Math.random() < .5)
@@ -28,7 +27,6 @@ function snap() {
   window.setTimeout(() => doomed.forEach((card) => { card.classList.remove('thanos-return'); card.style.animationDelay = '' }), 5600)
 }
 
-// Google Gravity: every visible card drops to the bottom of the screen, then floats back.
 function gravity() {
   const cards = visibleCards().filter((card) => !card.parentElement?.closest(cardSelector))
   cards.forEach((card) => {
@@ -97,8 +95,6 @@ function MatrixRain({ onDone }: { onDone: () => void }) {
   return <canvas ref={canvasRef} className="matrix-rain" aria-hidden="true" onClick={onDone} />
 }
 
-// Idle screensaver: the fox logo bounces like an old DVD player and changes hue at each
-// wall. A perfect corner hit is celebrated.
 function DvdScreensaver({ onCorner }: { onCorner: () => void }) {
   const logoRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
@@ -131,7 +127,6 @@ function DvdScreensaver({ onCorner }: { onCorner: () => void }) {
   return <div className="dvd-screensaver" aria-hidden="true"><div ref={logoRef} className="dvd-logo">🦊 BAIHU<small>VIDEO</small></div></div>
 }
 
-// Site-wide easter eggs: the terminal (` or Ctrl/⌘+K), the Konami code, and achievement toasts.
 function FunLayer() {
   const [terminalOpen, setTerminalOpen] = useState(false)
   const [raining, setRaining] = useState(false)
@@ -148,7 +143,6 @@ function FunLayer() {
   const stopRain = useCallback(() => setRaining(false), [])
   const stopMatrix = useCallback(() => setMatrix(false), [])
 
-  // Tab title: call the visitor back when they switch away.
   useEffect(() => {
     let original = document.title
     let timer = 0
@@ -166,7 +160,6 @@ function FunLayer() {
     return () => { document.removeEventListener('visibilitychange', onVisibility); window.clearTimeout(timer); document.title = original }
   }, [])
 
-  // Idle for 90 seconds starts the DVD screensaver; any input ends it.
   useEffect(() => {
     let timer = 0
     const reset = () => {
@@ -180,7 +173,6 @@ function FunLayer() {
     return () => { window.clearTimeout(timer); events.forEach((name) => window.removeEventListener(name, reset)) }
   }, [])
 
-  // April Fools: Comic Sans and upside-down headings for one day.
   useEffect(() => {
     if (!isAprilFools()) return
     document.body.classList.add('fun-april-fools')
@@ -223,7 +215,6 @@ function FunLayer() {
         return
       }
       const key = event.key.length === 1 ? event.key.toLowerCase() : event.key
-      // Typing "fox" sends a fox running across the bottom of the screen.
       typed = `${typed}${key.length === 1 ? key : ' '}`.slice(-8)
       if (typed.endsWith('fox')) { typed = ''; unlock('fox-runner'); setFoxRun((count) => count + 1) }
       if (typed.endsWith('sus')) { typed = ''; playEffect('sus') }
@@ -251,7 +242,6 @@ function FunLayer() {
     }
   }, [])
 
-  // Padoru, red envelopes and page tricks, from the terminal or the calendar.
   useEffect(() => {
     const play = (event: Event) => {
       const next = (event as CustomEvent<FunEffect>).detail
@@ -273,7 +263,6 @@ function FunLayer() {
       setEffect(next)
     }
     window.addEventListener(funEffectEvent, play)
-    // Like Chrome's dinosaur: losing the connection offers a game.
     const goneOffline = () => setOfflineGame(true)
     window.addEventListener('offline', goneOffline)
     // Seasonal surprises: once per browser session, on the home page only.

@@ -66,7 +66,6 @@ router.post('/:id/reactions', requireSameOrigin, async (request, response) => {
   response.json(toggleArticleReaction(id, reaction as ArticleReaction, ip))
 })
 
-// Images placed inside an article body. The editor inserts the returned URL as Markdown.
 router.post('/images', requireSameOrigin, requireAuthentication, upload.single('image'), validateUploadedImages, (request, response) => {
   if (!request.file) { response.status(400).json({ message: '請選擇要插入的圖片。' }); return }
   response.status(201).json({ url: `/uploads/${request.file.filename}` })
@@ -137,7 +136,6 @@ router.put('/:id', requireSameOrigin, requireAuthentication, upload.single('cove
 
   articles[articleIndex] = updatedArticle
   await writeArticles(articles)
-  // Drop the replaced cover and any inline images that were taken out of the body.
   const removedImages = contentUploads(existingArticle.content).filter((url) => !updatedArticle.content.includes(url))
   await removeUnusedUploads(...(request.file ? [existingArticle.coverImage] : []), ...removedImages)
   await recordActivity({ at: now, type: 'article', action: 'updated', title: updatedArticle.title })

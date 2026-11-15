@@ -5,15 +5,13 @@ import MarkdownEditor from '../../components/MarkdownEditor'
 import useEscapeKey from '../../components/useEscapeKey'
 import { fetchArticle, publishArticle, updateArticle, uploadArticleImage } from '../../features/blog/api'
 import type { ArticleSummary } from '../../features/blog/article'
-import { coverImageStyle } from '../../features/blog/media'
+import CoverImage from '../../components/CoverImage'
 
 type Draft = { title: string; category: string; tags: string; content: string }
 type StoredDraft = Draft & { savedAt: number }
 
 type ArticleEditorProps = {
   article?: ArticleSummary
-  // Read once on open, while the article cards (whose cover shape is matched) are on screen.
-  measureCoverAspectRatio: () => number
   onSaved: (saved: ArticleSummary) => void
   onClose: () => void
 }
@@ -58,8 +56,7 @@ function timeAgo(at: number, now: number) {
 const draftOf = (article: ArticleSummary, content: string): Draft => ({ title: article.title, category: article.category === 'Uncategorized' ? '' : article.category, tags: article.tags.join(', '), content })
 
 // Same shell as the Projects editor: header, grouped sections, sticky action row.
-function ArticleEditor({ article, measureCoverAspectRatio, onSaved, onClose }: ArticleEditorProps) {
-  const [coverAspectRatio] = useState(measureCoverAspectRatio)
+function ArticleEditor({ article, onSaved, onClose }: ArticleEditorProps) {
   const [openedAt] = useState(() => Date.now())
   const [draft, setDraft] = useState<Draft>(() => article ? draftOf(article, '') : emptyDraft)
   const [baseline, setBaseline] = useState<Draft | null>(article ? null : emptyDraft)
@@ -79,7 +76,6 @@ function ArticleEditor({ article, measureCoverAspectRatio, onSaved, onClose }: A
   const close = () => { if (!busy) onClose() }
   useEscapeKey(true, close, 10)
 
-  // Load the body of an existing article, then offer any newer draft kept on this device.
   useEffect(() => {
     let active = true
     const offerStored = (loadedDraft: Draft) => {
@@ -99,7 +95,6 @@ function ArticleEditor({ article, measureCoverAspectRatio, onSaved, onClose }: A
     return () => { active = false }
   }, [article, articleId])
 
-  // Keep unsaved work on this device and warn before the tab is closed.
   useEffect(() => {
     if (!dirty || sameDraft(draft, baseline ?? emptyDraft)) return
     const timer = window.setTimeout(() => storeDraft(articleId, draft), 700)
@@ -144,7 +139,6 @@ function ArticleEditor({ article, measureCoverAspectRatio, onSaved, onClose }: A
     }
   }
 
-  // ⌘/Ctrl+S saves from anywhere in the editor.
   const saveRef = useRef(save)
   useEffect(() => { saveRef.current = save })
   useEffect(() => {
@@ -195,17 +189,17 @@ function ArticleEditor({ article, measureCoverAspectRatio, onSaved, onClose }: A
             placeholder="開始寫作…"
             previewHeader={<header className="md-preview-header">
               <p>{draft.category.trim() || 'BLOG POST'} <span>///</span> {new Date(article?.publishedAt ?? openedAt).toLocaleDateString()}</p>
-              {coverPreview && <div style={{ aspectRatio: String(coverAspectRatio) }}><img src={coverPreview} alt="" style={coverImageStyle({ coverImagePosition: coverPosition, coverImageScale: coverScale })} /></div>}
+              {coverPreview && <CoverImage className="detail-cover" src={coverPreview} position={coverPosition} scale={coverScale} lazy={false} />}
               <h2>{draft.title.trim() || '文章標題'}</h2>
               <small>約 {minutes} 分鐘閱讀 · {words.toLocaleString()} 字{tags.length ? ` · ${tags.map((tag) => `#${tag}`).join(' ')}` : ''}</small>
             </header>}
           />
         </section>
         <section className="project-editor-section project-editor-assets" aria-labelledby="article-assets-heading">
-          <div className="project-editor-section-heading"><h3 id="article-assets-heading">封面</h3><span>封面裁切比例與文章卡片一致</span></div>
+          <div className="project-editor-section-heading"><h3 id="article-assets-heading">封面</h3><span>固定寬幅比例（7:2），文章卡片與內文顯示相同的裁切</span></div>
           <div className="project-form-field">
             <span>封面圖片 <small>JPG / PNG / WebP / GIF，其他格式會自動轉檔</small></span>
-            <FileDropzone title="上傳文章封面" hint="點擊選取圖片" file={cover} previewUrl={article?.coverImage} imagePosition={coverPosition} imageScale={coverScale} aspectRatio={coverAspectRatio} onImagePositionChange={setCoverPosition} onImageScaleChange={setCoverScale} onFile={setCover} />
+            <FileDropzone title="上傳文章封面" hint="點擊選取圖片" file={cover} previewUrl={article?.coverImage} imagePosition={coverPosition} imageScale={coverScale} onImagePositionChange={setCoverPosition} onImageScaleChange={setCoverScale} onFile={setCover} />
           </div>
         </section>
         {message && <p className="projects-feedback project-editor-error" role="alert">{message}</p>}

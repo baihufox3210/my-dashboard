@@ -39,7 +39,6 @@ function AdminPage({ loginOnly = false }: AdminPageProps) {
   const [sqlEgg, setSqlEgg] = useState<{ username: string; flag?: string } | null>(null)
   const handleMessage = useCallback((value: string) => setMessage(value), [])
 
-  // Clear feedback from the previous section whenever the route changes.
   useEffect(() => {
     queueMicrotask(() => setMessage(''))
   }, [locationKey])

@@ -28,7 +28,6 @@ const serializeContentWrites: express.RequestHandler = (request, response, next)
   void previous.then(() => { if (!closed) next() })
 }
 
-// Tell the admin exactly what was wrong with an upload instead of one generic line.
 function uploadErrorMessage(error: unknown) {
   if (error instanceof multer.MulterError) {
     switch (error.code) {

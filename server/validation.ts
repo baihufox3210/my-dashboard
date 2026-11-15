@@ -17,7 +17,6 @@ export function getAnalyticsDevice(userAgent: string) {
   return 'desktop' as const
 }
 
-// Coarse browser and OS labels for the analytics dashboard.
 export function parseUserAgent(userAgent: string) {
   const browser = /bot|crawl|spider|slurp|preview|headless/i.test(userAgent) ? 'Bot'
     : /edg(e|a|ios)?\//i.test(userAgent) ? 'Edge'
