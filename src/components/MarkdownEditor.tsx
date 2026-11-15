@@ -44,7 +44,7 @@ const commands: { id: CommandId; icon: string; label: string; hint: string; keys
   { id: 'code', icon: '</>', label: '程式碼區塊', hint: '等寬字與語法區塊', keys: 'code block 程式 代碼' },
   { id: 'divider', icon: '—', label: '分隔線', hint: '水平線分開段落', keys: 'divider hr line 分隔 分割' },
   { id: 'table', icon: '▦', label: '表格', hint: '兩欄的表格範本', keys: 'table 表格' },
-  { id: 'spoiler', icon: '🐾', label: '暴雷', hint: '點了才看得到的文字', keys: 'spoiler hide 暴雷 爆雷 隱藏' },
+  { id: 'spoiler', icon: '░', label: '暴雷', hint: '點了才看得到的文字', keys: 'spoiler hide 暴雷 爆雷 隱藏' },
   { id: 'link', icon: '🔗', label: '連結', hint: '插入超連結', keys: 'link url 連結 網址' },
 ]
 
@@ -374,7 +374,7 @@ function MarkdownEditor({ label, value, onChange, onUploadImage, onUploadingChan
   }
   const formats: { id: string; label: ReactNode; title: string }[] = [
     { id: 'b', label: <b>B</b>, title: '粗體（⌘B）' }, { id: 'i', label: <i>I</i>, title: '斜體（⌘I）' }, { id: 's', label: <s>S</s>, title: '刪除線' },
-    { id: 'c', label: '</>', title: '程式碼（⌘E）' }, { id: 'l', label: '🔗', title: '連結（⌘K）' }, { id: 'p', label: '🐾', title: '暴雷' },
+    { id: 'c', label: '</>', title: '程式碼（⌘E）' }, { id: 'l', label: '🔗', title: '連結（⌘K）' }, { id: 'p', label: '░', title: '暴雷' },
   ]
   const blocks: { id: BlockId; label: string; title: string }[] = [
     { id: 'text', label: '內文', title: '一般文字' }, { id: 'h1', label: 'H1', title: '標題 1（最大）' }, { id: 'h2', label: 'H2', title: '標題 2' }, { id: 'h3', label: 'H3', title: '標題 3' },

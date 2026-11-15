@@ -673,78 +673,35 @@
 .markdown-preview > :first-child {
   margin-top: 0;
 }
+
+/* ||spoiler||: the text is simply out of focus until clicked. Blur hides everything
+   inside (links, code, images) without needing a cover drawn over it. */
 .markdown-spoiler {
-  --spoiler-paw: color-mix(in srgb, var(--theme-primary) 55%, transparent);
-  padding: .05em .3em;
-  border-radius: .7em;
-  color: transparent;
-  -webkit-text-fill-color: transparent;
-  text-shadow: none;
-  background-color: color-mix(in srgb, var(--theme-primary) 20%, var(--theme-surface-raised));
-  background-image:
-    radial-gradient(ellipse 4.6px 3.8px at 12px 15px, var(--spoiler-paw) 92%, transparent),
-    radial-gradient(circle 1.8px at 6.5px 9.5px, var(--spoiler-paw) 90%, transparent),
-    radial-gradient(circle 1.8px at 10px 6.5px, var(--spoiler-paw) 90%, transparent),
-    radial-gradient(circle 1.8px at 14px 6.5px, var(--spoiler-paw) 90%, transparent),
-    radial-gradient(circle 1.8px at 17.5px 9.5px, var(--spoiler-paw) 90%, transparent);
-  background-size: 24px 24px;
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--theme-primary) 28%, transparent);
-  animation: spoiler-paws 7s linear infinite;
-  transition: background-color 180ms ease, box-shadow 180ms ease;
+  border-bottom: 1px dotted color-mix(in srgb, var(--theme-muted) 70%, transparent);
+  filter: blur(.34em);
+  opacity: .75;
+  transition: filter 320ms ease, opacity 320ms ease, border-color 320ms ease;
   cursor: pointer;
   user-select: none;
-  -webkit-box-decoration-break: clone;
-  box-decoration-break: clone;
 }
 
-/* Nothing inside may peek through: links, struck-through lines, code boxes, images. */
-.markdown-spoiler:not(.is-revealed) * {
-  color: transparent;
-  -webkit-text-fill-color: transparent;
-  text-decoration-color: transparent;
-  background: transparent;
-  border-color: transparent;
-  box-shadow: none;
-  pointer-events: none;
-}
+.markdown-spoiler:not(.is-revealed) * { pointer-events: none; }
 
-.markdown-spoiler:not(.is-revealed) img { visibility: hidden; }
-
-@keyframes spoiler-paws {
-  to { background-position: 24px -24px; }
-}
-
-.markdown-spoiler:hover:not(.is-revealed) {
-  background-color: color-mix(in srgb, var(--theme-primary) 30%, var(--theme-surface-raised));
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--theme-primary) 45%, transparent), 0 0 .5em color-mix(in srgb, var(--theme-primary) 30%, transparent);
-  animation-duration: 2.4s;
-}
+.markdown-spoiler:hover:not(.is-revealed) { filter: blur(.26em); opacity: .9; }
 
 .markdown-spoiler:focus-visible {
   outline: 2px solid var(--theme-primary-strong);
   outline-offset: 2px;
 }
 
-/* Revealed: a light highlight stays, so readers can tell it was a spoiler. */
 .markdown-spoiler.is-revealed {
-  color: inherit;
-  -webkit-text-fill-color: currentColor;
-  background: color-mix(in srgb, var(--theme-primary) 12%, transparent);
-  box-shadow: none;
-  animation: spoiler-reveal 420ms ease-out;
+  filter: none;
+  opacity: 1;
   user-select: text;
 }
 
-@keyframes spoiler-reveal {
-  from {
-    color: transparent;
-    -webkit-text-fill-color: transparent;
-    background-color: color-mix(in srgb, var(--theme-primary) 34%, var(--theme-surface-raised));
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
-  .markdown-spoiler, .markdown-spoiler.is-revealed { animation: none; }
+  .markdown-spoiler { transition: none; }
 }
 
 .markdown-preview img {
