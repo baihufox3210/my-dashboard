@@ -67,7 +67,6 @@ function escapeXml(value: string) {
   return value.replace(/[<>&'"]/g, (character) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', "'": '&apos;', '"': '&quot;' })[character] ?? character)
 }
 
-// RSS 2.0 feed of the latest posts, linking to their shareable /blog/post/:id pages.
 router.get('/rss.xml', async (request, response) => {
   const [articles, settings] = await Promise.all([readArticleSummaries(), readSiteSettings()])
   const origin = siteOrigin(request)

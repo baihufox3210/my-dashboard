@@ -8,7 +8,6 @@ function token(name: string, fallback: string) {
   return getComputedStyle(document.body).getPropertyValue(name).trim() || fallback
 }
 
-// Draws the completion certificate; colors come from the current theme.
 function drawCertificate(canvas: HTMLCanvasElement, name: string, unlockedCount: number) {
   const context = canvas.getContext('2d')
   if (!context) return

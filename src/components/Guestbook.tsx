@@ -124,7 +124,6 @@ function GuestbookDialog({ onClose, onCountChange }: { onClose: () => void; onCo
   </div>
 }
 
-// Entry point shown beside the social links: opens the guestbook and shows the count.
 export function GuestbookButton() {
   const [open, setOpen] = useState(false)
   const [total, setTotal] = useState<number | null>(null)

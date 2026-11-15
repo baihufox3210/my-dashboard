@@ -4,24 +4,25 @@ import type { Article } from '../types.js'
 import { createRateLimiter } from '../rateLimit.js'
 import { articleReactions, deleteArticleReactions, readArticleReactions, recordActivity, readArticleSummaries, readArticles, summarizeArticle, toggleArticleReaction, writeArticles, type ArticleReaction } from '../storage.js'
 import { getClientIp, requireAuthentication, requireSameOrigin } from '../security.js'
-import { upload, validateUploadedImages, discardUploadedFiles, removeUnusedUploads } from '../uploads.js'
+import { contentUploads, upload, validateUploadedImages, discardUploadedFiles, removeUnusedUploads } from '../uploads.js'
 import { parseCoverSettings, type CoverSettings } from '../validation.js'
 
 const router = Router()
 
 type ArticleInput = { title: string; content: string; category?: string; tags?: string } & CoverSettings
 
-function parseArticleInput(value: unknown): ArticleInput | undefined {
-  if (!value || typeof value !== 'object') return undefined
+// Returns the parsed input, or a message naming the field that is wrong.
+function parseArticleInput(value: unknown): ArticleInput | string {
+  if (!value || typeof value !== 'object') return '缺少文章資料。'
   const { title, content, category, tags } = value as Record<string, unknown>
   const cover = parseCoverSettings(value)
-  if (
-    !cover ||
-    typeof title !== 'string' || !title.trim() || title.length > 200 ||
-    typeof content !== 'string' || !content.trim() || content.length > 500_000 ||
-    (category !== undefined && (typeof category !== 'string' || category.length > 100)) ||
-    (tags !== undefined && (typeof tags !== 'string' || tags.length > 2000))
-  ) return undefined
+  if (typeof title !== 'string' || !title.trim()) return '請輸入文章標題。'
+  if (title.length > 200) return '標題太長（上限 200 字）。'
+  if (typeof content !== 'string' || !content.trim()) return '請輸入文章內容。'
+  if (content.length > 500_000) return `內容太長（${content.length.toLocaleString()} 字，上限 500,000 字）。`
+  if (category !== undefined && (typeof category !== 'string' || category.length > 100)) return '分類太長（上限 100 字）。'
+  if (tags !== undefined && (typeof tags !== 'string' || tags.length > 2000)) return '標籤太長（上限 2,000 字）。'
+  if (!cover) return '封面位置或縮放設定無效，請重新調整封面。'
   return { title, content, category, tags, ...cover }
 }
 
@@ -65,11 +66,16 @@ router.post('/:id/reactions', requireSameOrigin, async (request, response) => {
   response.json(toggleArticleReaction(id, reaction as ArticleReaction, ip))
 })
 
+router.post('/images', requireSameOrigin, requireAuthentication, upload.single('image'), validateUploadedImages, (request, response) => {
+  if (!request.file) { response.status(400).json({ message: '請選擇要插入的圖片。' }); return }
+  response.status(201).json({ url: `/uploads/${request.file.filename}` })
+})
+
 router.post('/', requireSameOrigin, requireAuthentication, upload.single('coverImage'), validateUploadedImages, async (request, response) => {
   const input = parseArticleInput(request.body)
-  if (!input) {
+  if (typeof input === 'string') {
     if (request.file) await discardUploadedFiles([request.file])
-    response.status(400).json({ message: 'Title, content, category, or tags are invalid or too long.' })
+    response.status(400).json({ message: input })
     return
   }
 
@@ -103,9 +109,9 @@ router.put('/:id', requireSameOrigin, requireAuthentication, upload.single('cove
   }
 
   const input = parseArticleInput(request.body)
-  if (!input) {
+  if (typeof input === 'string') {
     if (request.file) await discardUploadedFiles([request.file])
-    response.status(400).json({ message: 'Title, content, category, or tags are invalid or too long.' })
+    response.status(400).json({ message: input })
     return
   }
 
@@ -130,7 +136,8 @@ router.put('/:id', requireSameOrigin, requireAuthentication, upload.single('cove
 
   articles[articleIndex] = updatedArticle
   await writeArticles(articles)
-  if (request.file) await removeUnusedUploads(existingArticle.coverImage)
+  const removedImages = contentUploads(existingArticle.content).filter((url) => !updatedArticle.content.includes(url))
+  await removeUnusedUploads(...(request.file ? [existingArticle.coverImage] : []), ...removedImages)
   await recordActivity({ at: now, type: 'article', action: 'updated', title: updatedArticle.title })
   response.json({ ...summarizeArticle(updatedArticle), content: updatedArticle.content })
 })
@@ -144,7 +151,7 @@ router.delete('/:id', requireSameOrigin, requireAuthentication, async (request, 
   }
 
   await writeArticles(articles.filter((entry) => entry.id !== request.params.id))
-  await removeUnusedUploads(article.coverImage)
+  await removeUnusedUploads(article.coverImage, ...contentUploads(article.content))
   deleteArticleReactions(article.id)
   await recordActivity({ at: new Date().toISOString(), type: 'article', action: 'deleted', title: article.title })
   response.status(204).end()

@@ -4,7 +4,7 @@ import MarkdownPreview from './MarkdownPreview'
 import useEscapeKey from './useEscapeKey'
 import { fetchArticle, fetchArticleReactions, toggleArticleReaction, type ArticleReaction, type ArticleReactions } from '../features/blog/api'
 import type { ArticleSummary } from '../features/blog/article'
-import { coverImageStyle } from '../features/blog/media'
+import CoverImage from './CoverImage'
 import { trackProgress, unlock } from '../features/fun/achievements'
 
 type ArticleReaderProps = {
@@ -126,7 +126,7 @@ function ArticleReader({ article, onClose, children }: ArticleReaderProps) {
           <p>{article.category || 'BLOG POST'} <span>///</span> {new Date(article.publishedAt).toLocaleDateString()}</p>
           <button type="button" className="modal-close-button" aria-label="關閉文章" onClick={onClose}>×</button>
         </header>
-        {article.coverImage && <img className="project-detail-cover" src={article.coverImage} alt="" style={coverImageStyle(article)} />}
+        {article.coverImage && <CoverImage className="detail-cover" src={article.coverImage} position={article.coverImagePosition} scale={article.coverImageScale} lazy={false} />}
         <h2 id="article-reader-title">{article.title}</h2>
         <p className="article-reader-meta">約 {article.readingMinutes ?? 1} 分鐘閱讀 · {(article.wordCount ?? 0).toLocaleString()} 字{article.tags.length ? ` · ${article.tags.map((tag) => `#${tag}`).join(' ')}` : ''}</p>
         <div className="project-detail-content article-reader-content" aria-busy={content === undefined}>

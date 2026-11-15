@@ -3,7 +3,6 @@ import { terminalOpenEvent } from './FunLayer'
 import { analyticsSessionId, fetchVisitCounts, sendPresence } from '../features/blog/api'
 import { isAprilFools } from '../features/fun/memes'
 
-// Heartbeat every 30 seconds while the tab is visible; returns how many tabs are online.
 function useOnlineCount() {
   const [online, setOnline] = useState<number | null>(null)
   useEffect(() => {

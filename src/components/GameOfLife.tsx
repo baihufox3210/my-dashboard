@@ -1,7 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { unlock } from '../features/fun/achievements'
 
-// Conway's Game of Life over the page for a few seconds (as Google does for the search).
 function GameOfLife({ onDone }: { onDone: () => void }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
 

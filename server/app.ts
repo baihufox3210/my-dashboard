@@ -28,6 +28,22 @@ const serializeContentWrites: express.RequestHandler = (request, response, next)
   void previous.then(() => { if (!closed) next() })
 }
 
+function uploadErrorMessage(error: unknown) {
+  if (error instanceof multer.MulterError) {
+    switch (error.code) {
+      case 'LIMIT_FILE_SIZE': return '上傳失敗：檔案太大（圖片上限 8 MB、PDF 25 MB、MP3 20 MB）。'
+      case 'LIMIT_FIELD_VALUE': return '上傳失敗：文字內容太長，請縮短後再試。'
+      case 'LIMIT_FILE_COUNT': case 'LIMIT_UNEXPECTED_FILE': return '上傳失敗：檔案數量或欄位不正確。'
+      default: return `上傳失敗（${error.code}）。`
+    }
+  }
+  if (!(error instanceof Error)) return undefined
+  if (error.message === 'Unsupported image type.') return '上傳失敗：圖片只接受 JPEG、PNG、WebP 或 GIF（HEIC、AVIF 等格式請先轉檔）。'
+  if (error.message === 'Unsupported project file type.') return '上傳失敗：只接受 JPEG、PNG、WebP、GIF 圖片或 PDF 文件。'
+  if (error.message === 'Only MP3 files are accepted.') return '上傳失敗：只接受有效的 MP3，單檔上限 20 MB。'
+  return undefined
+}
+
 export function createApp() {
   const app = express()
   app.disable('x-powered-by')
@@ -64,8 +80,9 @@ export function createApp() {
 
   app.use((error: unknown, _request: express.Request, response: express.Response, _next: express.NextFunction) => {
     void _next
-    if (error instanceof multer.MulterError || (error instanceof Error && ['Unsupported image type.', 'Unsupported project file type.', 'Only MP3 files are accepted.'].includes(error.message))) {
-      response.status(error instanceof multer.MulterError && error.code === 'LIMIT_FILE_SIZE' ? 413 : 400).json({ message: error instanceof Error && error.message === 'Only MP3 files are accepted.' ? '上傳失敗：只接受有效的 MP3，單檔上限 20 MB。' : '上傳失敗：圖片需為有效圖片且小於 8 MB，PDF 須小於 25 MB。' })
+    const message = uploadErrorMessage(error)
+    if (message) {
+      response.status(error instanceof multer.MulterError && error.code === 'LIMIT_FILE_SIZE' ? 413 : 400).json({ message })
       return
     }
     console.error('Unhandled API error:', error)

@@ -1,37 +1,13 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import ArticleReader from '../components/ArticleReader'
-import MarkdownPreview from '../components/MarkdownPreview'
-import FileDropzone from '../components/FileDropzone'
 import ConfirmDialog from '../components/ConfirmDialog'
 import UiIcon from '../components/UiIcon'
-import { deleteArticle, fetchAdminSession, fetchArticle, fetchArticleStats, fetchArticles, publishArticle, recordPageView, updateArticle } from '../features/blog/api'
+import { deleteArticle, fetchAdminSession, fetchArticleStats, fetchArticles, recordPageView } from '../features/blog/api'
 import type { ArticleStats, ArticleSummary } from '../features/blog/article'
 import { getPublicPath, getRouteSegments, navigate, useLocationKey } from '../routes/routes'
-import { coverImageStyle } from '../features/blog/media'
+import CoverImage from '../components/CoverImage'
 
-function measureArticleCoverAspectRatio(articleId?: string) {
-  const cards = [...document.querySelectorAll<HTMLButtonElement>('.public-article-card')]
-  const card = cards.find((item) => item.dataset.articleId === articleId) ?? cards[0]
-  if (card) {
-    const frame = card.querySelector<HTMLElement>('.public-article-cover-frame')
-    if (frame?.offsetWidth && frame.offsetHeight) return frame.offsetWidth / frame.offsetHeight
-
-    const probe = document.createElement('span')
-    probe.className = 'public-article-cover-frame'
-    const cardStyle = getComputedStyle(card)
-    const horizontalPadding = Number.parseFloat(cardStyle.paddingLeft) + Number.parseFloat(cardStyle.paddingRight)
-    probe.style.cssText = `position:absolute;visibility:hidden;pointer-events:none;width:${Math.max(0, card.clientWidth - horizontalPadding)}px`
-    card.append(probe)
-    const ratio = probe.offsetWidth / probe.offsetHeight
-    probe.remove()
-    if (Number.isFinite(ratio) && ratio > 0) return ratio
-  }
-
-  const viewport = document.querySelector<HTMLElement>('.blog-article-viewport')
-  const rem = Number.parseFloat(getComputedStyle(document.documentElement).fontSize) || 16
-  const availableWidth = viewport?.clientWidth || window.innerWidth - rem * 2
-  return Math.max(1, (availableWidth - rem * 2) / (rem * 9.45))
-}
+const ArticleEditor = lazy(() => import('./blog/ArticleEditor'))
 
 const emptyStats: ArticleStats = {
   articleCount: 0,
@@ -49,17 +25,6 @@ function BlogPage() {
   const [currentTime] = useState(() => Date.now())
   const [isAdmin, setIsAdmin] = useState(false)
   const [adminMessage, setAdminMessage] = useState('')
-  const [editor, setEditor] = useState<{ mode: 'new' | 'edit'; id?: string } | null>(null)
-  const [draftTitle, setDraftTitle] = useState('')
-  const [draftCategory, setDraftCategory] = useState('')
-  const [draftTags, setDraftTags] = useState('')
-  const [draftContent, setDraftContent] = useState('')
-  const [draftCover, setDraftCover] = useState<File | null>(null)
-  const [draftCoverPosition, setDraftCoverPosition] = useState('50% 50%')
-  const [draftCoverScale, setDraftCoverScale] = useState(1)
-  const [draftCoverAspectRatio, setDraftCoverAspectRatio] = useState(16 / 9)
-  const [draftBusy, setDraftBusy] = useState(false)
-  const [draftPreview, setDraftPreview] = useState(false)
   const articleViewportRef = useRef<HTMLDivElement>(null)
   const sidebarOuterRef = useRef<HTMLElement>(null)
   const sidebarContentRef = useRef<HTMLDivElement>(null)
@@ -98,38 +63,12 @@ function BlogPage() {
       .catch(() => undefined)
   }, [])
 
-  useEffect(() => {
-    let syncRequest = 0
-    const sync = () => {
-      const request = ++syncRequest
-      const [, action, rawId] = getRouteSegments()
-      if (action !== 'new' && action !== 'edit') { setEditor(null); return }
-      if (!isAdmin) return
-      const id = rawId ? decodeURIComponent(rawId) : undefined
-      const article = action === 'edit' ? articles.find((item) => item.id === id) : undefined
-      setDraftCoverAspectRatio(measureArticleCoverAspectRatio(id))
-      setEditor({ mode: action, ...(id ? { id } : {}) })
-      setDraftTitle(article?.title ?? '')
-      setDraftCategory(article?.category ?? '')
-      setDraftTags(article?.tags.join(', ') ?? '')
-      setDraftContent('')
-      setDraftCover(null)
-      setDraftCoverPosition(article?.coverImagePosition ?? '50% 50%')
-      setDraftCoverScale(article?.coverImageScale ?? 1)
-      setDraftPreview(false)
-      setAdminMessage('')
-      // The list only carries summaries; load the body before editing is allowed.
-      setDraftBusy(Boolean(article))
-      if (article) {
-        fetchArticle(article)
-          .then((full) => { if (request === syncRequest) setDraftContent(full.content) })
-          .catch(() => { if (request === syncRequest) setAdminMessage('文章內容載入失敗，請重新整理後再試。') })
-          .finally(() => { if (request === syncRequest) setDraftBusy(false) })
-      }
-    }
-    sync()
-    return () => { syncRequest += 1 }
-  }, [isAdmin, articles, locationKey])
+  const editor = useMemo(() => {
+    void locationKey
+    const [, action, rawId] = getRouteSegments()
+    if (action !== 'new' && action !== 'edit') return null
+    return { mode: action, id: rawId ? decodeURIComponent(rawId) : undefined }
+  }, [locationKey])
 
   async function confirmArticleDelete() {
     if (!articleToDelete) return
@@ -143,25 +82,12 @@ function BlogPage() {
     }
   }
 
-  async function saveDraft(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    const form = new FormData()
-    form.set('title', draftTitle); form.set('category', draftCategory); form.set('tags', draftTags); form.set('content', draftContent); form.set('coverImagePosition', draftCoverPosition); form.set('coverImageScale', String(draftCoverScale))
-    if (draftCover) form.set('coverImage', draftCover)
-    setDraftBusy(true); setAdminMessage('')
-    try {
-      const saved = editor?.mode === 'edit' && editor.id ? await updateArticle(editor.id, form) : await publishArticle(form)
-      if (saved.coverImagePosition !== draftCoverPosition || saved.coverImageScale !== draftCoverScale) {
-        throw new Error('伺服器沒有回傳最新的封面位置與縮放，請確認後端已重新啟動後再儲存。')
-      }
-      setArticles((current) => editor?.mode === 'edit' ? current.map((item) => item.id === saved.id ? saved : item) : [saved, ...current])
-      fetchArticleStats().then(setStats).catch(() => undefined)
-      navigate(getPublicPath('blog'), { replace: true })
-      setEditor(null)
-    } catch (error) { setAdminMessage(error instanceof Error ? error.message : '儲存文章失敗。') }
-    finally { setDraftBusy(false) }
+  function articleSaved(saved: ArticleSummary) {
+    setArticles((current) => current.some((item) => item.id === saved.id) ? current.map((item) => item.id === saved.id ? saved : item) : [saved, ...current])
+    fetchArticleStats().then(setStats).catch(() => undefined)
+    // Land on the saved article, so the result can be read right away.
+    navigate(`${getPublicPath('blog')}/post/${encodeURIComponent(saved.id)}`, { replace: true })
   }
-
 
   // Keep the desktop workspace below the topbar's 25vh breathing room.
   // If the sidebar is taller than the measured card range, scale its contents
@@ -237,15 +163,8 @@ function BlogPage() {
     }
   }, [articles, recentArticles.length, stats, popularTags.length, sidebarFit.shift, sidebarFit.scale, sidebarFit.height])
 
-  if (editor && isAdmin) return <main className="main-page blog-screen blog-editor-screen">
-    <form className="blog-editor-form" onSubmit={saveDraft}><header><div><small>BLOG CONTENT</small><h1>{editor.mode === 'new' ? '撰寫文章' : '編輯文章'}</h1><p>文章集中在 Blog 管理，儲存後會更新文章列表。</p></div><a className="ui-button ui-button-secondary ui-button-small" href={getPublicPath('blog')}><UiIcon name="back" />返回 Blog</a></header>
-      <div className="blog-editor-workspace">
-        <aside className="blog-editor-meta"><label><input aria-label="文章標題" value={draftTitle} onChange={(event) => setDraftTitle(event.target.value)} placeholder="文章標題" required /></label><label><input aria-label="分類" value={draftCategory} onChange={(event) => setDraftCategory(event.target.value)} placeholder="分類" /></label><label><input aria-label="標籤" value={draftTags} onChange={(event) => setDraftTags(event.target.value)} placeholder="標籤（以逗號分隔）" /></label><div className="blog-upload-field"><span>封面圖片</span><FileDropzone title="上傳文章封面" file={draftCover} previewUrl={articles.find((article) => article.id === editor.id)?.coverImage} imagePosition={draftCoverPosition} imageScale={draftCoverScale} aspectRatio={draftCoverAspectRatio} onImagePositionChange={setDraftCoverPosition} onImageScaleChange={setDraftCoverScale} onFile={setDraftCover} /></div></aside>
-        <section className="blog-editor-writing"><div className="blog-editor-toolbar"><strong>文章內容 <span>支援 Markdown</span></strong><div><button type="button" className={!draftPreview ? 'active' : ''} onClick={() => setDraftPreview(false)}>編輯</button><button type="button" className={draftPreview ? 'active' : ''} onClick={() => setDraftPreview(true)}>預覽</button></div></div>{draftPreview ? <div className="blog-editor-preview">{draftContent ? <MarkdownPreview content={draftContent} /> : <p>輸入內容後會在這裡預覽。</p>}</div> : <textarea value={draftContent} onChange={(event) => setDraftContent(event.target.value)} placeholder="開始撰寫…" required />}</section>
-      </div>
-      {adminMessage && <p className="error-message">{adminMessage}</p>}<footer><a className="ui-button ui-button-secondary" href={getPublicPath('blog')}>取消</a><button className="ui-button ui-button-primary" disabled={draftBusy}>{draftBusy ? '儲存中…' : '儲存文章'}</button></footer>
-    </form>
-  </main>
+  const editing = editor?.mode === 'edit' ? articles.find((item) => item.id === editor.id) : undefined
+  const editorReady = Boolean(editor && isAdmin && (editor.mode === 'new' || editing))
 
   return (
     <main className="main-page blog-screen">
@@ -266,7 +185,7 @@ function BlogPage() {
             articles.map((article) => (
               <div key={article.id} className="article-card-wrap">
               <button className="public-article-card" data-article-id={article.id} type="button" onClick={() => openArticle(article)}>
-                {article.coverImage && <span className="public-article-cover-frame"><img className="public-article-cover" src={article.coverImage} alt="" style={coverImageStyle(article)} /></span>}
+                {article.coverImage && <CoverImage src={article.coverImage} position={article.coverImagePosition} scale={article.coverImageScale} />}
                 <span>
                   <small>{article.category} · {new Date(article.publishedAt).toLocaleDateString()}</small>
                   <strong>{article.title}</strong>
@@ -337,6 +256,9 @@ function BlogPage() {
         </ArticleReader>
       )}
       {isAdmin && <a className="ui-button ui-button-primary ui-button-floating" href={`${getPublicPath('blog')}/new`}><UiIcon name="plus" />撰寫文章</a>}
+      {editorReady && <Suspense fallback={null}>
+        <ArticleEditor key={editing?.id ?? 'new'} article={editing} onSaved={articleSaved} onClose={() => navigate(getPublicPath('blog'))} />
+      </Suspense>}
       <ConfirmDialog
         open={Boolean(articleToDelete)}
         title="刪除這篇文章？"

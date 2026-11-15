@@ -12,7 +12,6 @@ export function isLowEffortGreeting(text: string) {
 }
 export type FunEffect = 'padoru' | 'newyear' | 'barrel-roll' | 'askew' | 'tableflip' | 'six-seven' | 'snap' | 'gravity' | 'blink' | 'dino' | 'life' | 'zerg' | 'sus' | 'nyan' | 'fireworks'
 
-// Android-style short message at the bottom of the screen.
 export const funToastEvent = 'fun:toast'
 export function showToast(text: string) {
   window.dispatchEvent(new CustomEvent<string>(funToastEvent, { detail: text }))
@@ -33,12 +32,10 @@ export function rickroll() {
   window.open('https://www.youtube.com/watch?v=dQw4w9WgXcQ', '_blank', 'noopener,noreferrer')
 }
 
-// December up to Christmas.
 export function isPadoruSeason(date = new Date()) {
   return date.getMonth() === 11 && date.getDate() <= 25
 }
 
-// The first fifteen days of the Chinese lunar year (Lantern Festival included).
 export function isLunarNewYear(date = new Date()) {
   try {
     const parts = new Intl.DateTimeFormat('zh-TW-u-ca-chinese', { month: 'numeric', day: 'numeric' }).formatToParts(date)

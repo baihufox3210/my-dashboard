@@ -44,20 +44,23 @@ async function unlinkIfPresent(file: string) {
   })
 }
 
+export function contentUploads(content: string | undefined) {
+  return [...new Set((content ?? '').match(/\/uploads\/[\w-]+\.(?:jpg|png|webp|gif)/g) ?? [])]
+}
+
 async function readReferencedUploads() {
   const [articles, projects, friends, music, settings, profile] = await Promise.all([
     readArticles(), readProjects(), readFriends(), readMusicTracks(), readSiteSettings(), readHomeProfile(),
   ])
   return new Set([
-    ...articles.map((article) => article.coverImage),
-    ...projects.flatMap((project) => [project.coverImage, project.documentUrl]),
+    ...articles.flatMap((article) => [article.coverImage, ...contentUploads(article.content)]),
+    ...projects.flatMap((project) => [project.coverImage, project.documentUrl, ...contentUploads(project.description)]),
     ...friends.map((friend) => friend.avatarUrl),
     ...music.map((track) => track.fileUrl),
     settings.avatarUrl, settings.backgroundUrl, profile.avatarUrl,
   ].filter((url): url is string => Boolean(url)))
 }
 
-// Deletes uploaded files that are no longer referenced by any stored content.
 export async function removeUnusedUploads(...urls: (string | undefined)[]) {
   const candidates = urls.filter((url): url is string => Boolean(uploadPath(url)))
   if (!candidates.length) return
@@ -76,7 +79,8 @@ const randomNameStorage = multer.diskStorage({
 
 export const upload = multer({
   storage: randomNameStorage,
-  limits: { fileSize: 8 * 1024 * 1024, files: 2, fields: 20, fieldSize: 1024 * 1024 },
+  // Article content may be 500,000 characters; in UTF-8 that is up to 1.5 MB (CJK).
+  limits: { fileSize: 8 * 1024 * 1024, files: 2, fields: 20, fieldSize: 2 * 1024 * 1024 },
   fileFilter: (_request, file, callback) => {
     if (!imageMimeTypes.includes(file.mimetype as typeof imageMimeTypes[number])) {
       callback(new Error('Unsupported image type.'))
@@ -169,7 +173,7 @@ export async function validateUploadedImages(
     const header = await readHeader(file, 12)
     if (!isValidImageHeader(header)) {
       await Promise.all(files.map((uploaded) => fs.unlink(uploaded.path).catch(() => undefined)))
-      response.status(400).json({ message: 'Only valid JPEG, PNG, WebP, or GIF images are accepted.' })
+      response.status(400).json({ message: '上傳失敗：圖片檔案已損毀，或不是真正的 JPEG、PNG、WebP、GIF。' })
       return
     }
   }

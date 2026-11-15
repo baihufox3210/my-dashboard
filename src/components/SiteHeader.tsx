@@ -19,7 +19,6 @@ function SiteHeader() {
   const [siteName, setSiteName] = useState('Baihu Personal Website')
   const brandTaps = useRef({ count: 0, last: 0 })
 
-  // Like Android's "build number": tap the site name seven times to become a developer.
   function tapBrand() {
     const now = Date.now()
     const taps = brandTaps.current

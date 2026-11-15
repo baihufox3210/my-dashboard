@@ -96,7 +96,6 @@ function ScamPanelPage() {
 
   useEffect(() => { unlock('scam-buster') }, [])
 
-  // "實時動態": a new fake victim appears every few seconds until the 165 takeover.
   useEffect(() => {
     if (takenOver) return
     const timer = window.setInterval(() => setRows((current) => [makeRow(new Date()), ...current].slice(0, 60)), 4200)
@@ -115,7 +114,6 @@ function ScamPanelPage() {
 
   const teach = useCallback((kind: keyof typeof lessons) => {
     clicks.current += 1
-    // After enough poking around, "165" takes the panel over (instead of another lesson).
     if (clicks.current >= 8) { clicks.current = 0; setLesson(null); setTakenOver(true); return }
     setLesson(randomItem(lessons[kind] ?? lessons.delete))
   }, [])

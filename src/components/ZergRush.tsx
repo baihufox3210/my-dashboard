@@ -8,7 +8,6 @@ type Zergling = { id: number; x: number; y: number; hp: number; target: HTMLElem
 const total = 30
 const cardSelector = '.home-panel, .public-article-card, .recent-articles, .site-stats, .popular-tags-card, .project-card, .friend-card'
 
-// Google's "zerg rush": little o's pour in and eat the page. Click each three times.
 function ZergRush({ onDone }: { onDone: () => void }) {
   const [zerglings, setZerglings] = useState<Zergling[]>([])
   const [killed, setKilled] = useState(0)
@@ -48,7 +47,6 @@ function ZergRush({ onDone }: { onDone: () => void }) {
           zergling.x += (dx / distance) * delta * .11
           zergling.y += (dy / distance) * delta * .11
         } else {
-          // Eating: the card fades as its health drops.
           const health = Math.max(0, (current.health.get(zergling.target) ?? 0) - delta * .012)
           current.health.set(zergling.target, health)
           zergling.target.style.opacity = String(health / 100)

@@ -60,7 +60,6 @@ function Terminal({ onClose }: { onClose: () => void }) {
   const print = (...next: Line[]) => setLines((current) => [...current, ...next])
   const go = (path: string) => { navigate(path); onClose() }
 
-  // Meme phrases that are more than one word.
   function runPhrase(text: string) {
     if (isLowEffortGreeting(text)) { print(...lowEffortReply.split('\n').map((line) => ({ text: line, tone: 'error' as const }))); return true }
     if (isRmRfRoot(text)) { wipeRoot(); return true }

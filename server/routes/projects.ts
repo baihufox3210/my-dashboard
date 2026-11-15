@@ -3,7 +3,7 @@ import { Router } from 'express'
 import { requireAuthentication, requireSameOrigin } from '../security.js'
 import { readProjects, writeProjects } from '../storage.js'
 import type { Project } from '../types.js'
-import { projectUpload, discardUploadedFiles, removeUnusedUploads, uploadedFiles, validateProjectFiles } from '../uploads.js'
+import { contentUploads, projectUpload, discardUploadedFiles, removeUnusedUploads, uploadedFiles, validateProjectFiles } from '../uploads.js'
 import { boundedText, isSafeSocialUrl, parseCoverSettings } from '../validation.js'
 
 const router = Router()
@@ -62,6 +62,7 @@ router.put('/:id', requireSameOrigin, requireAuthentication, receiveProjectFiles
   }
   const oldCover = existing.coverImage
   const oldDocument = existing.documentUrl
+  const oldImages = contentUploads(existing.description)
   projects[index] = {
     ...existing, ...input, updatedAt: new Date().toISOString(),
     ...(files?.coverImage?.[0] ? { coverImage: `/uploads/${files.coverImage[0].filename}` } : {}),
@@ -72,6 +73,8 @@ router.put('/:id', requireSameOrigin, requireAuthentication, receiveProjectFiles
   await removeUnusedUploads(
     files?.coverImage?.[0] ? oldCover : undefined,
     files?.document?.[0] || removeDocument ? oldDocument : undefined,
+    // Inline images taken out of the description; ones still in use are kept.
+    ...oldImages,
   )
   response.json(projects[index])
 })
@@ -81,7 +84,7 @@ router.delete('/:id', requireSameOrigin, requireAuthentication, async (request, 
   const project = projects.find((item) => item.id === request.params.id)
   if (!project) { response.status(404).json({ message: '找不到這個專案。' }); return }
   await writeProjects(projects.filter((item) => item.id !== request.params.id))
-  await removeUnusedUploads(project.coverImage, project.documentUrl)
+  await removeUnusedUploads(project.coverImage, project.documentUrl, ...contentUploads(project.description))
   response.status(204).end()
 })
 
