@@ -70,9 +70,20 @@ async function sendPage(request: Request, response: Response, preview: Preview |
   response.set({ 'Content-Security-Policy': pageSecurityPolicy, 'Cache-Control': 'no-cache' }).type('html').send(html)
 }
 
+// The preview describes the article instead of quoting it, so the body is not given away
+// in a chat embed: "隨筆 · 約 5 分鐘閱讀 · 2026/11/15 · #特選 #成大".
+function describeArticle(article: { category: string; readingMinutes: number; publishedAt: string; tags: string[] }) {
+  return [
+    article.category && article.category !== 'Uncategorized' ? article.category : '',
+    `約 ${article.readingMinutes} 分鐘閱讀`,
+    new Date(article.publishedAt).toLocaleDateString('zh-TW', { timeZone: 'Asia/Taipei' }),
+    article.tags.slice(0, 5).map((tag) => `#${tag}`).join(' '),
+  ].filter(Boolean).join(' · ')
+}
+
 router.get('/blog/post/:id', async (request, response) => {
   const article = (await readArticleSummaries()).find((item) => item.id === request.params.id)
-  await sendPage(request, response, article && { type: 'article', title: article.title, description: article.excerpt, image: article.coverImage })
+  await sendPage(request, response, article && { type: 'article', title: article.title, description: describeArticle(article), image: article.coverImage })
 })
 
 router.get('/projects/:id', async (request, response) => {
