@@ -172,16 +172,23 @@ describe('articles', () => {
     assert.match(page.headers.get('content-security-policy') ?? '', /script-src 'self'/)
     const html = await page.text()
     assert.match(html, /<meta property="og:title" content="Share &lt;me&gt; &amp; &quot;you&quot;" \/>/)
-    // The preview describes the article; it does not quote the body.
+    // A chat embed describes the article instead of quoting it...
     assert.match(html, /<meta property="og:description" content="隨筆 · 約 1 分鐘閱讀 · \d{4}\/\d{1,2}\/\d{1,2} · #特選 #成大" \/>/)
-    assert.equal(html.includes('First line of the body'), false)
+    assert.equal(html.includes('og:description" content="First line'), false)
+    // ...while search engines get the real text.
+    assert.match(html, /<meta name="description" content="First line of the body\." \/>/)
     assert.ok(html.includes(`<meta property="og:image" content="${base}${created.coverImage}" />`))
     assert.match(html, /<meta name="twitter:card" content="summary_large_image" \/>/)
-    assert.match(html, /<div id="root"><\/div>/)
+    assert.ok(html.includes(`<link rel="canonical" href="${base}/blog/post/${created.id}" />`))
+    assert.ok(html.includes(`<script type="application/ld+json">{"@context":"https://schema.org","@type":"BlogPosting","headline":"Share \\u003cme>`), "JSON-LD present and < escaped")
+    assert.match(html, /<div id="root"><article><h1>Share &lt;me&gt; &amp; &quot;you&quot;<\/h1><p>First line of the body\.<\/p><\/article><\/div>/)
 
     // Short links: 8 characters of the id plus any random tail.
     const short = `${created.id.replace(/-/g, '').slice(0, 8)}x7q`
-    assert.match(await (await fetch(`${base}/b/${short}`)).text(), /<meta property="og:title" content="Share &lt;me&gt;/)
+    const shortHtml = await (await fetch(`${base}/b/${short}`)).text()
+    assert.match(shortHtml, /<meta property="og:title" content="Share &lt;me&gt;/)
+    // Every short link names the full address as canonical, so they are not duplicate pages.
+    assert.ok(shortHtml.includes(`<link rel="canonical" href="${base}/blog/post/${created.id}" />`))
     assert.equal((await (await fetch(`${base}/b/zzzzzzzzzz`)).text()).includes('og:title'), false)
 
     // An unknown id still gets the app (which shows its own not-found state), without tags.
@@ -195,6 +202,31 @@ describe('articles', () => {
     assert.match(projectHtml, /<meta name="twitter:card" content="summary" \/>/)
     await api(`/api/articles/${created.id}`, { method: 'DELETE' })
     await api(`/api/admin/projects/${project.id}`, { method: 'DELETE' })
+  })
+
+  test('pages for search engines: sitemap, readable text, no leaked spoilers', async () => {
+    const content = '## Heading one\n\nPrice is $& and $1 each. ||the secret ending|| stays hidden.\n\n![A cat](/uploads/cat.png)\n\n- first item\n\n```\nconsole.log(1)\n```'
+    const created = await (await api('/api/articles', { method: 'POST', body: form({ title: 'SEO', content }) })).json() as { id: string }
+    const html = await (await fetch(`${base}/blog/post/${created.id}`)).text()
+    assert.match(html, /<h2>Heading one<\/h2>/)
+    assert.ok(html.includes('<p>Price is $&amp; and $1 each. ▒▒▒ stays hidden.</p>'), 'special replacement patterns must stay literal')
+    assert.ok(html.includes(`<img src="${base}/uploads/cat.png" alt="A cat" />`))
+    assert.match(html, /<p>first item<\/p>/)
+    assert.match(html, /<p>console\.log\(1\)<\/p>/)
+    assert.equal(html.includes('the secret ending'), false)
+
+    const sitemap = await fetch(`${base}/sitemap.xml`)
+    assert.equal(sitemap.status, 200)
+    assert.match(sitemap.headers.get('content-type') ?? '', /application\/xml/)
+    const xml = await sitemap.text()
+    assert.match(xml, /<urlset xmlns="http:\/\/www\.sitemaps\.org\/schemas\/sitemap\/0\.9">/)
+    assert.ok(xml.includes(`<loc>${base}/blog/post/${created.id}</loc>`))
+    assert.match(xml, new RegExp(`${created.id}</loc>\\s*<lastmod>\\d{4}-\\d{2}-\\d{2}T`))
+    for (const page of ['/', '/blog', '/about', '/projects', '/friends']) assert.ok(xml.includes(`<loc>${base}${page}</loc>`), page)
+    assert.equal(xml.includes('/b/'), false, 'short links are not listed')
+
+    await api(`/api/articles/${created.id}`, { method: 'DELETE' })
+    assert.equal((await (await fetch(`${base}/sitemap.xml`)).text()).includes(created.id), false)
   })
 
   test('concurrent writes are all kept', async () => {

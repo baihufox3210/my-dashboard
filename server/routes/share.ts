@@ -2,9 +2,11 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import { Router } from 'express'
 import type { Request, Response } from 'express'
-import { distDirectory, siteUrl } from '../config.js'
-import { isTrustedProxyRequest } from '../security.js'
-import { readArticleSummaries, readProjects, readSiteSettings } from '../storage.js'
+import { distDirectory } from '../config.js'
+import { crawlerHtml } from '../crawlerHtml.js'
+import { escapeHtml, siteOrigin } from '../origin.js'
+import type { Article, Project } from '../types.js'
+import { readArticles, readHomeProfile, readProjects, readSiteSettings, summarizeArticle } from '../storage.js'
 
 // Link previews (Discord, LINE, Facebook, X…) read Open Graph tags from the HTML and do
 // not run JavaScript, so the single-page app cannot supply them. For article and project
@@ -24,18 +26,24 @@ async function readBuiltPage() {
   return cachedPage.html
 }
 
-function escapeHtml(value: string) {
-  return value.replace(/[<>&'"]/g, (character) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', "'": '&#39;', '"': '&quot;' })[character] ?? character)
+type Preview = {
+  type: 'article' | 'website'
+  title: string
+  // What a chat embed shows (og:description).
+  description: string
+  // What a search result may show (<meta name="description">); defaults to `description`.
+  summary?: string
+  image?: string
+  // Full path of the page. Every URL that serves the same content (short links) names it
+  // as canonical, so search engines count them as one page.
+  canonical: string
+  // Markdown that is also written into the HTML for crawlers that do not run scripts.
+  body: string
+  article?: { publishedAt: string; updatedAt?: string; category: string; tags: string[]; wordCount: number }
 }
 
-function siteOrigin(request: Request) {
-  if (siteUrl) return siteUrl
-  const forwardedProto = isTrustedProxyRequest(request) ? request.get('x-forwarded-proto')?.split(',')[0]?.trim() : undefined
-  return `${forwardedProto === 'https' ? 'https' : request.protocol}://${request.get('host') ?? 'localhost'}`
-}
-
-type Preview = { title: string; description: string; image?: string; type: 'article' | 'website' }
-
+// Replacers are functions on purpose: a string replacement would treat "$&" or "$1" in an
+// article as a pattern.
 async function sendPage(request: Request, response: Response, preview: Preview | undefined) {
   let html: string
   try {
@@ -47,25 +55,48 @@ async function sendPage(request: Request, response: Response, preview: Preview |
   }
   if (preview) {
     const origin = siteOrigin(request)
-    const settings = await readSiteSettings()
+    const [settings, profile] = await Promise.all([readSiteSettings(), readHomeProfile()])
     const title = `${preview.title} | ${settings.siteName}`
-    const description = preview.description.replace(/\s+/g, ' ').trim().slice(0, 200)
+    const clean = (text: string) => text.replace(/\s+/g, ' ').trim().slice(0, 200)
+    const description = clean(preview.description)
+    const summary = clean(preview.summary ?? preview.description)
     const image = preview.image ?? settings.avatarUrl
     const absolute = (url: string) => /^https?:\/\//.test(url) ? url : `${origin}${url}`
+    const canonical = `${origin}${preview.canonical}`
+    const structured = preview.article && {
+      '@context': 'https://schema.org',
+      '@type': 'BlogPosting',
+      headline: preview.title,
+      description: summary,
+      ...(image ? { image: [absolute(image)] } : {}),
+      datePublished: preview.article.publishedAt,
+      dateModified: preview.article.updatedAt ?? preview.article.publishedAt,
+      mainEntityOfPage: { '@type': 'WebPage', '@id': canonical },
+      author: { '@type': 'Person', name: profile.name },
+      ...(preview.article.category && preview.article.category !== 'Uncategorized' ? { articleSection: preview.article.category } : {}),
+      ...(preview.article.tags.length ? { keywords: preview.article.tags.join(', ') } : {}),
+      wordCount: preview.article.wordCount,
+      inLanguage: 'zh-TW',
+    }
     const tags = [
+      `<link rel="canonical" href="${escapeHtml(canonical)}" />`,
+      `<meta name="robots" content="max-image-preview:large" />`,
       `<meta property="og:type" content="${preview.type}" />`,
       `<meta property="og:site_name" content="${escapeHtml(settings.siteName)}" />`,
       `<meta property="og:title" content="${escapeHtml(preview.title)}" />`,
       `<meta property="og:description" content="${escapeHtml(description)}" />`,
-      `<meta property="og:url" content="${escapeHtml(`${origin}${request.path}`)}" />`,
+      `<meta property="og:url" content="${escapeHtml(canonical)}" />`,
       ...(image ? [`<meta property="og:image" content="${escapeHtml(absolute(image))}" />`] : []),
       // A large card only when the item has its own cover; the site avatar stays small.
       `<meta name="twitter:card" content="${preview.image ? 'summary_large_image' : 'summary'}" />`,
+      ...(structured ? [`<script type="application/ld+json">${JSON.stringify(structured).replace(/</g, '\\u003c')}</script>`] : []),
     ].join('\n    ')
+    const content = `<article><h1>${escapeHtml(preview.title)}</h1>${crawlerHtml(preview.body, absolute)}</article>`
     html = html
-      .replace(/<title>[^<]*<\/title>/, `<title>${escapeHtml(title)}</title>`)
-      .replace(/<meta name="description"[^>]*>/, `<meta name="description" content="${escapeHtml(description)}" />`)
-      .replace('</head>', `  ${tags}\n  </head>`)
+      .replace(/<title>[^<]*<\/title>/, () => `<title>${escapeHtml(title)}</title>`)
+      .replace(/<meta name="description"[^>]*>/, () => `<meta name="description" content="${escapeHtml(summary)}" />`)
+      .replace('</head>', () => `  ${tags}\n  </head>`)
+      .replace('<div id="root"></div>', () => `<div id="root">${content}</div>`)
   }
   response.set({ 'Content-Security-Policy': pageSecurityPolicy, 'Cache-Control': 'no-cache' }).type('html').send(html)
 }
@@ -81,9 +112,27 @@ function describeArticle(article: { category: string; readingMinutes: number; pu
   ].filter(Boolean).join(' · ')
 }
 
+function articlePreview(article: Article): Preview {
+  const summary = summarizeArticle(article)
+  return {
+    type: 'article',
+    title: article.title,
+    description: describeArticle(summary),
+    summary: summary.excerpt,
+    image: article.coverImage,
+    canonical: `/blog/post/${encodeURIComponent(article.id)}`,
+    body: article.content,
+    article: { publishedAt: article.publishedAt, updatedAt: article.updatedAt, category: article.category, tags: article.tags, wordCount: summary.wordCount },
+  }
+}
+
+function projectPreview(project: Project): Preview {
+  return { type: 'website', title: project.title, description: project.summary, image: project.coverImage, canonical: `/projects/${encodeURIComponent(project.id)}`, body: project.description }
+}
+
 router.get('/blog/post/:id', async (request, response) => {
-  const article = (await readArticleSummaries()).find((item) => item.id === request.params.id)
-  await sendPage(request, response, article && { type: 'article', title: article.title, description: describeArticle(article), image: article.coverImage })
+  const article = (await readArticles()).find((item) => item.id === request.params.id)
+  await sendPage(request, response, article && articlePreview(article))
 })
 
 // Short links from the share buttons: the first 8 characters of the id pick the item,
@@ -96,18 +145,18 @@ function findByCode<T extends { id: string }>(items: T[], code: string) {
 }
 
 router.get('/b/:code', async (request, response) => {
-  const article = findByCode(await readArticleSummaries(), String(request.params.code))
-  await sendPage(request, response, article && { type: 'article', title: article.title, description: describeArticle(article), image: article.coverImage })
+  const article = findByCode(await readArticles(), String(request.params.code))
+  await sendPage(request, response, article && articlePreview(article))
 })
 
 router.get('/p/:code', async (request, response) => {
   const project = findByCode(await readProjects(), String(request.params.code))
-  await sendPage(request, response, project && { type: 'website', title: project.title, description: project.summary, image: project.coverImage })
+  await sendPage(request, response, project && projectPreview(project))
 })
 
 router.get('/projects/:id', async (request, response) => {
   const project = (await readProjects()).find((item) => item.id === request.params.id)
-  await sendPage(request, response, project && { type: 'website', title: project.title, description: project.summary, image: project.coverImage })
+  await sendPage(request, response, project && projectPreview(project))
 })
 
 export default router

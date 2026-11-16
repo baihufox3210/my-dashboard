@@ -70,4 +70,13 @@ else
   echo "No articles yet, skipping."
 fi
 
+step "Checking sitemap and robots.txt"
+site="$(env_value SITE_URL)"
+for base in "$api" ${site:+"$site"}; do
+  if curl -fsS "$base/sitemap.xml" | grep -q '<urlset'; then echo "ok    $base/sitemap.xml"; else warn "no sitemap at $base/sitemap.xml"; fi
+done
+if [ -n "$site" ]; then
+  if curl -fsS "$site/robots.txt" | grep -qi '^Sitemap:'; then echo "ok    $site/robots.txt lists the sitemap"; else warn "robots.txt has no Sitemap line (SITE_URL must be set when running npm run build)"; fi
+fi
+
 printf '\n\033[32mDone.\033[0m\n'

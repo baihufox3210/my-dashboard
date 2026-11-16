@@ -12,6 +12,7 @@ import musicRoutes from './routes/music.js'
 import presenceRoutes from './routes/presence.js'
 import projectRoutes from './routes/projects.js'
 import publicRoutes from './routes/public.js'
+import seoRoutes from './routes/seo.js'
 import shareRoutes from './routes/share.js'
 import settingsRoutes from './routes/settings.js'
 
@@ -78,6 +79,7 @@ export function createApp() {
   app.use('/api/admin', settingsRoutes)
   app.use('/api', analyticsRoutes)
   app.use('/api', publicRoutes)
+  app.use(seoRoutes)
   app.use(shareRoutes)
 
   app.use((error: unknown, _request: express.Request, response: express.Response, _next: express.NextFunction) => {

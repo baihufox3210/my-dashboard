@@ -1,8 +1,7 @@
 import os from 'node:os'
 import { Router } from 'express'
-import type { Request } from 'express'
-import { siteStartDate, siteUrl } from '../config.js'
-import { isTrustedProxyRequest } from '../security.js'
+import { siteStartDate } from '../config.js'
+import { escapeXml, siteOrigin } from '../origin.js'
 import { readArticleSummaries, readFriends, readHomeProfile, readMusicTracks, readProjects, readSiteSettings, readVisitCounts } from '../storage.js'
 import { daysSince } from '../validation.js'
 
@@ -56,16 +55,6 @@ router.get('/stats', async (_request, response) => {
 router.get('/visits', async (_request, response) => {
   response.json(await readVisitCounts())
 })
-
-function siteOrigin(request: Request) {
-  if (siteUrl) return siteUrl
-  const forwardedProto = isTrustedProxyRequest(request) ? request.get('x-forwarded-proto')?.split(',')[0]?.trim() : undefined
-  return `${forwardedProto === 'https' ? 'https' : request.protocol}://${request.get('host') ?? 'localhost'}`
-}
-
-function escapeXml(value: string) {
-  return value.replace(/[<>&'"]/g, (character) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', "'": '&apos;', '"': '&quot;' })[character] ?? character)
-}
 
 router.get('/rss.xml', async (request, response) => {
   const [articles, settings] = await Promise.all([readArticleSummaries(), readSiteSettings()])
