@@ -12,7 +12,8 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test": "node --import tsx --test server/tests/*.test.ts"
+    "test": "node --import tsx --test server/tests/*.test.ts",
+    "deploy": "bash deploy/update.sh"
   },
   "dependencies": {
     "@ip-location-db/dbip-city-mmdb": "^2.3.2026060513",

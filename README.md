@@ -122,6 +122,37 @@ Blog 文章（`/blog/new`、`/blog/edit/:id`）與 Projects 專案用同一套�
 
 登入表單後面沒有任何 SQL，也不會執行使用者輸入；彩蛋不建立 session、不算登入失敗。詐騙後台 `/panel` 的「PHP 後門」純屬瀏覽器內模擬，檔案不會上傳、儲存或執行，伺服器端也沒有 PHP。選用的 flag 設定放在不納入 Git 的 `data/security-flags.json`（格式見 `server/security-flags.example.json`）。
 
+## 搜尋引擎收錄
+
+網站內容是在瀏覽器裡渲染的，所以文章頁由 API 額外輸出給搜尋引擎看的內容（`server/routes/share.ts`、`server/routes/seo.ts`）：
+
+- `/sitemap.xml`：列出首頁、各公開頁面、每篇文章與每個專案，文章帶最後更新時間；新增、修改或刪除文章後自動更新（快取 10 分鐘）。nginx 要把它轉給 API（已寫在 `deploy/nginx-default.conf`）。
+- `robots.txt` 的 `Sitemap:` 行：`npm run build` 時依 `SITE_URL` 自動加上，所以 build 要在有 `.env`（或環境變數 `SITE_URL`）的目錄執行。
+- 文章頁與專案頁的 HTML 內含 canonical 網址、`<meta name="description">`（內文開頭）、BlogPosting 結構化資料（JSON-LD），以及純文字的內文（標題、段落、圖片與圖說）。暴雷 `||…||` 的內容會被遮成 `▒▒▒`，不會出現在搜尋結果裡。
+- 短網址（`/b/…`、`/p/…`）的 canonical 都指向完整網址，不會被當成重複頁面。
+- 聊天軟體的預覽（`og:description`）仍然只顯示分類、閱讀時間、日期與標籤，不引用內文。
+
+這些只是讓網站「可以被收錄」；要讓搜尋引擎「知道」網站存在，還需要自己到各搜尋引擎的站長工具登記：
+
+1. **Google Search Console**（search.google.com/search-console）：新增資源，驗證網域擁有權（用網域資源最簡單，在 Cloudflare 的 DNS 加一筆它給的 TXT 記錄）。驗證後到「Sitemap」提交 `sitemap.xml`；新文章可在上方搜尋列貼網址，按「要求建立索引」加速。
+2. **Bing 網站管理員工具**（bing.com/webmasters）：可以直接匯入 Search Console 的設定，Bing 的資料也會供給 DuckDuckGo 與 Ecosystem 等搜尋引擎。
+3. 在 Cloudflare 確認沒有擋住爬蟲：Under Attack Mode、對所有訪客的挑戰（Challenge）規則，以及只允許台灣 IP 的區域限制，都會讓 Googlebot（從美國 IP 來）收到驗證頁而無法抓取。
+
+收錄通常需要幾天到幾週，可以用 `site:你的網域` 搜尋確認，或在 Search Console 的「網址審查」看單篇文章的狀態。
+
+## 一鍵更新（正式主機）
+
+在專案目錄下執行：
+
+```bash
+npm run deploy               # 拉最新程式、npm install、build、重啟 API、更新 nginx 設定並檢查預覽
+npm run deploy -- --restart  # 只重啟 API 並更新 nginx 設定（不 pull、不 build）
+```
+
+腳本是 `deploy/update.sh`，預設服務名稱為 `baihu-blog-api`、nginx 容器為 `my-dashboard`，可用環境變數 `SERVICE`、`CONTAINER` 覆寫。重啟 systemd 服務需要 sudo。最後會用第一篇文章的短網址檢查 API 與 `SITE_URL` 是否回傳預覽標籤；API 在 30 秒內沒有起來會中止並提示看 `journalctl`。
+
+nginx 設定是用 `docker cp` 放進容器的，容器被重新建立（更新映像檔、`docker run`）後就會消失，再跑一次 `npm run deploy -- --restart` 即可還原。
+
 ## 正式部署注意事項
 
 `npm run build` 只建置前端。正式環境需另外執行 Express API（`npm run server`），並透過 HTTPS 反向代理將 `/api` 與 `/uploads` 路徑轉發至 API；前端路由需設定回退至 `index.html`。預設 API 綁定 `127.0.0.1:3001`，可透過 `PORT` 與 `API_HOST` 調整。
