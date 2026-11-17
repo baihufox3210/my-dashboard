@@ -21,6 +21,14 @@ step() { printf '\n\033[1m▶ %s\033[0m\n' "$1"; }
 warn() { printf '\033[33m⚠ %s\033[0m\n' "$1"; }
 sudo_if_needed() { if [ "$(id -u)" -eq 0 ]; then "$@"; else sudo "$@"; fi; }
 env_value() { { grep -E "^$1=" .env 2>/dev/null || true; } | tail -1 | cut -d= -f2- | tr -d "\"'"; }
+# True when the page at $1 contains $2. The whole page is read before searching: with
+# `curl | grep -q` grep quits at the first match, curl then fails to write the rest of a
+# large page (error 23) and pipefail turns that into a false "not found".
+has() {
+  local body
+  body="$(curl -fsS "$1" 2>/dev/null)" || return 1
+  grep -qi -- "$2" <<<"$body"
+}
 
 api_host="$(env_value API_HOST)"
 api_port="$(env_value PORT)"
@@ -40,7 +48,7 @@ fi
 step "Restarting the API ($SERVICE)"
 sudo_if_needed systemctl restart "$SERVICE"
 for attempt in $(seq 1 30); do
-  if curl -fsS -o /dev/null "$api/api/server-status"; then break; fi
+  if curl -fs -o /dev/null "$api/api/server-status"; then break; fi
   if [ "$attempt" -eq 30 ]; then
     echo "The API did not come back within 30 seconds. See: journalctl -u $SERVICE -n 30 --no-pager" >&2
     exit 1
@@ -59,12 +67,13 @@ else
 fi
 
 step "Checking link previews"
-article_id="$(curl -fsS "$api/api/articles" | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4 || true)"
+articles="$(curl -fsS "$api/api/articles" 2>/dev/null || true)"
+article_id="$(grep -o '"id":"[^"]*"' <<<"$articles" | head -1 | cut -d'"' -f4 || true)"
 if [ -n "$article_id" ]; then
   short="$(printf '%s' "$article_id" | tr -d '-' | cut -c1-8)xyz"
   site="$(env_value SITE_URL)"
   for url in "$api/b/$short" ${site:+"$site/b/$short"}; do
-    if curl -fsS "$url" | grep -q 'og:title'; then echo "ok    $url"; else warn "no preview tags at $url"; fi
+    if has "$url" 'og:title'; then echo "ok    $url"; else warn "no preview tags at $url"; fi
   done
 else
   echo "No articles yet, skipping."
@@ -73,10 +82,10 @@ fi
 step "Checking sitemap and robots.txt"
 site="$(env_value SITE_URL)"
 for base in "$api" ${site:+"$site"}; do
-  if curl -fsS "$base/sitemap.xml" | grep -q '<urlset'; then echo "ok    $base/sitemap.xml"; else warn "no sitemap at $base/sitemap.xml"; fi
+  if has "$base/sitemap.xml" '<urlset'; then echo "ok    $base/sitemap.xml"; else warn "no sitemap at $base/sitemap.xml"; fi
 done
 if [ -n "$site" ]; then
-  if curl -fsS "$site/robots.txt" | grep -qi '^Sitemap:'; then echo "ok    $site/robots.txt lists the sitemap"; else warn "robots.txt has no Sitemap line (SITE_URL must be set when running npm run build)"; fi
+  if has "$site/robots.txt" '^Sitemap:'; then echo "ok    $site/robots.txt lists the sitemap"; else warn "robots.txt has no Sitemap line (SITE_URL must be set when running npm run build)"; fi
 fi
 
 printf '\n\033[32mDone.\033[0m\n'
