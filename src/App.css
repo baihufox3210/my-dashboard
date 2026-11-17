@@ -3283,3 +3283,12 @@ html:has(.project-modal-backdrop, .article-reader-backdrop, .image-adjust-backdr
 .seo-preview p { display: -webkit-box; margin: 0; overflow: hidden; color: var(--theme-muted); font-size: .84rem; line-height: 1.55; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
 .seo-count { margin: -.35rem 0 0; color: var(--theme-muted); font-size: .72rem; }
 .seo-count.is-over { color: var(--theme-danger); }
+
+/* About, desktop: a long story must not make the page taller than the screen. The MY STORY card's
+   content takes no part in sizing the row (contain: size), so the card is as tall as its neighbours
+   and the minimum height the cards already had, and its text scrolls inside it. (On phones the
+   page keeps its normal length: a scroller inside the page traps the finger.) */
+@media (min-width: 769px) {
+  .about-page .about-biography { contain: size; overflow: hidden; }
+  .about-page .about-biography > .markdown-preview { min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding-right: .35rem; scrollbar-width: thin; scrollbar-color: var(--theme-line) transparent; }
+}
