@@ -3,11 +3,12 @@ import { createPortal } from 'react-dom'
 import FileDropzone from '../../components/FileDropzone'
 import MarkdownEditor from '../../components/MarkdownEditor'
 import useEscapeKey from '../../components/useEscapeKey'
+import { useSiteName } from '../../components/usePageTitle'
 import { fetchArticle, publishArticle, updateArticle, uploadArticleImage } from '../../features/blog/api'
 import type { ArticleSummary } from '../../features/blog/article'
 import CoverImage from '../../components/CoverImage'
 
-type Draft = { title: string; category: string; tags: string; content: string }
+type Draft = { title: string; category: string; tags: string; content: string; seoTitle: string; seoDescription: string }
 type StoredDraft = Draft & { savedAt: number }
 
 type ArticleEditorProps = {
@@ -16,7 +17,7 @@ type ArticleEditorProps = {
   onClose: () => void
 }
 
-const emptyDraft: Draft = { title: '', category: '', tags: '', content: '' }
+const emptyDraft: Draft = { title: '', category: '', tags: '', content: '', seoTitle: '', seoDescription: '' }
 const cjkCharacter = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/gu
 const markdownImage = /!\[([^\]]*)\]\([^)]*\)/g
 
@@ -43,7 +44,7 @@ function storeDraft(id: string | undefined, draft: Draft) {
 function forgetDraft(id?: string) {
   try { localStorage.removeItem(draftKey(id)) } catch { /* storage unavailable */ }
 }
-const sameDraft = (first: Draft, second: Draft) => first.title === second.title && first.category === second.category && first.tags === second.tags && first.content === second.content
+const sameDraft = (first: Draft, second: Draft) => first.title === second.title && first.category === second.category && first.tags === second.tags && first.content === second.content && (first.seoTitle ?? '') === (second.seoTitle ?? '') && (first.seoDescription ?? '') === (second.seoDescription ?? '')
 
 function timeAgo(at: number, now: number) {
   const minutes = Math.round((now - at) / 60_000)
@@ -53,11 +54,18 @@ function timeAgo(at: number, now: number) {
   return hours < 24 ? `${hours} 小時前` : `${Math.round(hours / 24)} 天前`
 }
 
-const draftOf = (article: ArticleSummary, content: string): Draft => ({ title: article.title, category: article.category === 'Uncategorized' ? '' : article.category, tags: article.tags.join(', '), content })
+const draftOf = (article: ArticleSummary, content: string): Draft => ({ title: article.title, category: article.category === 'Uncategorized' ? '' : article.category, tags: article.tags.join(', '), content, seoTitle: article.seoTitle ?? '', seoDescription: article.seoDescription ?? '' })
+
+// Search results cut a title at about 30 Chinese characters (Latin letters and digits take about
+// half the width), so the preview below warns when the part people search for would be lost.
+const titleLimit = 30
+const titleUnits = (text: string) => [...text].reduce((sum, character) => sum + (/[\u2E80-\u9FFF\uAC00-\uD7AF\uFF00-\uFFEF]/.test(character) ? 1 : 0.5), 0)
+const plainExcerpt = (markdown: string) => markdown.replace(markdownImage, ' ').replace(/\[([^\]]*)\]\([^)]*\)/g, '$1').replace(/\|\|[\s\S]+?\|\|/g, '▒▒▒').replace(/[#*`>_[\]!~]/g, '').replace(/\s+/g, ' ').trim().slice(0, 160)
 
 // Same shell as the Projects editor: header, grouped sections, sticky action row.
 function ArticleEditor({ article, onSaved, onClose }: ArticleEditorProps) {
   const [openedAt] = useState(() => Date.now())
+  const siteName = useSiteName()
   const [draft, setDraft] = useState<Draft>(() => article ? draftOf(article, '') : emptyDraft)
   const [baseline, setBaseline] = useState<Draft | null>(article ? null : emptyDraft)
   const [cover, setCover] = useState<File | null>(null)
@@ -122,6 +130,8 @@ function ArticleEditor({ article, onSaved, onClose }: ArticleEditorProps) {
     form.set('category', draft.category.trim())
     form.set('tags', draft.tags)
     form.set('content', draft.content)
+    form.set('seoTitle', draft.seoTitle.trim())
+    form.set('seoDescription', draft.seoDescription.trim())
     form.set('coverImagePosition', coverPosition)
     form.set('coverImageScale', String(coverScale))
     if (cover) form.set('coverImage', cover)
@@ -165,7 +175,7 @@ function ArticleEditor({ article, onSaved, onClose }: ArticleEditorProps) {
       <form className="project-editor-form" onSubmit={(event) => { event.preventDefault(); void save() }}>
         {restorable && <p className="projects-feedback editor-draft-notice" role="status">
           <span>這台裝置上有一份 {timeAgo(restorable.savedAt, openedAt)} 尚未儲存的草稿。</span>
-          <button type="button" className="ui-button ui-button-secondary ui-button-small" onClick={() => { setDraft({ title: restorable.title, category: restorable.category, tags: restorable.tags, content: restorable.content }); setRestorable(null) }}>恢復草稿</button>
+          <button type="button" className="ui-button ui-button-secondary ui-button-small" onClick={() => { setDraft({ title: restorable.title, category: restorable.category, tags: restorable.tags, content: restorable.content, seoTitle: restorable.seoTitle ?? '', seoDescription: restorable.seoDescription ?? '' }); setRestorable(null) }}>恢復草稿</button>
           <button type="button" className="ui-button ui-button-secondary ui-button-small" onClick={() => { forgetDraft(articleId); setRestorable(null) }}>捨棄</button>
         </p>}
         <section className="project-editor-section" aria-labelledby="article-info-heading">
@@ -195,6 +205,24 @@ function ArticleEditor({ article, onSaved, onClose }: ArticleEditorProps) {
               <small>約 {minutes} 分鐘閱讀 · {words.toLocaleString()} 字{tags.length ? ` · ${tags.map((tag) => `#${tag}`).join(' ')}` : ''}</small>
             </header>}
           />
+        </section>
+        <section className="project-editor-section" aria-labelledby="article-seo-heading">
+          <div className="project-editor-section-heading"><h3 id="article-seo-heading">搜尋引擎</h3><span>選填：不填就用文章標題與內文開頭</span></div>
+          <div className="seo-preview" aria-label="搜尋結果預覽">
+            <small>{window.location.host} › blog › post</small>
+            <b>{draft.seoTitle.trim() || `${draft.title.trim() || '文章標題'} | ${siteName}`}</b>
+            <p>{draft.seoDescription.trim() || plainExcerpt(draft.content) || '內文開頭會顯示在這裡。'}</p>
+          </div>
+          <label className="project-form-field">搜尋標題 <small>把大家會搜尋的關鍵字放在最前面</small>
+            <input maxLength={100} value={draft.seoTitle} onChange={(event) => update('seoTitle', event.target.value)} placeholder="例如：116 成大資工特選心得｜上機考經驗" />
+          </label>
+          {(() => {
+            const units = titleUnits(draft.seoTitle.trim() || `${draft.title.trim()} | ${siteName}`)
+            return <p className={`seo-count${units > titleLimit ? ' is-over' : ''}`}>標題約 {Math.ceil(units)} / {titleLimit} 字寬{units > titleLimit ? '，超出的部分在搜尋結果會被「…」截掉' : ''}</p>
+          })()}
+          <label className="project-form-field">搜尋描述 <small>顯示在搜尋結果標題下方，約 80 字內</small>
+            <textarea rows={2} maxLength={200} value={draft.seoDescription} onChange={(event) => update('seoDescription', event.target.value)} placeholder="例如：116 學年度成大資工特選上機考的考場環境、評分方式與心得。" />
+          </label>
         </section>
         <section className="project-editor-section project-editor-assets" aria-labelledby="article-assets-heading">
           <div className="project-editor-section-heading"><h3 id="article-assets-heading">封面</h3><span>固定寬幅比例（4:1），文章卡片與內文顯示相同的裁切</span></div>

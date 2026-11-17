@@ -7,6 +7,8 @@ export type Article = {
   coverImage?: string
   coverImagePosition?: string
   coverImageScale?: number
+  seoTitle?: string
+  seoDescription?: string
   publishedAt: string
   updatedAt?: string
 }

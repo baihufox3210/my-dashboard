@@ -7,6 +7,9 @@ export type Article = {
   coverImage?: string
   coverImagePosition?: string
   coverImageScale?: number
+  // Optional wording for search engines: the page's <title> and meta description.
+  seoTitle?: string
+  seoDescription?: string
   publishedAt: string
   updatedAt?: string
 }

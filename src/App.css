@@ -3275,3 +3275,11 @@ html:has(.project-modal-backdrop, .article-reader-backdrop, .image-adjust-backdr
 .public-article-card, .home-article, .project-card-main, .recent-articles a { color: inherit; text-decoration: none; letter-spacing: normal; }
 .public-article-card { display: flex; flex-direction: column; justify-content: center; }
 .recent-articles a { font-size: 13.3333px; line-height: normal; }
+
+/* Search result preview in the article editor. Titles are cut at about 30 Chinese characters. */
+.seo-preview { display: grid; max-width: 40rem; gap: .2rem; padding: .85rem 1rem; border: 1px solid var(--theme-line); border-radius: .5rem; background: var(--theme-surface-white); }
+.seo-preview small { overflow: hidden; color: var(--theme-muted); font-size: .72rem; text-overflow: ellipsis; white-space: nowrap; }
+.seo-preview b { max-width: 30em; overflow: hidden; color: var(--theme-primary-strong); font-size: 1.1rem; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+.seo-preview p { display: -webkit-box; margin: 0; overflow: hidden; color: var(--theme-muted); font-size: .84rem; line-height: 1.55; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.seo-count { margin: -.35rem 0 0; color: var(--theme-muted); font-size: .72rem; }
+.seo-count.is-over { color: var(--theme-danger); }
