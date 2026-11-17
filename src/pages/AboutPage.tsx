@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import usePageTitle from '../components/usePageTitle'
 import MarkdownPreview from '../components/MarkdownPreview'
 import SocialLinks from '../components/SocialLinks'
 import { fetchHomeProfile, fetchSiteSettings } from '../features/blog/api'
@@ -10,6 +11,7 @@ const emptyProfile: HomeProfile = {
 const emptySettings: SiteSettings = { siteName: '', biography: '', experience: '' }
 
 function AboutPage() {
+  usePageTitle('個人介紹 About')
   const [profile, setProfile] = useState(emptyProfile)
   const [settings, setSettings] = useState(emptySettings)
   const [avatarMessage, setAvatarMessage] = useState('')

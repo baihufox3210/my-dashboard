@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react'
+import usePageTitle from '../components/usePageTitle'
 import { fetchFriends } from '../features/blog/api'
 import type { Friend } from '../features/blog/article'
 
 function FriendsPage() {
+  usePageTitle('Friends 友站')
   const [friends, setFriends] = useState<Friend[]>([])
   const [loading, setLoading] = useState(true)
   useEffect(() => { fetchFriends().then(setFriends).catch(() => setFriends([])).finally(() => setLoading(false)) }, [])

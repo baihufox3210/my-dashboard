@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import usePageTitle from '../components/usePageTitle'
 import MarkdownPreview from '../components/MarkdownPreview'
 import MarkdownEditor from '../components/MarkdownEditor'
 import FileDropzone from '../components/FileDropzone'
@@ -31,6 +32,9 @@ function ProjectsPage({ embedded = false }: { embedded?: boolean }) {
     else if (project) navigate(`${getPublicPath('projects')}/${encodeURIComponent(project.id)}`)
     else if (routeProjectId) navigate(getPublicPath('projects'))
   }
+  // The admin's embedded copy has no title of its own; a project opened by its address keeps the
+  // server's title until it has loaded.
+  usePageTitle(embedded ? undefined : selected ? selected.title : routeProjectId ? undefined : 'Projects 作品集')
   const [projectToDelete, setProjectToDelete] = useState<Project | null>(null)
   const [confirmPdfRemoval, setConfirmPdfRemoval] = useState(false)
   const [draft, setDraft] = useState(blankDraft)

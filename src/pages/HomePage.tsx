@@ -7,6 +7,7 @@ import { fetchArticles, fetchHomeProfile, fetchServerStatus, recordPageView } fr
 import type { ArticleSummary, HomeProfile, ServerStatus } from '../features/blog/article'
 import { formatMusicTime, useMusicPlayer, useMusicProgress } from '../components/MusicPlayerContext'
 import CoverImage from '../components/CoverImage'
+import usePageTitle from '../components/usePageTitle'
 import { getPublicPath, isPlainClick } from '../routes/routes'
 
 const fallback: HomeProfile = {
@@ -39,6 +40,7 @@ function HomeMusicProgress({ seek }: { seek: (value: number) => void }) {
 }
 
 function HomePage() {
+  usePageTitle('個人介紹、作品集與 Blog')
   const [profile, setProfile] = useState(fallback)
   const [articles, setArticles] = useState<ArticleSummary[]>([])
   const [selectedArticle, setSelectedArticle] = useState<ArticleSummary | null>(null)

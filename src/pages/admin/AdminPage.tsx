@@ -1,5 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useState } from 'react'
 import MusicManager from '../../components/MusicManager'
+import usePageTitle from '../../components/usePageTitle'
 import SqlInjectionEgg from '../../components/SqlInjectionEgg'
 import { fetchAdminSession, loginAdmin, logoutAdmin } from '../../features/blog/api'
 import { getAdminPath, getAdminSection, getPublicPath, navigate, useLocationKey, type AdminSection } from '../../routes/routes'
@@ -28,6 +29,7 @@ type AdminPageProps = {
 }
 
 function AdminPage({ loginOnly = false }: AdminPageProps) {
+  usePageTitle(loginOnly ? '管理員登入' : '管理後台')
   const locationKey = useLocationKey()
   const section = getAdminSection()
   const [authenticated, setAuthenticated] = useState(false)

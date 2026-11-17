@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
+import usePageTitle from '../components/usePageTitle'
 import ArticleReader from '../components/ArticleReader'
 import ConfirmDialog from '../components/ConfirmDialog'
 import UiIcon from '../components/UiIcon'
@@ -32,6 +33,8 @@ function BlogPage() {
   const locationKey = useLocationKey()
   // The open article lives in the URL (/blog/post/:id), so it can be shared and Back closes it.
   const [, routeAction, routeId] = getRouteSegments()
+  // An open article, or the editor, keeps its own title (the server supplies the article's).
+  usePageTitle(routeAction ? undefined : 'Blog 文章')
   const selectedArticle = routeAction === 'post' ? articles.find((article) => article.id === decodeURIComponent(routeId ?? '')) ?? null : null
   const articlePath = (article: ArticleSummary) => `${getPublicPath('blog')}/post/${encodeURIComponent(article.id)}`
   const closeArticle = () => navigate(getPublicPath('blog'))
