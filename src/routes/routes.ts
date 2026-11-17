@@ -56,6 +56,12 @@ export function getAdminSection(): AdminSection {
   return 'overview'
 }
 
+// True for an ordinary left click, false for ctrl/cmd/shift/alt or non-left clicks, which
+// should keep the browser's own link behaviour (new tab, new window, download).
+export function isPlainClick(event: { button: number; metaKey: boolean; ctrlKey: boolean; shiftKey: boolean; altKey: boolean }) {
+  return event.button === 0 && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey
+}
+
 export function getPublicPath(page: PublicPage) {
   return page === 'home' ? '/' : `/${page}`
 }

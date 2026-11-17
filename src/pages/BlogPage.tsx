@@ -33,7 +33,7 @@ function BlogPage() {
   // The open article lives in the URL (/blog/post/:id), so it can be shared and Back closes it.
   const [, routeAction, routeId] = getRouteSegments()
   const selectedArticle = routeAction === 'post' ? articles.find((article) => article.id === decodeURIComponent(routeId ?? '')) ?? null : null
-  const openArticle = (article: ArticleSummary) => navigate(`${getPublicPath('blog')}/post/${encodeURIComponent(article.id)}`)
+  const articlePath = (article: ArticleSummary) => `${getPublicPath('blog')}/post/${encodeURIComponent(article.id)}`
   const closeArticle = () => navigate(getPublicPath('blog'))
 
   useEffect(() => {
@@ -184,15 +184,17 @@ function BlogPage() {
           ) : (
             articles.map((article) => (
               <div key={article.id} className="article-card-wrap">
-              <button className="public-article-card" data-article-id={article.id} type="button" onClick={() => openArticle(article)}>
-                {article.coverImage && <CoverImage src={article.coverImage} position={article.coverImagePosition} scale={article.coverImageScale} />}
-                <span>
-                  <small>{article.category} · {new Date(article.publishedAt).toLocaleDateString()}</small>
-                  <strong>{article.title}</strong>
-                  <p>{article.excerpt.slice(0, 110)}...</p>
-                  <em>{article.tags.map((tag) => `#${tag}`).join(' ')}</em>
-                </span>
-              </button>
+              <a className="public-article-card" data-article-id={article.id} href={articlePath(article)}>
+                <div>
+                  {article.coverImage && <CoverImage src={article.coverImage} position={article.coverImagePosition} scale={article.coverImageScale} />}
+                  <span>
+                    <small>{article.category} · {new Date(article.publishedAt).toLocaleDateString()}</small>
+                    <strong>{article.title}</strong>
+                    <p>{article.excerpt.slice(0, 110)}...</p>
+                    <em>{article.tags.map((tag) => `#${tag}`).join(' ')}</em>
+                  </span>
+                </div>
+              </a>
               </div>
             ))
           )}
@@ -209,10 +211,10 @@ function BlogPage() {
               <p className="side-empty">還沒有發布動態</p>
             ) : (
               visibleRecentArticles.map((article) => (
-                <button key={article.id} type="button" onClick={() => openArticle(article)}>
+                <a key={article.id} href={articlePath(article)}>
                   <strong>{article.title}</strong>
                   <span>{new Date(article.publishedAt).toLocaleDateString()}</span>
-                </button>
+                </a>
               ))
             )}
             {recentArticlePlaceholders > 0 && Array.from({ length: recentArticlePlaceholders }, (_, index) => (
