@@ -400,7 +400,7 @@
 }
 
 .public-article-card,
-.recent-articles button {
+.recent-articles a {
   display: flex;
   width: 100%;
   gap: 1rem;
@@ -437,7 +437,7 @@
 }
 
 .public-article-card span,
-.recent-articles button {
+.recent-articles a {
   display: grid;
   align-content: start;
   gap: 0.35rem;
@@ -467,7 +467,7 @@
 
 .public-article-card small,
 .public-article-card em,
-.recent-articles button span {
+.recent-articles a span {
   color: var(--theme-muted);
   font-size: 0.8rem;
   font-style: normal;
@@ -571,7 +571,7 @@
   background: var(--theme-primary);
 }
 
-.recent-articles button {
+.recent-articles a {
   display: grid;
   gap: 0.3rem;
   padding: 0.7rem 0;
@@ -579,7 +579,7 @@
   border-top-color: var(--theme-line);
 }
 
-.recent-articles button span,
+.recent-articles a span,
 .side-empty {
   color: var(--theme-muted);
   font-size: 0.78rem;
@@ -872,7 +872,7 @@
 .blog-workspace-multiple-articles .recent-articles .side-card-heading {
   margin-bottom: .7rem;
 }
-.blog-workspace-multiple-articles .recent-articles button {
+.blog-workspace-multiple-articles .recent-articles a {
   padding-top: .45rem;
   padding-bottom: .45rem;
   gap: .2rem;
@@ -3255,7 +3255,7 @@ html.fun-crashed body { display: none !important; }
 .cover-frame { position: relative; display: block; width: 100%; aspect-ratio: var(--cover-ratio); overflow: hidden; border-radius: .6rem; background: var(--theme-surface-muted); }
 /* Absolute, so the image always fills the frame (a percentage height would not resolve against aspect-ratio). */
 .cover-frame > img.cover-image { position: absolute; inset: 0; display: block; width: 100%; height: 100%; max-height: none; margin: 0; border: 0; border-radius: 0; object-fit: cover; user-select: none; -webkit-user-drag: none; }
-.public-article-card > .cover-frame { margin-bottom: .85rem; border-radius: .75rem; }
+.public-article-card .cover-frame { margin-bottom: .85rem; border-radius: .75rem; }
 .project-card, .project-card-featured { min-height: 0; }
 .project-card-main { display: grid; grid-template-columns: minmax(0, 1fr); align-content: start; gap: .9rem; }
 .project-card-top { display: flex; justify-content: space-between; gap: 1rem; }
@@ -3268,3 +3268,10 @@ html.fun-crashed body { display: none !important; }
 
 /* While a dialog is open the page behind it must not scroll. */
 html:has(.project-modal-backdrop, .article-reader-backdrop, .image-adjust-backdrop) { overflow: hidden; }
+
+/* Cards are real links (so crawlers can follow them). A button centres its content, keeps it in one
+   block (so margins collapse inside) and does not inherit the page's letter spacing or text size;
+   these rules, and the inner <div> of the blog card, give the links the same look. */
+.public-article-card, .home-article, .project-card-main, .recent-articles a { color: inherit; text-decoration: none; letter-spacing: normal; }
+.public-article-card { display: flex; flex-direction: column; justify-content: center; }
+.recent-articles a { font-size: 13.3333px; line-height: normal; }

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import usePageTitle from '../components/usePageTitle'
 import MarkdownPreview from '../components/MarkdownPreview'
 import MarkdownEditor from '../components/MarkdownEditor'
 import FileDropzone from '../components/FileDropzone'
@@ -8,7 +9,7 @@ import useEscapeKey from '../components/useEscapeKey'
 import { createProject, deleteProject, fetchAdminSession, fetchProjects, updateProject, uploadArticleImage } from '../features/blog/api'
 import type { Project } from '../features/blog/article'
 import { ShareButton } from '../components/ArticleReader'
-import { getPublicPath, getRouteSegments, navigate, useLocationKey } from '../routes/routes'
+import { getPublicPath, getRouteSegments, isPlainClick, navigate, useLocationKey } from '../routes/routes'
 import CoverImage from '../components/CoverImage'
 
 type ProjectDraft = { title: string; summary: string; description: string; category: string; tags: string; projectUrl: string }
@@ -31,6 +32,9 @@ function ProjectsPage({ embedded = false }: { embedded?: boolean }) {
     else if (project) navigate(`${getPublicPath('projects')}/${encodeURIComponent(project.id)}`)
     else if (routeProjectId) navigate(getPublicPath('projects'))
   }
+  // The admin's embedded copy has no title of its own; a project opened by its address keeps the
+  // server's title until it has loaded.
+  usePageTitle(embedded ? undefined : selected ? selected.title : routeProjectId ? undefined : 'Projects 作品集')
   const [projectToDelete, setProjectToDelete] = useState<Project | null>(null)
   const [confirmPdfRemoval, setConfirmPdfRemoval] = useState(false)
   const [draft, setDraft] = useState(blankDraft)
@@ -139,11 +143,11 @@ function ProjectsPage({ embedded = false }: { embedded?: boolean }) {
     <div className="projects-toolbar"><span><i /> ARCHIVE INDEX <b>—</b> {String(projects.length).padStart(2, '0')}</span><span className="projects-toolbar-actions">{embedded && <a href={getPublicPath('projects')}>VIEW PUBLIC PAGE ↗</a>}{isAdmin && <button type="button" className="ui-button ui-button-primary ui-button-small" onClick={() => openEditor('new')}><UiIcon name="plus" />ADD PROJECT</button>}</span></div>
     {loading ? <div className="projects-empty"><span className="projects-loading-mark">✳</span><p>SYNCING ARCHIVE…</p></div> : loadError ? <div className="projects-empty"><span className="projects-loading-mark">!</span><p>ARCHIVE CONNECTION FAILED</p><span>確認伺服器連線後再試一次。</span><button type="button" className="ui-button ui-button-secondary" onClick={() => void loadProjects()}><UiIcon name="refresh" />RETRY</button></div> : orderedProjects.length ? <section className="projects-grid" aria-label="Project archive">
       {orderedProjects.map((project, index) => <article className={`project-card${index === 0 ? ' project-card-featured' : ''}`} data-project-id={project.id} key={project.id}>
-        <button type="button" className="project-card-main" onClick={() => setSelected(project)} aria-label={`查看專案：${project.title}`}>
+        <a className="project-card-main" href={`${getPublicPath('projects')}/${encodeURIComponent(project.id)}`} onClick={(event) => { if (isPlainClick(event)) { event.preventDefault(); setSelected(project) } }}>
           <span className="project-card-top"><span>{project.category || 'UNCLASSIFIED'}</span><span>PRJ-{String(index + 1).padStart(3, '0')}</span></span>
           {project.coverImage ? <CoverImage className="project-card-thumb" src={project.coverImage} position={project.coverImagePosition} scale={project.coverImageScale} /> : <span className="project-card-thumb" aria-hidden="true"><span className="project-art-placeholder"><span>PROJECT FILE</span><b>{String(index + 1).padStart(2, '0')}</b></span></span>}
           <span className="project-card-copy"><strong>{project.title}</strong><span className="project-description">{project.summary}</span><span className="project-tags">{project.tags.slice(0, 4).map((tag) => <span key={tag}>{tag}</span>)}</span><span className="project-action">OPEN PROJECT FILE <span aria-hidden="true">↗</span></span></span>
-        </button>
+        </a>
       </article>)}
     </section> : <section className="projects-empty"><span className="projects-loading-mark">⌁</span><p>NO PROJECT FILES FOUND</p><span>The archive is ready for your first project.</span>{isAdmin && <button type="button" className="ui-button ui-button-primary" onClick={() => openEditor('new')}><UiIcon name="plus" />ADD YOUR FIRST PROJECT</button>}</section>}
     <footer className="projects-footer"><span>PERSONAL ARCHIVE</span><span>✳</span><span>END OF TRANSMISSION</span></footer>

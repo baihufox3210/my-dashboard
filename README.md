@@ -130,6 +130,8 @@ Blog 文章（`/blog/new`、`/blog/edit/:id`）與 Projects 專案用同一套�
 - `robots.txt` 的 `Sitemap:` 行：`npm run build` 時依 `SITE_URL` 自動加上，所以 build 要在有 `.env`（或環境變數 `SITE_URL`）的目錄執行。
 - 文章頁與專案頁的 HTML 內含 canonical 網址、`<meta name="description">`（內文開頭）、BlogPosting 結構化資料（JSON-LD），以及純文字的內文（標題、段落、圖片與圖說）。暴雷 `||…||` 的內容會被遮成 `▒▒▒`，不會出現在搜尋結果裡。
 - 短網址（`/b/…`、`/p/…`）的 canonical 都指向完整網址，不會被當成重複頁面。
+- 每個頁面有自己的標題（首頁、About、Blog、Projects、Friends，格式「頁面名稱 | 網站名稱」，網站名稱取自後台設定）；文章與專案頁的標題由伺服器直接給（文章／專案名稱 | 網站名稱），前端不會蓋掉。
+- Blog 列表、側欄「最新動態」、首頁的文章卡片與 Projects 卡片都是真正的連結（`<a href="/blog/post/…">`、`/projects/…`），搜尋引擎才能沿著網站內的連結找到每一篇文章；一般點擊仍由網站在原頁開啟，Ctrl/⌘ 點擊或中鍵會照瀏覽器的連結行為開新分頁。
 - 聊天軟體的預覽（`og:description`）仍然只顯示分類、閱讀時間、日期與標籤，不引用內文。
 
 這些只是讓網站「可以被收錄」；要讓搜尋引擎「知道」網站存在，還需要自己到各搜尋引擎的站長工具登記：

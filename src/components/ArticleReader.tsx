@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
+import usePageTitle from './usePageTitle'
 import { createPortal } from 'react-dom'
 import MarkdownPreview from './MarkdownPreview'
 import useEscapeKey from './useEscapeKey'
@@ -75,6 +76,7 @@ export function ShareButton({ kind, id, label }: { kind: ShareKind; id: string; 
 }
 
 function ArticleReader({ article, onClose, children }: ArticleReaderProps) {
+  usePageTitle(article.title)
   const [loaded, setLoaded] = useState<{ id: string; content: string | null } | null>(null)
   const [progress, setProgress] = useState(0)
   const backdropRef = useRef<HTMLDivElement>(null)

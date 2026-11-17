@@ -201,7 +201,7 @@ body {
   .side-card-heading,
   .public-article-card small,
   .public-article-card em,
-  .recent-articles button span
+  .recent-articles a span
 ) {
   color: var(--theme-primary-strong);
 }
