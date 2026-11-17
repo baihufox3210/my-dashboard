@@ -229,6 +229,27 @@ describe('articles', () => {
     assert.equal((await (await fetch(`${base}/sitemap.xml`)).text()).includes(created.id), false)
   })
 
+  test('an article can carry its own search title and description', async () => {
+    const title = 'A very long and playful article title, keywords last'
+    const created = await (await api('/api/articles', { method: 'POST', body: form({ title, content: 'Body text here.', seoTitle: '116 成大資工特選心得｜上機考經驗', seoDescription: '考場環境與評分方式' }) })).json() as { id: string }
+    const html = await (await fetch(`${base}/blog/post/${created.id}`)).text()
+    assert.match(html, /<title>116 成大資工特選心得｜上機考經驗<\/title>/)
+    assert.match(html, /<meta name="description" content="考場環境與評分方式" \/>/)
+    // Chat embeds keep the article's own title.
+    assert.ok(html.includes(`<meta property="og:title" content="${title}" />`))
+
+    // Emptying the fields on edit puts the defaults back.
+    await api(`/api/articles/${created.id}`, { method: 'PUT', body: form({ title, content: 'Body text here.', seoTitle: '', seoDescription: '' }) })
+    const back = await (await fetch(`${base}/blog/post/${created.id}`)).text()
+    assert.match(back, new RegExp(`<title>${title} \\| [^<]+</title>`))
+    assert.match(back, /<meta name="description" content="Body text here\." \/>/)
+
+    const tooLong = await api('/api/articles', { method: 'POST', body: form({ title, content: 'x', seoTitle: 'a'.repeat(101) }) })
+    assert.equal(tooLong.status, 400)
+    assert.equal((await tooLong.json() as { message: string }).message, '搜尋標題太長（上限 100 字）。')
+    await api(`/api/articles/${created.id}`, { method: 'DELETE' })
+  })
+
   test('concurrent writes are all kept', async () => {
     const titles = ['one', 'two', 'three', 'four']
     const responses = await Promise.all(titles.map((title) => api('/api/articles', { method: 'POST', body: form({ title, content: title }) })))

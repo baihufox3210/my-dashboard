@@ -33,6 +33,8 @@ type Preview = {
   description: string
   // What a search result may show (<meta name="description">); defaults to `description`.
   summary?: string
+  // The whole <title> when the author chose one; otherwise "<title> | <site name>".
+  pageTitle?: string
   image?: string
   // Full path of the page. Every URL that serves the same content (short links) names it
   // as canonical, so search engines count them as one page.
@@ -56,7 +58,7 @@ async function sendPage(request: Request, response: Response, preview: Preview |
   if (preview) {
     const origin = siteOrigin(request)
     const [settings, profile] = await Promise.all([readSiteSettings(), readHomeProfile()])
-    const title = `${preview.title} | ${settings.siteName}`
+    const title = preview.pageTitle ?? `${preview.title} | ${settings.siteName}`
     const clean = (text: string) => text.replace(/\s+/g, ' ').trim().slice(0, 200)
     const description = clean(preview.description)
     const summary = clean(preview.summary ?? preview.description)
@@ -118,7 +120,8 @@ function articlePreview(article: Article): Preview {
     type: 'article',
     title: article.title,
     description: describeArticle(summary),
-    summary: summary.excerpt,
+    summary: article.seoDescription || summary.excerpt,
+    pageTitle: article.seoTitle,
     image: article.coverImage,
     canonical: `/blog/post/${encodeURIComponent(article.id)}`,
     body: article.content,

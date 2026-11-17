@@ -76,7 +76,7 @@ export function ShareButton({ kind, id, label }: { kind: ShareKind; id: string; 
 }
 
 function ArticleReader({ article, onClose, children }: ArticleReaderProps) {
-  usePageTitle(article.title)
+  usePageTitle(article.seoTitle || article.title, Boolean(article.seoTitle))
   const [loaded, setLoaded] = useState<{ id: string; content: string | null } | null>(null)
   const [progress, setProgress] = useState(0)
   const backdropRef = useRef<HTMLDivElement>(null)

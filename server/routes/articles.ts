@@ -9,12 +9,12 @@ import { parseCoverSettings, type CoverSettings } from '../validation.js'
 
 const router = Router()
 
-type ArticleInput = { title: string; content: string; category?: string; tags?: string } & CoverSettings
+type ArticleInput = { title: string; content: string; category?: string; tags?: string; seoTitle?: string; seoDescription?: string } & CoverSettings
 
 // Returns the parsed input, or a message naming the field that is wrong.
 function parseArticleInput(value: unknown): ArticleInput | string {
   if (!value || typeof value !== 'object') return '缺少文章資料。'
-  const { title, content, category, tags } = value as Record<string, unknown>
+  const { title, content, category, tags, seoTitle, seoDescription } = value as Record<string, unknown>
   const cover = parseCoverSettings(value)
   if (typeof title !== 'string' || !title.trim()) return '請輸入文章標題。'
   if (title.length > 200) return '標題太長（上限 200 字）。'
@@ -22,8 +22,10 @@ function parseArticleInput(value: unknown): ArticleInput | string {
   if (content.length > 500_000) return `內容太長（${content.length.toLocaleString()} 字，上限 500,000 字）。`
   if (category !== undefined && (typeof category !== 'string' || category.length > 100)) return '分類太長（上限 100 字）。'
   if (tags !== undefined && (typeof tags !== 'string' || tags.length > 2000)) return '標籤太長（上限 2,000 字）。'
+  if (seoTitle !== undefined && (typeof seoTitle !== 'string' || seoTitle.length > 100)) return '搜尋標題太長（上限 100 字）。'
+  if (seoDescription !== undefined && (typeof seoDescription !== 'string' || seoDescription.length > 200)) return '搜尋描述太長（上限 200 字）。'
   if (!cover) return '封面位置或縮放設定無效，請重新調整封面。'
-  return { title, content, category, tags, ...cover }
+  return { title, content, category, tags, ...(seoTitle?.trim() ? { seoTitle: seoTitle.trim() } : {}), ...(seoDescription?.trim() ? { seoDescription: seoDescription.trim() } : {}), ...cover }
 }
 
 function parseTags(tags: string | undefined) {
@@ -89,6 +91,8 @@ router.post('/', requireSameOrigin, requireAuthentication, upload.single('coverI
     ...(request.file ? { coverImage: `/uploads/${request.file.filename}` } : {}),
     ...(input.coverImagePosition ? { coverImagePosition: input.coverImagePosition } : {}),
     ...(input.coverImageScale ? { coverImageScale: input.coverImageScale } : {}),
+    ...(input.seoTitle ? { seoTitle: input.seoTitle } : {}),
+    ...(input.seoDescription ? { seoDescription: input.seoDescription } : {}),
     publishedAt: now,
     updatedAt: now,
   }
@@ -133,6 +137,9 @@ router.put('/:id', requireSameOrigin, requireAuthentication, upload.single('cove
     ...(input.coverImagePosition ? { coverImagePosition: input.coverImagePosition } : {}),
     ...(input.coverImageScale ? { coverImageScale: input.coverImageScale } : {}),
   }
+  // Emptying a field takes the wording away again.
+  if (input.seoTitle) updatedArticle.seoTitle = input.seoTitle; else delete updatedArticle.seoTitle
+  if (input.seoDescription) updatedArticle.seoDescription = input.seoDescription; else delete updatedArticle.seoDescription
 
   articles[articleIndex] = updatedArticle
   await writeArticles(articles)
